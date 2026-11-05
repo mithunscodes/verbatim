@@ -33,6 +33,7 @@ contract ContactsTest is Test {
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(ETH, 1 ether);
         vault.setNewContactLimit(address(usdc), 50e6);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;
@@ -160,6 +161,8 @@ contract ContactsTest is Test {
 
     function test_ContactsCantChangeDuringARun() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
+        vm.prank(rulesKey);
+        leaky.finishSetup();
         VerbatimVault.Action memory sneaky =
             VerbatimVault.Action(address(leaky), 0, abi.encodeCall(LeakyVault.addContact, (stranger)), 0);
         vm.prank(everydayKey);

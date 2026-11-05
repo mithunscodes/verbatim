@@ -24,6 +24,7 @@ contract VerbatimVaultTest is Test {
         vault.saveContact(mom);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(address(0), 1 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
     }

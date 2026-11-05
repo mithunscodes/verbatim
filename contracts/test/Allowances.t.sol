@@ -31,6 +31,7 @@ contract AllowancesTest is Test {
         vault.saveContact(mom);
         vault.setDailyLimit(address(usdc), 10e6);
         vault.setDailyLimit(ETH, 0.1 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 7 days);
     }
@@ -40,9 +41,16 @@ contract AllowancesTest is Test {
         items[0] = item;
     }
 
-    function createAllowance(address contact, address token, uint256 amount) internal {
+    function proposeAllowance(address contact, address token, uint256 amount) internal returns (uint256 id) {
+        vm.prank(everydayKey);
+        id = vault.propose(VerbatimVault.ChangeKind.Allowance, contact, token, amount);
+    }
+
+    function approvedAllowance(address contact, address token, uint256 amount) internal returns (uint256 activeFrom) {
+        uint256 id = proposeAllowance(contact, token, amount);
         vm.prank(rulesKey);
-        vault.createAllowance(contact, token, amount);
+        vault.approve(id);
+        return block.timestamp + vault.looseningWait();
     }
 
     function payWithAllowance(address contact, uint256 amount) internal {
@@ -51,9 +59,13 @@ contract AllowancesTest is Test {
     }
 
     function test_AllowancePaysOnceAboveTheDailyLimit() public {
+        uint256 activeFrom = block.timestamp + 24 hours;
+        uint256 id = proposeAllowance(warmWallet, address(usdc), 600e6);
         vm.expectEmit(address(vault));
-        emit AllowanceCreated(warmWallet, address(usdc), 600e6, block.timestamp, block.timestamp + 48 hours);
-        createAllowance(warmWallet, address(usdc), 600e6);
+        emit AllowanceCreated(warmWallet, address(usdc), 600e6, activeFrom, activeFrom + 48 hours);
+        vm.prank(rulesKey);
+        vault.approve(id);
+        vm.warp(activeFrom);
         vm.expectEmit(address(vault));
         emit AllowanceUsed(warmWallet, address(usdc), 600e6);
         payWithAllowance(warmWallet, 600e6);
@@ -66,7 +78,7 @@ contract AllowancesTest is Test {
     }
 
     function test_AllowancePaysUpToItsAmountJustOnce() public {
-        createAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(approvedAllowance(warmWallet, address(usdc), 600e6));
         vm.expectRevert("More than the allowance");
         payWithAllowance(warmWallet, 600e6 + 1);
         payWithAllowance(warmWallet, 250e6);
@@ -76,7 +88,7 @@ contract AllowancesTest is Test {
     }
 
     function test_AllowanceIsOnlyForItsContact() public {
-        createAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(approvedAllowance(warmWallet, address(usdc), 600e6));
         vm.expectRevert("No allowance for this contact");
         payWithAllowance(mom, 600e6);
         vm.expectRevert("No allowance for this contact");
@@ -84,71 +96,68 @@ contract AllowancesTest is Test {
         assertEq(usdc.balanceOf(address(vault)), 1000e6);
     }
 
-    function test_AllowanceLastsExactly48Hours() public {
-        uint256 created = block.timestamp;
-        createAllowance(warmWallet, address(usdc), 600e6);
-        vm.warp(created + 48 hours + 1);
+    function test_AllowanceLastsExactly48HoursOnceActive() public {
+        uint256 activeFrom = approvedAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(activeFrom + 48 hours + 1);
         vm.expectRevert("Allowance expired");
         payWithAllowance(warmWallet, 600e6);
-        uint256 createdAgain = block.timestamp;
-        createAllowance(warmWallet, address(usdc), 600e6);
-        vm.warp(createdAgain + 48 hours);
+        uint256 activeAgain = approvedAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(activeAgain + 48 hours);
         payWithAllowance(warmWallet, 600e6);
         assertEq(usdc.balanceOf(warmWallet), 600e6);
     }
 
     function test_AllowanceNotActiveYet() public {
-        LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
-        usdc.mint(address(leaky), 100e6);
-        vm.prank(rulesKey);
-        leaky.saveContact(warmWallet);
-        leaky.giveAllowance(
-            warmWallet, VerbatimVault.Allowance(address(usdc), 50e6, block.timestamp + 8 days, block.timestamp + 10 days, false)
-        );
-        vm.prank(everydayKey);
+        uint256 activeFrom = approvedAllowance(warmWallet, address(usdc), 50e6);
         vm.expectRevert("Allowance not active yet");
-        leaky.payWithAllowance(warmWallet, 50e6);
-        vm.warp(block.timestamp + 8 days);
-        vm.prank(everydayKey);
-        leaky.payWithAllowance(warmWallet, 50e6);
+        payWithAllowance(warmWallet, 50e6);
+        vm.warp(activeFrom - 1);
+        vm.expectRevert("Allowance not active yet");
+        payWithAllowance(warmWallet, 50e6);
+        vm.warp(activeFrom);
+        payWithAllowance(warmWallet, 50e6);
         assertEq(usdc.balanceOf(warmWallet), 50e6);
     }
 
     function test_EthAllowance() public {
-        createAllowance(warmWallet, ETH, 0.5 ether);
+        vm.warp(approvedAllowance(warmWallet, ETH, 0.5 ether));
         payWithAllowance(warmWallet, 0.5 ether);
         assertEq(warmWallet.balance, 0.5 ether);
         assertEq(address(vault).balance, 0.5 ether);
         assertEq(vault.leftToday(ETH), 0.1 ether);
     }
 
-    function test_OnlyTheRulesKeyCreatesAllowances() public {
+    function test_OnlyTheEverydayKeyProposesAndOnlyThePhoneApproves() public {
+        vm.prank(rulesKey);
+        vm.expectRevert("Only the everyday key can propose");
+        vault.propose(VerbatimVault.ChangeKind.Allowance, warmWallet, address(usdc), 600e6);
+        uint256 id = proposeAllowance(warmWallet, address(usdc), 600e6);
         vm.prank(everydayKey);
-        vm.expectRevert("Only the rules key can create allowances");
-        vault.createAllowance(warmWallet, address(usdc), 600e6);
+        vm.expectRevert("Only the rules key can approve");
+        vault.approve(id);
         vm.prank(stranger);
-        vm.expectRevert("Only the rules key can create allowances");
-        vault.createAllowance(stranger, address(usdc), 600e6);
+        vm.expectRevert("Only the rules key can approve");
+        vault.approve(id);
     }
 
     function test_AllowancesOnlyForSavedContacts() public {
-        vm.prank(rulesKey);
+        vm.prank(everydayKey);
         vm.expectRevert("Not a saved contact");
-        vault.createAllowance(stranger, address(usdc), 600e6);
+        vault.propose(VerbatimVault.ChangeKind.Allowance, stranger, address(usdc), 600e6);
     }
 
     function test_RevertWhen_AllowanceEmptyOrTokenNotWatched() public {
         TestToken unwatched = new TestToken();
-        vm.startPrank(rulesKey);
+        vm.startPrank(everydayKey);
         vm.expectRevert("An allowance can't be empty");
-        vault.createAllowance(warmWallet, address(usdc), 0);
+        vault.propose(VerbatimVault.ChangeKind.Allowance, warmWallet, address(usdc), 0);
         vm.expectRevert("Not a watched token");
-        vault.createAllowance(warmWallet, address(unwatched), 600e6);
+        vault.propose(VerbatimVault.ChangeKind.Allowance, warmWallet, address(unwatched), 600e6);
         vm.stopPrank();
     }
 
     function test_OnlyTheEverydayKeyPays() public {
-        createAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(approvedAllowance(warmWallet, address(usdc), 600e6));
         vm.prank(rulesKey);
         vm.expectRevert("Only the everyday key can pay");
         vault.payWithAllowance(warmWallet, 600e6);
@@ -161,33 +170,38 @@ contract AllowancesTest is Test {
     function test_ValidityIsASetting() public {
         vm.prank(everydayKey);
         vm.expectRevert("Only the rules key can change settings");
-        vault.setAllowanceValidity(30 days);
+        vault.setAllowanceValidity(1 hours);
         vm.expectEmit(address(vault));
         emit AllowanceValiditySet(10 minutes);
         vm.prank(rulesKey);
         vault.setAllowanceValidity(10 minutes);
         assertEq(vault.allowanceValidity(), 10 minutes);
-        uint256 created = block.timestamp;
-        createAllowance(warmWallet, address(usdc), 600e6);
-        vm.warp(created + 10 minutes + 1);
+        uint256 activeFrom = approvedAllowance(warmWallet, address(usdc), 600e6);
+        vm.warp(activeFrom + 10 minutes + 1);
         vm.expectRevert("Allowance expired");
         payWithAllowance(warmWallet, 600e6);
     }
 
     function test_ChangingTheSettingDoesntStretchAnExistingAllowance() public {
-        uint256 created = block.timestamp;
-        createAllowance(warmWallet, address(usdc), 600e6);
+        uint256 activeFrom = approvedAllowance(warmWallet, address(usdc), 600e6);
+        vm.prank(everydayKey);
+        uint256 id = vault.propose(VerbatimVault.ChangeKind.AllowanceValidity, address(0), address(0), 30 days);
         vm.prank(rulesKey);
-        vault.setAllowanceValidity(30 days);
-        vm.warp(created + 48 hours + 1);
+        vault.approve(id);
+        vm.warp(block.timestamp + 24 hours);
+        vault.switchOn(id);
+        assertEq(vault.allowanceValidity(), 30 days);
+        vm.warp(activeFrom + 48 hours + 1);
         vm.expectRevert("Allowance expired");
         payWithAllowance(warmWallet, 600e6);
     }
 
     function test_AllowancesAndSettingsCantChangeDuringARun() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         leaky.saveContact(warmWallet);
+        leaky.finishSetup();
+        vm.stopPrank();
         VerbatimVault.Allowance memory planted =
             VerbatimVault.Allowance(address(usdc), 1000e6, block.timestamp, block.timestamp + 48 hours, false);
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);

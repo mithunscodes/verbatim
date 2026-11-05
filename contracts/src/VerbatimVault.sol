@@ -20,6 +20,16 @@ contract VerbatimVault {
         ExactlyTo
     }
 
+    enum ChangeKind {
+        DailyLimit,
+        NewContactLimit,
+        Allowance,
+        AllowanceValidity,
+        NewContactPeriod,
+        AllowanceMinAge,
+        LooseningWait
+    }
+
     struct Action {
         address target;
         uint256 value;
@@ -48,6 +58,17 @@ contract VerbatimVault {
         bool used;
     }
 
+    struct Change {
+        ChangeKind kind;
+        address contact;
+        address token;
+        uint256 value;
+        uint256 valueBefore;
+        uint256 readyAt;
+        bool cancelled;
+        bool done;
+    }
+
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     address public everydayKey;
@@ -62,9 +83,12 @@ contract VerbatimVault {
     uint256 public allowanceValidity = 48 hours;
     uint256 public newContactPeriod = 24 hours;
     uint256 public allowanceMinAge = 7 days;
+    uint256 public looseningWait = 24 hours;
+    bool public setupFinished;
     mapping(address => Allowance) public allowances;
     mapping(address => uint256) public savedAt;
     mapping(address => mapping(uint256 => uint256)) receivedWhileNew;
+    Change[] public changes;
     bool transient running;
 
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
@@ -76,6 +100,12 @@ contract VerbatimVault {
     event NewContactLimitSet(address indexed token, uint256 amount);
     event NewContactPeriodSet(uint256 duration);
     event AllowanceMinAgeSet(uint256 duration);
+    event LooseningWaitSet(uint256 duration);
+    event SetupFinished();
+    event ChangeProposed(uint256 indexed id, ChangeKind kind, address contact, address token, uint256 value);
+    event ChangeApproved(uint256 indexed id, uint256 readyAt);
+    event ChangeCancelled(uint256 indexed id);
+    event ChangeSwitchedOn(uint256 indexed id);
 
     error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual);
 
@@ -109,47 +139,103 @@ contract VerbatimVault {
 
     function setDailyLimit(address token, uint256 amount) external {
         require(msg.sender == rulesKey, "Only the rules key can set limits");
-        dailyLimits[indexOf(token)] = amount;
-        emit DailyLimitSet(token, amount);
+        changeRule(ChangeKind.DailyLimit, token, amount);
     }
 
     function setAllowanceValidity(uint256 duration) external {
         require(msg.sender == rulesKey, "Only the rules key can change settings");
-        allowanceValidity = duration;
-        emit AllowanceValiditySet(duration);
+        changeRule(ChangeKind.AllowanceValidity, address(0), duration);
     }
 
     function setNewContactLimit(address token, uint256 amount) external {
         require(msg.sender == rulesKey, "Only the rules key can set limits");
-        newContactLimits[indexOf(token)] = amount;
-        emit NewContactLimitSet(token, amount);
+        changeRule(ChangeKind.NewContactLimit, token, amount);
     }
 
     function setNewContactPeriod(uint256 duration) external {
         require(msg.sender == rulesKey, "Only the rules key can change settings");
-        newContactPeriod = duration;
-        emit NewContactPeriodSet(duration);
+        changeRule(ChangeKind.NewContactPeriod, address(0), duration);
     }
 
     function setAllowanceMinAge(uint256 duration) external {
         require(msg.sender == rulesKey, "Only the rules key can change settings");
-        allowanceMinAge = duration;
-        emit AllowanceMinAgeSet(duration);
+        changeRule(ChangeKind.AllowanceMinAge, address(0), duration);
     }
 
-    function createAllowance(address contact, address token, uint256 amount) external {
-        require(msg.sender == rulesKey, "Only the rules key can create allowances");
-        require(contains(contacts, contact), "Not a saved contact");
-        require(oldEnough(contact), "Contact too new for big payments");
-        require(token == address(0) || contains(watchedTokens, token), "Not a watched token");
-        require(amount > 0, "An allowance can't be empty");
-        uint256 expiresAt = block.timestamp + allowanceValidity;
-        allowances[contact] = Allowance(token, amount, block.timestamp, expiresAt, false);
-        emit AllowanceCreated(contact, token, amount, block.timestamp, expiresAt);
+    function setLooseningWait(uint256 duration) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        changeRule(ChangeKind.LooseningWait, address(0), duration);
+    }
+
+    function finishSetup() external {
+        require(msg.sender == rulesKey, "Only the rules key can finish setup");
+        require(!setupFinished, "Setup already finished");
+        setupFinished = true;
+        emit SetupFinished();
+    }
+
+    function propose(ChangeKind kind, address contact, address token, uint256 value) external returns (uint256 id) {
+        require(msg.sender == everydayKey, "Only the everyday key can propose");
+        if (kind == ChangeKind.Allowance || kind == ChangeKind.DailyLimit || kind == ChangeKind.NewContactLimit) {
+            require(token == address(0) || contains(watchedTokens, token), "Not a watched token");
+        }
+        if (kind == ChangeKind.Allowance) {
+            require(contains(contacts, contact), "Not a saved contact");
+            require(value > 0, "An allowance can't be empty");
+        }
+        id = changes.length;
+        changes.push(Change(kind, contact, token, value, 0, 0, false, false));
+        emit ChangeProposed(id, kind, contact, token, value);
+    }
+
+    function approve(uint256 id) external {
+        require(msg.sender == rulesKey, "Only the rules key can approve");
+        Change storage change = changeAt(id);
+        require(!change.cancelled, "Change cancelled");
+        require(change.readyAt == 0, "Already approved");
+        uint256 readyAt = block.timestamp + looseningWait;
+        change.readyAt = readyAt;
+        if (change.kind == ChangeKind.Allowance) {
+            require(oldEnough(change.contact), "Contact too new for big payments");
+            uint256 expiresAt = readyAt + allowanceValidity;
+            allowances[change.contact] = Allowance(change.token, change.value, readyAt, expiresAt, false);
+            emit AllowanceCreated(change.contact, change.token, change.value, readyAt, expiresAt);
+        } else {
+            change.valueBefore = currentValue(change.kind, change.token);
+        }
+        emit ChangeApproved(id, readyAt);
+    }
+
+    function cancel(uint256 id) external {
+        require(msg.sender == rulesKey, "Only the rules key can cancel");
+        Change storage change = changeAt(id);
+        require(!change.cancelled, "Change cancelled");
+        require(!change.done, "Already switched on");
+        change.cancelled = true;
+        if (change.kind == ChangeKind.Allowance && change.readyAt != 0) {
+            Allowance storage allowance = allowances[change.contact];
+            require(allowance.activeFrom == change.readyAt && !allowance.used, "Allowance already used or replaced");
+            delete allowances[change.contact];
+        }
+        emit ChangeCancelled(id);
+    }
+
+    function switchOn(uint256 id) external {
+        Change storage change = changeAt(id);
+        require(change.kind != ChangeKind.Allowance, "Allowances switch on by themselves");
+        require(!change.cancelled, "Change cancelled");
+        require(change.readyAt != 0, "Not approved yet");
+        require(!change.done, "Already switched on");
+        require(block.timestamp >= change.readyAt, "Still waiting");
+        require(currentValue(change.kind, change.token) == change.valueBefore, "This rule changed during the wait");
+        change.done = true;
+        writeValue(change.kind, change.token, change.value);
+        emit ChangeSwitchedOn(id);
     }
 
     function payWithAllowance(address contact, uint256 amount) external {
         require(msg.sender == everydayKey, "Only the everyday key can pay");
+        require(setupFinished, "Finish setting up first");
         Allowance storage allowance = allowances[contact];
         require(allowance.amount > 0, "No allowance for this contact");
         require(!allowance.used, "Allowance already used");
@@ -181,8 +267,13 @@ contract VerbatimVault {
         return newContactLimits[indexOf(token)];
     }
 
+    function changeCount() external view returns (uint256) {
+        return changes.length;
+    }
+
     function run(Action[] calldata actions, Check[] calldata checks, uint256 deadline) external {
         require(msg.sender == everydayKey, "Only the everyday key can run");
+        require(setupFinished, "Finish setting up first");
         require(block.timestamp <= deadline, "Deadline passed");
         require(!running, "Already running");
         running = true;
@@ -370,6 +461,57 @@ contract VerbatimVault {
         revert("Not a watched token");
     }
 
+    function changeAt(uint256 id) private view returns (Change storage) {
+        require(id < changes.length, "No such change");
+        return changes[id];
+    }
+
+    function changeRule(ChangeKind kind, address token, uint256 value) private {
+        require(!setupFinished || !loosens(kind, currentValue(kind, token), value), "Loosening needs a proposal");
+        writeValue(kind, token, value);
+    }
+
+    function loosens(ChangeKind kind, uint256 current, uint256 next) private pure returns (bool) {
+        if (kind == ChangeKind.NewContactPeriod || kind == ChangeKind.AllowanceMinAge || kind == ChangeKind.LooseningWait) {
+            return next < current;
+        }
+        return next > current;
+    }
+
+    function currentValue(ChangeKind kind, address token) private view returns (uint256) {
+        if (kind == ChangeKind.DailyLimit) return dailyLimits[indexOf(token)];
+        if (kind == ChangeKind.NewContactLimit) return newContactLimits[indexOf(token)];
+        if (kind == ChangeKind.AllowanceValidity) return allowanceValidity;
+        if (kind == ChangeKind.NewContactPeriod) return newContactPeriod;
+        if (kind == ChangeKind.AllowanceMinAge) return allowanceMinAge;
+        if (kind == ChangeKind.LooseningWait) return looseningWait;
+        revert("Not a rule");
+    }
+
+    function writeValue(ChangeKind kind, address token, uint256 value) private {
+        if (kind == ChangeKind.DailyLimit) {
+            dailyLimits[indexOf(token)] = value;
+            emit DailyLimitSet(token, value);
+        } else if (kind == ChangeKind.NewContactLimit) {
+            newContactLimits[indexOf(token)] = value;
+            emit NewContactLimitSet(token, value);
+        } else if (kind == ChangeKind.AllowanceValidity) {
+            allowanceValidity = value;
+            emit AllowanceValiditySet(value);
+        } else if (kind == ChangeKind.NewContactPeriod) {
+            newContactPeriod = value;
+            emit NewContactPeriodSet(value);
+        } else if (kind == ChangeKind.AllowanceMinAge) {
+            allowanceMinAge = value;
+            emit AllowanceMinAgeSet(value);
+        } else if (kind == ChangeKind.LooseningWait) {
+            looseningWait = value;
+            emit LooseningWaitSet(value);
+        } else {
+            revert("Not a rule");
+        }
+    }
+
     function hasLimit(Check[] calldata checks, address token) private pure returns (bool) {
         for (uint256 i = 0; i < checks.length; i++) {
             if (checks[i].kind == CheckKind.AtMostLeaves && checks[i].token == token) return true;
@@ -389,7 +531,9 @@ contract VerbatimVault {
             given[i] = allowances[saved[i]];
             ages[i] = savedAt[saved[i]];
         }
-        bytes32 settings = keccak256(abi.encode(limits, newLimits, allowanceValidity, newContactPeriod, allowanceMinAge));
+        bytes32 settings = keccak256(
+            abi.encode(limits, newLimits, allowanceValidity, newContactPeriod, allowanceMinAge, looseningWait, setupFinished)
+        );
         return keccak256(abi.encode(everydayKey, rulesKey, watched, trusted, saved, given, ages, settings, address(this).codehash));
     }
 

@@ -38,6 +38,7 @@ contract NewContactsTest is Test {
         vault.setDailyLimit(ETH, 1 ether);
         vault.setNewContactLimit(address(usdc), 50e6);
         vault.setNewContactLimit(ETH, 0.02 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 30 days);
     }
@@ -93,6 +94,11 @@ contract NewContactsTest is Test {
     function payEth(address to, uint256 amount) internal {
         vm.prank(everydayKey);
         vault.run(only(VerbatimVault.Action(to, amount, "", 0)), atMost(ETH, amount), block.timestamp);
+    }
+
+    function proposeAllowance(address contact, uint256 amount) internal returns (uint256 id) {
+        vm.prank(everydayKey);
+        id = vault.propose(VerbatimVault.ChangeKind.Allowance, contact, address(usdc), amount);
     }
 
     function test_AddingAContactNeedsThePhone() public {
@@ -170,6 +176,7 @@ contract NewContactsTest is Test {
         vm.startPrank(rulesKey);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.saveContact(vendor);
+        vault.finishSetup();
         vm.stopPrank();
         assertEq(vault.newContactLimit(address(usdc)), 0);
         vm.expectRevert("Over the new-contact limit");
@@ -186,8 +193,10 @@ contract NewContactsTest is Test {
     function test_AllowanceToAn8DayOldContactWorks() public {
         saveVendor();
         vm.warp(block.timestamp + 8 days);
+        uint256 id = proposeAllowance(vendor, 600e6);
         vm.prank(rulesKey);
-        vault.createAllowance(vendor, address(usdc), 600e6);
+        vault.approve(id);
+        vm.warp(block.timestamp + 24 hours);
         vm.prank(everydayKey);
         vault.payWithAllowance(vendor, 600e6);
         assertEq(usdc.balanceOf(vendor), 600e6);
@@ -196,27 +205,31 @@ contract NewContactsTest is Test {
     function test_AllowanceToA3DayOldContactFails() public {
         saveVendor();
         vm.warp(block.timestamp + 3 days);
+        uint256 id = proposeAllowance(vendor, 600e6);
         vm.prank(rulesKey);
         vm.expectRevert("Contact too new for big payments");
-        vault.createAllowance(vendor, address(usdc), 600e6);
+        vault.approve(id);
     }
 
     function test_AllowancesStartAtExactly7Days() public {
         uint256 saved = saveVendor();
+        uint256 id = proposeAllowance(vendor, 600e6);
         vm.warp(saved + 7 days - 1);
         vm.prank(rulesKey);
         vm.expectRevert("Contact too new for big payments");
-        vault.createAllowance(vendor, address(usdc), 600e6);
+        vault.approve(id);
         vm.warp(saved + 7 days);
         vm.prank(rulesKey);
-        vault.createAllowance(vendor, address(usdc), 600e6);
+        vault.approve(id);
     }
 
     function test_PayingChecksTheAgeToo() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
         usdc.mint(address(leaky), 1000e6);
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         leaky.saveContact(vendor);
+        leaky.finishSetup();
+        vm.stopPrank();
         vm.warp(block.timestamp + 3 days);
         leaky.giveAllowance(
             vendor, VerbatimVault.Allowance(address(usdc), 600e6, block.timestamp, block.timestamp + 2 days, false)
@@ -228,6 +241,8 @@ contract NewContactsTest is Test {
     }
 
     function test_NewContactRulesAreSettings() public {
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        usdc.mint(address(vault), 2000e6);
         vm.startPrank(everydayKey);
         vm.expectRevert("Only the rules key can change settings");
         vault.setNewContactPeriod(0);
@@ -246,6 +261,9 @@ contract NewContactsTest is Test {
         vm.expectEmit(address(vault));
         emit NewContactLimitSet(address(usdc), 20e6);
         vault.setNewContactLimit(address(usdc), 20e6);
+        vault.setDailyLimit(address(usdc), 1000e6);
+        vault.setLooseningWait(0);
+        vault.finishSetup();
         vm.stopPrank();
         uint256 saved = saveVendor();
         vm.expectRevert("Over the new-contact limit");
@@ -253,16 +271,22 @@ contract NewContactsTest is Test {
         vm.warp(saved + 10 minutes);
         pay(vendor, 21e6);
         vm.warp(saved + 1 hours);
+        uint256 id = proposeAllowance(vendor, 600e6);
         vm.prank(rulesKey);
-        vault.createAllowance(vendor, address(usdc), 600e6);
+        vault.approve(id);
+        vm.prank(everydayKey);
+        vault.payWithAllowance(vendor, 600e6);
         assertEq(vault.newContactPeriod(), 10 minutes);
         assertEq(vault.allowanceMinAge(), 1 hours);
+        assertEq(usdc.balanceOf(vendor), 621e6);
     }
 
     function test_NewContactRulesCantChangeDuringARun() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         leaky.saveContact(vendor);
+        leaky.finishSetup();
+        vm.stopPrank();
         bytes[4] memory sneaky = [
             abi.encodeCall(LeakyVault.backdateContact, (vendor, 0)),
             abi.encodeCall(LeakyVault.raiseNewContactLimit, (1, 1000e6)),

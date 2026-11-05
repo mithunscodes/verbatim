@@ -42,6 +42,7 @@ contract HackedAppTest is Test {
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(address(dai), 100e18);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;

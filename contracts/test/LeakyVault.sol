@@ -45,4 +45,12 @@ contract LeakyVault is VerbatimVault {
     function shortenAllowanceMinAge(uint256 duration) external {
         allowanceMinAge = duration;
     }
+
+    function shortenLooseningWait(uint256 duration) external {
+        looseningWait = duration;
+    }
+
+    function reopenSetup() external {
+        setupFinished = false;
+    }
 }

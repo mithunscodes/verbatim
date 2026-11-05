@@ -34,6 +34,7 @@ contract DailyLimitTest is Test {
         vault.saveContact(dad);
         vault.setDailyLimit(address(usdc), 10e6);
         vault.setDailyLimit(ETH, 0.1 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
     }
@@ -163,8 +164,10 @@ contract DailyLimitTest is Test {
         vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         vault.saveContact(mom);
+        vault.finishSetup();
+        vm.stopPrank();
         assertEq(vault.dailyLimit(address(usdc)), 0);
         vm.expectRevert("Over the daily limit");
         pay(mom, 1);
@@ -181,13 +184,13 @@ contract DailyLimitTest is Test {
         vault.setDailyLimit(address(usdc), 1000e6);
         vm.prank(rulesKey);
         vm.expectRevert("Not a watched token");
-        vault.setDailyLimit(address(unwatched), 1000e6);
+        vault.setDailyLimit(address(unwatched), 0);
         vm.expectEmit(address(vault));
-        emit DailyLimitSet(address(usdc), 20e6);
+        emit DailyLimitSet(address(usdc), 5e6);
         vm.prank(rulesKey);
-        vault.setDailyLimit(address(usdc), 20e6);
-        assertEq(vault.dailyLimit(address(usdc)), 20e6);
-        assertEq(vault.leftToday(address(usdc)), 20e6);
+        vault.setDailyLimit(address(usdc), 5e6);
+        assertEq(vault.dailyLimit(address(usdc)), 5e6);
+        assertEq(vault.leftToday(address(usdc)), 5e6);
     }
 
     function test_LoweringTheLimitAfterSpendingLeavesNothingToday() public {
@@ -201,6 +204,8 @@ contract DailyLimitTest is Test {
 
     function test_LimitsCantChangeDuringARun() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, list(address(usdc)));
+        vm.prank(rulesKey);
+        leaky.finishSetup();
         VerbatimVault.Action memory sneaky =
             VerbatimVault.Action(address(leaky), 0, abi.encodeCall(LeakyVault.setLimit, (1, 1000e6)), 0);
         vm.prank(everydayKey);

@@ -33,6 +33,7 @@ contract ChecksTest is Test {
         vault.saveContact(thief);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;
@@ -154,6 +155,8 @@ contract ChecksTest is Test {
         ReentryKey key = new ReentryKey();
         VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), list(address(key)));
         key.setVault(keyVault);
+        vm.prank(rulesKey);
+        keyVault.finishSetup();
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
         actions[0] = VerbatimVault.Action(address(key), 0, abi.encodeCall(ReentryKey.reenter, ()), 0);
         key.start(actions, deadline);
