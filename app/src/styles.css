@@ -47,6 +47,9 @@ body {
 
 a {
   color: var(--accent);
+}
+
+.mono {
   font-family: var(--mono);
 }
 
@@ -321,4 +324,82 @@ select {
 
 .switch input {
   margin: 0.2rem 0 0;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space);
+  margin-top: 4px;
+  font-size: 0.875rem;
+}
+
+.nav a {
+  font-family: var(--font);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.nav a.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pass {
+  color: var(--ok);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space) / 2);
+  align-items: center;
+}
+
+input.address {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+}
+
+.card h3 {
+  margin: var(--space) 0 calc(var(--space) / 2);
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.changes,
+.contacts {
+  list-style: none;
+  margin: var(--space) 0 0;
+  padding: 0;
+}
+
+.change {
+  padding: var(--space) 0;
+  border-top: 1px solid var(--border);
+}
+
+.change-words {
+  margin: 0 0 4px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+.change.waiting .change-words {
+  color: var(--accent);
+}
+
+.change.cancelled .change-words,
+.change.expired .change-words {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.contacts li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space);
+  padding: calc(var(--space) / 2) 0;
+  border-top: 1px solid var(--border);
 }

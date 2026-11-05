@@ -1,11 +1,14 @@
 import { EXPLORER, VAULT } from './config.js'
 import { formatAmount, shortAddress } from './format.js'
+import Phone from './Phone.jsx'
+import Propose from './Propose.jsx'
 import Request from './Request.jsx'
+import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
 
 function AddressLink({ address }) {
   return (
-    <a href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer">
+    <a className="mono" href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer">
       {shortAddress(address)}
     </a>
   )
@@ -52,11 +55,19 @@ function Balances({ vault, loading, onRefresh }) {
 
 export default function App() {
   const v = useVault()
+  const page = useHashPage()
+  const ready = v.account && v.onSepolia && v.vault
 
   return (
     <main className="page">
       <header className="top">
-        <h1>Verbatim</h1>
+        <div>
+          <h1>Verbatim</h1>
+          <nav className="nav">
+            <a href="#" className={page === 'app' ? 'active' : undefined}>App</a>
+            <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone page</a>
+          </nav>
+        </div>
         {v.account && (
           <div className="who">
             <AddressLink address={v.account} />
@@ -87,7 +98,16 @@ export default function App() {
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
-      {v.account && v.onSepolia && v.vault && <Request vault={v.vault} role={v.role} onDone={v.refresh} />}
+      {ready && page === 'app' && (
+        <>
+          <Request vault={v.vault} role={v.role} onDone={v.refresh} />
+          <Propose vault={v.vault} role={v.role} account={v.account} onDone={v.refresh} />
+        </>
+      )}
+
+      {ready && page === 'phone' && (
+        <Phone vault={v.vault} account={v.account} role={v.role} onDone={v.refresh} />
+      )}
 
       {v.error && <p className="error">{v.error}</p>}
     </main>

@@ -31,3 +31,16 @@ export function formatDuration(seconds) {
 export function amountPattern(decimals) {
   return new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`)
 }
+
+export function formatCountdown(seconds) {
+  if (seconds <= 0n) return '0:00'
+  const hours = seconds / 3600n
+  const minutes = (seconds % 3600n) / 60n
+  const rest = seconds % 60n
+  if (hours > 0n) return `${hours} h ${minutes} min`
+  return `${minutes}:${rest.toString().padStart(2, '0')}`
+}
+
+export function formatTime(timestamp) {
+  return new Date(Number(timestamp) * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}

@@ -11,6 +11,10 @@ import { chain, NICKNAMES, priceSourceAbi, VAULT, vaultAbi } from './config.js'
 
 const MAX_LIST = 50
 
+const LIST_PAGE = 10
+
+const ALLOWANCE = 2
+
 export function getWallet() {
   return typeof window === 'undefined' ? undefined : window.ethereum
 }
@@ -54,12 +58,18 @@ function isRevert(error) {
 
 async function readList(read, functionName) {
   const items = []
-  for (let i = 0n; i < MAX_LIST; i++) {
-    try {
-      items.push(await read(functionName, [i]))
-    } catch (error) {
-      if (isRevert(error)) return items
-      throw error
+  while (items.length < MAX_LIST) {
+    const start = items.length
+    const results = await Promise.allSettled(
+      Array.from({ length: LIST_PAGE }, (_, i) => read(functionName, [BigInt(start + i)])),
+    )
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        items.push(result.value)
+        continue
+      }
+      if (isRevert(result.reason)) return items
+      throw result.reason
     }
   }
   return items
@@ -79,7 +89,7 @@ async function readFairPrice(client, priceSource, blockNumber) {
 }
 
 export async function readVault(wallet) {
-  const client = createPublicClient({ chain, transport: custom(wallet) })
+  const client = createPublicClient({ chain, transport: custom(wallet), batch: { multicall: true } })
   const block = await client.getBlock()
   const blockNumber = block.number
   const read = (functionName, args = []) =>
@@ -87,17 +97,33 @@ export async function readVault(wallet) {
   const readToken = (token, functionName, args = []) =>
     client.readContract({ address: token, abi: erc20Abi, functionName, args, blockNumber })
 
-  const [everydayKey, rulesKey, eth, tokens, contactAddresses, newContactPeriod, tradeTolerance, priceSource] =
-    await Promise.all([
-      read('everydayKey'),
-      read('rulesKey'),
-      client.getBalance({ address: VAULT, blockNumber }),
-      readList(read, 'watchedTokens'),
-      readList(read, 'contacts'),
-      read('newContactPeriod'),
-      read('tradeTolerance'),
-      read('priceSource'),
-    ])
+  const [
+    everydayKey,
+    rulesKey,
+    eth,
+    tokens,
+    contactAddresses,
+    newContactPeriod,
+    tradeTolerance,
+    priceSource,
+    allowanceValidity,
+    allowanceMinAge,
+    looseningWait,
+    changeCount,
+  ] = await Promise.all([
+    read('everydayKey'),
+    read('rulesKey'),
+    client.getBalance({ address: VAULT, blockNumber }),
+    readList(read, 'watchedTokens'),
+    readList(read, 'contacts'),
+    read('newContactPeriod'),
+    read('tradeTolerance'),
+    read('priceSource'),
+    read('allowanceValidity'),
+    read('allowanceMinAge'),
+    read('looseningWait'),
+    read('changeCount'),
+  ])
 
   const withRules = async (holding) => {
     const [dailyLimit, leftToday, newContactLimit] = await Promise.all([
@@ -117,7 +143,15 @@ export async function readVault(wallet) {
     return { token, symbol, decimals, amount }
   }))
 
-  const [holdings, contacts, fairPrice] = await Promise.all([
+  const readChange = async (id) => {
+    const [kind, contact, token, value, valueBefore, readyAt, expiresAt, cancelled, done] = await read('changes', [id])
+    const change = { id, kind, contact, token, value, valueBefore, readyAt, expiresAt, cancelled, done, used: false }
+    if (kind !== ALLOWANCE || readyAt === 0n) return change
+    const [, , activeFrom, , used] = await read('allowances', [contact])
+    return { ...change, used: activeFrom === readyAt && used }
+  }
+
+  const [holdings, contacts, fairPrice, changes] = await Promise.all([
     Promise.all([
       { token: zeroAddress, symbol: 'ETH', decimals: chain.nativeCurrency.decimals, amount: eth },
       ...tokenHoldings,
@@ -128,6 +162,7 @@ export async function readVault(wallet) {
       savedAt: await read('savedAt', [address]),
     }))),
     readFairPrice(client, priceSource, blockNumber),
+    Promise.all(Array.from({ length: Number(changeCount) }, (_, i) => readChange(BigInt(i)))),
   ])
 
   return {
@@ -141,5 +176,9 @@ export async function readVault(wallet) {
     tradeTolerance,
     priceSource,
     fairPrice,
+    allowanceValidity,
+    allowanceMinAge,
+    looseningWait,
+    changes,
   }
 }
