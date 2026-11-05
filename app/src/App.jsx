@@ -1,3 +1,4 @@
+import Attack from './Attack.jsx'
 import { EXPLORER } from './config.js'
 import CreateVault from './CreateVault.jsx'
 import { formatAmount, shortAddress } from './format.js'
@@ -5,6 +6,8 @@ import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
 import { ReceiptPage } from './Receipt.jsx'
+import Replays from './Replays.jsx'
+import SideBySide from './SideBySide.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
 
@@ -97,8 +100,15 @@ function SmartAccountAlert({ delegate }) {
 }
 
 export default function App() {
-  const v = useVault()
   const page = useHashPage()
+  if (page.startsWith('attack:')) return <Attack link={page.slice('attack:'.length)} />
+  if (page.startsWith('side:')) return <SideBySide link={page.slice('side:'.length)} />
+  if (page === 'replays') return <Replays />
+  return <WalletApp page={page} />
+}
+
+function WalletApp({ page }) {
+  const v = useVault()
   const ready = v.account && v.onSepolia && v.vault
   const receiptRoot = page.startsWith('receipt:') ? page.slice('receipt:'.length) : null
 
@@ -110,6 +120,7 @@ export default function App() {
           <nav className="nav">
             <a href="#" className={page === 'app' ? 'active' : undefined}>App</a>
             <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone page</a>
+            <a href="#replays">Replays</a>
           </nav>
         </div>
         {v.account && (

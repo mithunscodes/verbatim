@@ -59,3 +59,39 @@ export const UNISWAP_V3_POOLS = [
   '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50',
   '0x6418EEC70f50913ff0d756B48d32Ce7C02b47C47',
 ]
+
+export const RPC_METHODS = [
+  'eth_chainId',
+  'eth_blockNumber',
+  'eth_getBlockByNumber',
+  'eth_getBalance',
+  'eth_getCode',
+  'eth_call',
+  'eth_estimateGas',
+  'eth_gasPrice',
+  'eth_maxPriorityFeePerGas',
+  'eth_feeHistory',
+  'eth_getTransactionCount',
+  'eth_getTransactionByHash',
+  'eth_getTransactionReceipt',
+  'eth_sendRawTransaction',
+]
+
+export const RPC_BATCH_LIMIT = 20
+
+export const RPC_TIMEOUT_MS = 30_000
+
+export const ANVIL = `${process.env.HOME}/.foundry/bin/anvil`
+
+export const REPLAY_PORT = 8547
+
+export const REPLAY_START_TIMEOUT_MS = 30_000
+
+export const SCRIPTED_SENTENCES = [
+  'Swap 10 USDC for ETH at a fair price, send 2 USDC to mom.eth, and nothing else.',
+  'Send 100 to mom',
+  'send 1 usdc to builder',
+  'send all my usdc to 0x000000000000000000000000000000000000dEaD',
+]
+
+export const RECORDED_FALLBACK_MS = 25_000

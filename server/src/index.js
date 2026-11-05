@@ -1,9 +1,12 @@
 import { createServer } from 'node:http'
+import { privateKeyToAccount } from 'viem/accounts'
 import { HOST, PORT, TOKENS } from './config.js'
 import { quoteSwap, RequestError } from './uniswap.js'
 import { understand } from './understand.js'
 import { preview } from './preview.js'
 import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
+import { methodsOf, relay } from './rpc.js'
+import { replay } from './replays.js'
 
 try {
   process.loadEnvFile(new URL('../../.env', import.meta.url))
@@ -19,7 +22,7 @@ if (!process.env.UNISWAP_API_KEY) {
 
 const OPTIONAL = {
   ZG_ROUTER_API_KEY: 'the sealed AI (sentences and the live preview)',
-  SEPOLIA_RPC_URL: 'the live preview',
+  SEPOLIA_RPC_URL: 'the live preview and the demo pages',
   RECEIPTS_PRIVATE_KEY: 'receipts on 0G Storage',
 }
 
@@ -27,7 +30,7 @@ for (const [name, feature] of Object.entries(OPTIONAL)) {
   if (!process.env[name]) console.log(`${name} is missing from .env, so ${feature} won't work.`)
 }
 
-const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), process.env.RECEIPTS_PRIVATE_KEY].filter(Boolean)
+const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), process.env.RECEIPTS_PRIVATE_KEY, process.env.DEMO_EVERYDAY_PRIVATE_KEY, process.env.DEMO_THIEF_PRIVATE_KEY].filter(Boolean)
 
 function hide(text) {
   return secrets.reduce((result, secret) => result.split(secret).join('[hidden]'), String(text))
@@ -59,7 +62,7 @@ function readJson(request, limit) {
 
 function send(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-  response.end(JSON.stringify(body))
+  response.end(JSON.stringify(body, (key, value) => (typeof value === 'bigint' ? value.toString() : value)))
 }
 
 const routes = {
@@ -87,6 +90,17 @@ const routes = {
     run: saveReceipt,
     describe: (body, result) => (result ? `receipt saved: ${result.root}` : 'receipt'),
   },
+  'POST /api/rpc': {
+    limit: 50_000,
+    run: relay,
+    quiet: (body) => !methodsOf(body).includes('eth_sendRawTransaction'),
+    describe: (body) => `demo relay: ${methodsOf(body).join(', ')}`,
+  },
+  'POST /api/replay': {
+    limit: 1_000,
+    run: replay,
+    describe: (body, result) => (result ? `replay ${body.name}: ${(result.totalMs / 1000).toFixed(1)} s, offline` : `replay ${body.name ?? '?'}`),
+  },
 }
 
 function routeOf(request) {
@@ -97,7 +111,20 @@ function routeOf(request) {
   return null
 }
 
+function goToDemo(response) {
+  const key = process.env.DEMO_EVERYDAY_PRIVATE_KEY
+  const thiefKey = process.env.DEMO_THIEF_PRIVATE_KEY
+  if (!key || !thiefKey) {
+    send(response, 503, { error: 'The demo keys are missing from .env. Run scripts/side-by-side.js keys.' })
+    return
+  }
+  response.writeHead(302, { location: `/#attack/${key}/${privateKeyToAccount(thiefKey).address}`, 'cache-control': 'no-store' })
+  response.end()
+  console.log(`${new Date().toLocaleTimeString('en-GB')} short link: a phone opened the attacker page`)
+}
+
 const server = createServer(async (request, response) => {
+  if (request.method === 'GET' && request.url === '/api/go') return goToDemo(response)
   const started = Date.now()
   let body = null
   let route = null
@@ -110,7 +137,7 @@ const server = createServer(async (request, response) => {
     }
     const result = await route.run(body ?? {})
     send(response, 200, result)
-    console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${route.describe(body ?? {}, result)}: ok, ${Date.now() - started} ms`))
+    if (!route.quiet?.(body ?? {})) console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${route.describe(body ?? {}, result)}: ok, ${Date.now() - started} ms`))
   } catch (error) {
     const status = error instanceof RequestError ? error.status : 500
     send(response, status, { error: status === 500 ? 'Something went wrong in the Verbatim server.' : error.message })
