@@ -17,6 +17,16 @@ export const WETH = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
 
 export const BAD_ROUTE_POOL_FEE = 100
 
+export const FAIR_POOL_FEE = 500
+
+export const DEMO_STRANGER = '0x000000000000000000000000000000000000dEaD'
+
+export const SMALL_EXTRA_BPS = 100n
+
+export const DEMO_FEE_BPS = 25n
+
+export const DEMO_TIP = '0.1'
+
 export const DEMO_TIMINGS = {
   looseningWait: 120n,
   newContactPeriod: 300n,

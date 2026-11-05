@@ -1,5 +1,13 @@
 import { decodeFunctionData, erc20Abi, isAddress, zeroAddress } from 'viem'
-import { PERMIT2, permit2Abi, routerAbi, SHOWN_DIGITS, SWAP_SLIPPAGE_BPS, UNIVERSAL_ROUTER } from './config.js'
+import {
+  PERMIT2,
+  permit2Abi,
+  routerAbi,
+  SHOWN_DIGITS,
+  SMALL_EXTRA_BPS,
+  SWAP_SLIPPAGE_BPS,
+  UNIVERSAL_ROUTER,
+} from './config.js'
 import { formatAmount, formatDuration, roundDown, shortAddress } from './format.js'
 
 const actionAbi = [...erc20Abi, ...permit2Abi, ...routerAbi]
@@ -101,6 +109,90 @@ export function describeAction(vault, action) {
 export function describeOutcome(vault, check, moved) {
   if (check.kind === CheckKind.AtMostLeaves) return `${show(vault, check.token, moved.left)} left`
   return `${show(vault, check.token, moved.arrived)} arrived`
+}
+
+const NEVER_ALLOWED = {
+  'Borrowed code would run in your account': 'This would run outside code inside your vault.',
+  'Your account would change': "This would change your vault's keys, contacts or rules.",
+  'Not a trusted contract': "This uses a contract your vault doesn't trust.",
+  'Permission for an untrusted contract': "This gives a permission to a contract your vault doesn't trust.",
+  "This kind of action isn't allowed": "This uses a kind of action your vault doesn't allow.",
+  'Permission left behind': 'This would leave a permission behind after it finishes.',
+}
+
+const OVER_LIMIT = {
+  'Over the daily limit': "today's limit",
+  'Over the new-contact limit': "a new contact's limit",
+}
+
+function unsavedPayments(vault, actions) {
+  const saved = new Set(vault.contacts.map((contact) => contact.address))
+  const payments = []
+  for (const action of actions) {
+    if (action.data === '0x') {
+      if (!saved.has(action.target)) payments.push({ to: action.target, token: zeroAddress, amount: action.value })
+      continue
+    }
+    const call = holdingOf(vault, action.target) ? decodeAction(action.data) : null
+    if (call?.functionName === 'transfer' && !saved.has(call.args[0])) {
+      payments.push({ to: call.args[0], token: action.target, amount: call.args[1] })
+    }
+  }
+  return payments
+}
+
+export function classifyFailure(vault, request, failure) {
+  if (failure.checkNumber) {
+    const index = failure.checkNumber - 1
+    const check = request.checks[index]
+    if (check.kind !== CheckKind.AtMostLeaves || failure.actual <= check.amount) return null
+    const extra = failure.actual - check.amount
+    const small = extra * 10_000n <= check.amount * SMALL_EXTRA_BPS
+    return { level: small ? 'small' : 'risky', why: 'extra', index, token: check.token, extra, total: failure.actual }
+  }
+  if (NEVER_ALLOWED[failure.reason]) return { level: 'never', reason: failure.reason }
+  if (failure.reason === 'Not a saved contact') return { level: 'risky', why: 'unsaved', payments: unsavedPayments(vault, request.actions) }
+  if (OVER_LIMIT[failure.reason]) return { level: 'risky', why: 'limit', reason: failure.reason }
+  if (failure.reason === 'Something else would leave your account') return { level: 'risky', why: 'other' }
+  return null
+}
+
+function describeUnsaved(vault, payments) {
+  const sends = payments.map((p) => `${show(vault, p.token, p.amount)} to ${shortAddress(p.to)}`).join(' and ')
+  const first = payments[0]
+  const what = !first
+    ? "money to an address you haven't saved"
+    : `${sends}, ${payments.length === 1 ? "an address you haven't saved" : "addresses you haven't saved"}`
+  const rule = first
+    ? `at most ${show(vault, first.token, holdingOf(vault, first.token).newContactLimit)} in its first ${formatDuration(vault.newContactPeriod)}`
+    : 'a limit for its first days'
+  return `This also sends ${what}. That needs your phone: save the address on the phone page first. The new-contact rule then applies: ${rule}.`
+}
+
+export function describeExtra(vault, extra, note) {
+  if (extra.level === 'never') {
+    return {
+      icon: '🔴',
+      title: 'Never allowed',
+      text: `${NEVER_ALLOWED[extra.reason]} That can never be added to a request, so it's always stopped.`,
+    }
+  }
+  if (extra.level === 'small') {
+    const amount = show(vault, extra.token, extra.extra)
+    return {
+      icon: '🟢',
+      title: 'Small and expected',
+      text: `This also takes ${amount} more than you said.${note ? ` The app says it's ${note}.` : ''}`,
+      question: `Add ${amount} to your request? Your vault will then allow exactly that much more, and nothing else.`,
+    }
+  }
+  const words = {
+    extra: () => `This takes ${show(vault, extra.token, extra.extra)} more than you said, which is over ${formatAmount(SMALL_EXTRA_BPS, 2)}% extra. That's too big to add with one tap. If you really meant it, change the amount in your request.`,
+    unsaved: () => describeUnsaved(vault, extra.payments),
+    limit: () => `This goes over ${OVER_LIMIT[extra.reason]}. Only your phone can raise it: a proposal, the phone's approval and a wait.`,
+    other: () => "Another token would leave your vault that your request doesn't mention. That can't be added with one tap. If you meant it, change your request.",
+  }
+  return { icon: '🟡', title: 'Risky', text: words[extra.why]() }
 }
 
 export function describeFailure(vault, check, actual) {

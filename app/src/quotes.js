@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { zeroAddress } from 'viem'
 import { QUOTE_DELAY_MS, QUOTE_REFRESH_MS } from './config.js'
 import { formatAmount } from './format.js'
-import { badRouteTransaction } from './run.js'
+import { badRouteTransaction, drainTransaction, feeTransaction } from './run.js'
 
 export const SERVER_DOWN = "The quote server isn't running. In Terminal, open the server folder and run npm start."
 
@@ -36,12 +36,17 @@ export async function fetchQuote({ swapper, tokenIn, tokenOut, amount }, signal)
   return parseQuote(json)
 }
 
-function badRouteQuote({ tokenIn, amount }) {
-  return { badRoute: true, transaction: badRouteTransaction({ from: tokenIn, amount }) }
+async function quoteFor(ask, signal) {
+  const { tokenIn, amount, scenario } = ask
+  if (scenario === 'badRoute') return { badRoute: true, transaction: badRouteTransaction({ from: tokenIn, amount }) }
+  const quote = await fetchQuote(ask, signal)
+  if (scenario === 'drain') return { ...quote, transaction: drainTransaction({ from: tokenIn, amount, balance: ask.balance }) }
+  if (scenario === 'fee') return { ...quote, transaction: feeTransaction({ from: tokenIn, amount }), note: 'a 0.25% app fee' }
+  return quote
 }
 
 function keyOf(ask) {
-  return ask ? [ask.swapper, ask.tokenIn, ask.tokenOut, ask.amount, ask.badRoute].join('|') : null
+  return ask ? [ask.swapper, ask.tokenIn, ask.tokenOut, ask.amount, ask.scenario, ask.balance].join('|') : null
 }
 
 export function useQuote(ask, paused) {
@@ -58,7 +63,7 @@ export function useQuote(ask, paused) {
       const now = latest.current
       if (!now.paused && document.visibilityState === 'visible') {
         try {
-          const quote = now.ask.badRoute ? badRouteQuote(now.ask) : await fetchQuote(now.ask, controller.signal)
+          const quote = await quoteFor(now.ask, controller.signal)
           if (controller.signal.aborted) return
           setState({ key, status: 'ready', quote })
         } catch (error) {

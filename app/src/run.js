@@ -9,12 +9,17 @@ import {
   encodePacked,
   erc20Abi,
   parseAbiParameters,
+  parseUnits,
   zeroAddress,
 } from 'viem'
 import {
   BAD_ROUTE_POOL_FEE,
   chain,
   DEADLINE_SECONDS,
+  DEMO_FEE_BPS,
+  DEMO_STRANGER,
+  DEMO_TIP,
+  FAIR_POOL_FEE,
   FORCED_GAS,
   PERMIT2,
   permit2Abi,
@@ -36,6 +41,8 @@ const ROUTER_PAYS_CALLER = '0x0000000000000000000000000000000000000001'
 
 const V3_SWAP_EXACT_IN = '00'
 
+const PERMIT2_TRANSFER_FROM = '02'
+
 const UNWRAP_WETH = '0c'
 
 export function hackedExtra(token, decimals) {
@@ -54,11 +61,12 @@ export function sendActions({ token, amount, to }) {
 
 export function swapActions({ from, amount, transaction }) {
   if (from === zeroAddress) return [{ target: transaction.to, value: amount, data: transaction.data, operation: 0 }]
+  const spend = transaction.spend ?? amount
   return [
     {
       target: from,
       value: 0n,
-      data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [PERMIT2, amount] }),
+      data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [PERMIT2, spend] }),
       operation: 0,
     },
     {
@@ -67,7 +75,7 @@ export function swapActions({ from, amount, transaction }) {
       data: encodeFunctionData({
         abi: permit2Abi,
         functionName: 'approve',
-        args: [from, transaction.to, amount, PERMIT2_THIS_BLOCK_ONLY],
+        args: [from, transaction.to, spend, PERMIT2_THIS_BLOCK_ONLY],
       }),
       operation: 0,
     },
@@ -75,22 +83,57 @@ export function swapActions({ from, amount, transaction }) {
   ]
 }
 
-export function badRouteTransaction({ from, amount }) {
-  const path = encodePacked(['address', 'uint24', 'address'], [from, BAD_ROUTE_POOL_FEE, WETH])
-  const swap = encodeAbiParameters(
+function routerSwap({ from, amount, poolFee, extra }) {
+  const commands = []
+  const inputs = []
+  if (extra) {
+    commands.push(PERMIT2_TRANSFER_FROM)
+    inputs.push(encodeAbiParameters(parseAbiParameters('address, address, uint160'), [from, extra.to, extra.amount]))
+  }
+  const path = encodePacked(['address', 'uint24', 'address'], [from, poolFee, WETH])
+  commands.push(V3_SWAP_EXACT_IN)
+  inputs.push(encodeAbiParameters(
     parseAbiParameters('address, uint256, uint256, bytes, bool'),
     [ROUTER_PAYS_ITSELF, amount, 0n, path, true],
-  )
-  const unwrap = encodeAbiParameters(parseAbiParameters('address, uint256'), [ROUTER_PAYS_CALLER, 0n])
+  ))
+  commands.push(UNWRAP_WETH)
+  inputs.push(encodeAbiParameters(parseAbiParameters('address, uint256'), [ROUTER_PAYS_CALLER, 0n]))
   return {
     to: UNIVERSAL_ROUTER,
     value: 0n,
+    spend: amount + (extra?.amount ?? 0n),
     data: encodeFunctionData({
       abi: routerAbi,
       functionName: 'execute',
-      args: [`0x${V3_SWAP_EXACT_IN}${UNWRAP_WETH}`, [swap, unwrap], newDeadline()],
+      args: [`0x${commands.join('')}`, inputs, newDeadline()],
     }),
   }
+}
+
+export function badRouteTransaction({ from, amount }) {
+  return routerSwap({ from, amount, poolFee: BAD_ROUTE_POOL_FEE })
+}
+
+export function drainTransaction({ from, amount, balance }) {
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: balance - amount } })
+}
+
+export function feeTransaction({ from, amount }) {
+  const fee = (amount * DEMO_FEE_BPS) / 10_000n
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: fee } })
+}
+
+export function extraActions(scenario, { from, decimals }) {
+  if (scenario === 'tip') {
+    return [{
+      target: from,
+      value: 0n,
+      data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [DEMO_STRANGER, parseUnits(DEMO_TIP, decimals)] }),
+      operation: 0,
+    }]
+  }
+  if (scenario === 'borrowed') return [{ target: DEMO_STRANGER, value: 0n, data: '0x', operation: 1 }]
+  return []
 }
 
 export function newDeadline() {

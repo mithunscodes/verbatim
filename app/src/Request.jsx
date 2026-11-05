@@ -5,8 +5,11 @@ import { getWallet } from './chain.js'
 import {
   ALWAYS_ON,
   canSwap,
+  CheckKind,
+  classifyFailure,
   describeAction,
   describeCheck,
+  describeExtra,
   describeFailure,
   describeOutcome,
   holdingOf,
@@ -18,6 +21,7 @@ import {
 import { amountPattern, formatAbout, formatAmount, shortAddress } from './format.js'
 import { compareToFair, describeRoute, useQuote } from './quotes.js'
 import {
+  extraActions,
   hackedExtra,
   newDeadline,
   practiceRun,
@@ -55,19 +59,44 @@ function noPriceSource(vault) {
   return `This vault has no fair-price source, so swaps can't be checked. ${how}`
 }
 
-function badRouteAllowed(form) {
-  return form.from !== zeroAddress
+const SWAP_SCENARIOS = [
+  ['honest', 'Nothing hidden (an honest app)'],
+  ['badRoute', 'Bad route: a thin pool with a worse price'],
+  ['drain', 'Hacked app: hides a drain of your other USDC inside the swap'],
+  ['fee', 'Small extra: a 0.25% app fee'],
+  ['tip', "Risky extra: a 0.1 USDC tip to an address you haven't saved"],
+  ['borrowed', 'Never allowed: runs borrowed code in your vault'],
+]
+
+function scenarioProblem(vault, form, demo, amount) {
+  if (demo.scenario === 'honest') return null
+  if (form.from === zeroAddress) return 'This demo works for USDC → ETH only.'
+  if (demo.scenario === 'drain' && amount >= holdingOf(vault, form.from).amount) {
+    return "The hacked app has nothing extra to take, because you're swapping your whole balance."
+  }
+  return null
 }
 
 function swapAskFor(vault, form, demo) {
   if (form.mode !== 'swap' || !vault.fairPrice || !canSwap(vault, form.from, form.swapTo)) return null
-  if (demo.badRoute && !badRouteAllowed(form)) return null
   const { amount } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
-  if (!amount) return null
-  return { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount, badRoute: demo.badRoute }
+  if (!amount || scenarioProblem(vault, form, demo, amount)) return null
+  const balance = demo.scenario === 'drain' ? holdingOf(vault, form.from).amount : null
+  return { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount, scenario: demo.scenario, balance }
 }
 
-function buildRequest(vault, form, demo, quote) {
+function withAdded(request, added) {
+  const check = added && request.checks?.[added.index]
+  if (!check || check.kind !== CheckKind.AtMostLeaves || check.token !== added.token) return request
+  const checks = request.checks.map((c, i) => (i === added.index ? { ...c, amount: added.total } : c))
+  return { ...request, checks, added }
+}
+
+function buildRequest(vault, form, demo, quote, added) {
+  return withAdded(baseRequest(vault, form, demo, quote), added)
+}
+
+function baseRequest(vault, form, demo, quote) {
   if (form.mode === 'send') {
     if (!vault.contacts.length) return { error: 'No saved contacts yet. Your phone saves them.' }
     const { decimals } = holdingOf(vault, form.token)
@@ -82,12 +111,18 @@ function buildRequest(vault, form, demo, quote) {
   if (vault.priceSource === zeroAddress) return { error: noPriceSource(vault) }
   if (!vault.fairPrice) return { error: "There's no fair price right now, so swaps can't be checked." }
   if (!canSwap(vault, form.from, form.swapTo)) return { error: 'Swaps work between ETH and USDC only, for now.' }
-  if (demo.badRoute && !badRouteAllowed(form)) return { error: 'The bad route works for USDC → ETH only.' }
   const { amount, error } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
   if (!amount) return { error }
+  const problem = scenarioProblem(vault, form, demo, amount)
+  if (problem) return { error: problem }
   const swap = swapChecks(vault, { from: form.from, to: form.swapTo, amount })
   if (!quote) return swap
-  return { ...swap, actions: swapActions({ from: form.from, amount, transaction: quote.transaction }) }
+  const extras = extraActions(demo.scenario, { from: form.from, decimals: holdingOf(vault, form.from).decimals })
+  return {
+    ...swap,
+    note: quote.note ?? null,
+    actions: [...swapActions({ from: form.from, amount, transaction: quote.transaction }), ...extras],
+  }
 }
 
 function explain(failure, vault, checks) {
@@ -172,6 +207,7 @@ function ChecksList({ vault, request, mode, failure, quote }) {
           )
         })}
       </ul>
+      {request.added && <AddedNote vault={vault} added={request.added} />}
       <details className="fold">
         <summary>
           <span className="icon">✓</span>
@@ -219,6 +255,38 @@ function Practice({ practice }) {
   if (practice.status === 'pass') return <p className="practice pass">✓ Practice run: every check passes</p>
   if (practice.status === 'fail') return <p className="practice fail">✗ Practice run: {explain(practice.failure)}</p>
   return null
+}
+
+function ExtraOffer({ vault, request, failure, busy, onAdd, onCancel }) {
+  const extra = classifyFailure(vault, request, failure)
+  if (!extra) return null
+  const { icon, title, text, question } = describeExtra(vault, extra, request.note)
+  return (
+    <div className={`extra ${extra.level}`}>
+      <p><strong>{icon} {title}</strong></p>
+      <p>{text}</p>
+      {question && (
+        <>
+          <p>{question}</p>
+          <div className="row">
+            <button onClick={onCancel} disabled={busy}>Cancel</button>
+            <button className="secondary" onClick={() => onAdd(extra)} disabled={busy}>Add to my request</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function AddedNote({ vault, added }) {
+  const holding = holdingOf(vault, added.token)
+  const amount = `${formatAmount(added.extra, holding.decimals, holding.decimals)} ${holding.symbol}`
+  return (
+    <p className="muted small">
+      You added {amount}{added.note ? ` (${added.note})` : ''} to check {added.index + 1}. If the app takes more, your
+      vault refuses it.
+    </p>
+  )
 }
 
 function Result({ result, vault, onReset }) {
@@ -272,10 +340,11 @@ export default function Request({ vault, role, blocked, onDone }) {
     from: usdc,
     swapTo: zeroAddress,
   })
-  const [demo, setDemo] = useState({ hacked: false, badRoute: false, forced: false })
+  const [demo, setDemo] = useState({ hacked: false, scenario: 'honest', forced: false })
   const [practice, setPractice] = useState({ status: 'idle' })
   const [result, setResult] = useState({ status: 'idle' })
   const [practiceRound, setPracticeRound] = useState(0)
+  const [added, setAdded] = useState(null)
 
   const set = (field) => (value) => setForm((f) => ({ ...f, [field]: value }))
   const toggle = (field) => (e) => setDemo((d) => ({ ...d, [field]: e.target.checked }))
@@ -283,13 +352,17 @@ export default function Request({ vault, role, blocked, onDone }) {
   const finished = result.status === 'done'
   const quote = useQuote(swapAskFor(vault, form, demo), busy || finished)
   const readyQuote = quote.status === 'ready' ? quote.quote : null
-  const request = useMemo(() => buildRequest(vault, form, demo, readyQuote), [vault, form, demo, readyQuote])
+  const request = useMemo(
+    () => buildRequest(vault, form, demo, readyQuote, added),
+    [vault, form, demo, readyQuote, added],
+  )
   const requestKey = useMemo(() => keyOf(request), [request])
   const latest = useRef({ vault, request })
   latest.current = { vault, request }
 
   useEffect(() => {
     setResult({ status: 'idle' })
+    setAdded(null)
   }, [form, demo])
 
   useEffect(() => {
@@ -412,6 +485,16 @@ export default function Request({ vault, role, blocked, onDone }) {
       {request.actions && (
         <section className="card">
           <Practice practice={practice} />
+          {practice.status === 'fail' && !finished && (
+            <ExtraOffer
+              vault={vault}
+              request={request}
+              failure={practice.failure}
+              busy={busy}
+              onAdd={(extra) => setAdded({ ...extra, note: request.note })}
+              onCancel={() => set('amount')('')}
+            />
+          )}
           {!isEveryday && practiceDone && (
             <p className="muted">Switch MetaMask to the Everyday key to send.</p>
           )}
@@ -439,9 +522,15 @@ export default function Request({ vault, role, blocked, onDone }) {
             <span>Hacked app: secretly sends extra (1 USDC more, or 0.001 ETH more)</span>
           </label>
         ) : (
-          <label className="switch">
-            <input type="checkbox" checked={demo.badRoute} onChange={toggle('badRoute')} disabled={busy} />
-            <span>Bad route: swap through a thin pool with a worse price (USDC → ETH only)</span>
+          <label className="scenario">
+            <span>What the app secretly does (USDC → ETH only)</span>
+            <select
+              value={demo.scenario}
+              disabled={busy}
+              onChange={(e) => setDemo((d) => ({ ...d, scenario: e.target.value }))}
+            >
+              {SWAP_SCENARIOS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
           </label>
         )}
         <label className="switch">

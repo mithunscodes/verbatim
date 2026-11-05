@@ -10,6 +10,8 @@
   --error-bg: #fdecea;
   --ok: #2e7d32;
   --ok-bg: #e8f5e9;
+  --warn: #b26a00;
+  --warn-bg: #fff4e0;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
   --radius: 12px;
@@ -30,6 +32,8 @@
     --error-bg: #3a1f1f;
     --ok: #66bb6a;
     --ok-bg: #1f3a24;
+    --warn: #ffb74d;
+    --warn-bg: #3a2c14;
   }
 }
 
@@ -308,6 +312,36 @@ select {
   background: var(--error-bg);
 }
 
+.extra {
+  margin-top: calc(var(--space) / 2);
+  padding: calc(var(--space) * 0.75);
+  border-radius: calc(var(--radius) / 1.5);
+}
+
+.extra p {
+  margin: 0 0 calc(var(--space) / 2);
+}
+
+.extra p:last-child {
+  margin-bottom: 0;
+}
+
+.extra.small {
+  background: var(--ok-bg);
+}
+
+.extra.risky {
+  background: var(--warn-bg);
+}
+
+.extra.risky strong {
+  color: var(--warn);
+}
+
+.extra.never {
+  background: var(--error-bg);
+}
+
 .demo summary {
   cursor: pointer;
   color: var(--muted);
@@ -324,6 +358,18 @@ select {
 
 .switch input {
   margin: 0.2rem 0 0;
+}
+
+.scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: calc(var(--space) / 2);
+  font-size: 0.875rem;
+}
+
+.scenario select {
+  width: 100%;
 }
 
 .nav {
