@@ -12,7 +12,12 @@ export function useNow() {
 }
 
 export function useHashPage() {
-  const read = () => (window.location.hash === '#phone' ? 'phone' : 'app')
+  const read = () => {
+    const { hash } = window.location
+    if (hash === '#phone') return 'phone'
+    if (hash.startsWith('#receipt/')) return `receipt:${hash.slice('#receipt/'.length)}`
+    return 'app'
+  }
   const [page, setPage] = useState(read)
   useEffect(() => {
     const onHash = () => setPage(read())

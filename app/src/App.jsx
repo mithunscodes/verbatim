@@ -4,6 +4,7 @@ import { formatAmount, shortAddress } from './format.js'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
+import { ReceiptPage } from './Receipt.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
 
@@ -99,6 +100,7 @@ export default function App() {
   const v = useVault()
   const page = useHashPage()
   const ready = v.account && v.onSepolia && v.vault
+  const receiptRoot = page.startsWith('receipt:') ? page.slice('receipt:'.length) : null
 
   return (
     <main className="page">
@@ -146,7 +148,9 @@ export default function App() {
         <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} />
       )}
 
-      {v.account && v.onSepolia && v.vaults?.length !== 0 && (
+      {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} />}
+
+      {!receiptRoot && v.account && v.onSepolia && v.vaults?.length !== 0 && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
