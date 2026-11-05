@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react'
-import { getAddress, isAddress, zeroAddress } from 'viem'
+import { createPublicClient, custom, getAddress, isAddress, zeroAddress } from 'viem'
 import { dnsName, getWallet, nameResolver, normalName, readEnsRecords, resolveName } from './chain.js'
 import { nameOf } from './checks.js'
 import { formatCountdown, formatTime, shortAddress } from './format.js'
-import { DEMO_STRANGER, ETH_COIN_TYPE, resolverAbi, vaultAbi } from './config.js'
+import {
+  chain,
+  DEMO_STRANGER,
+  ENS_CONTACT_NAME_ROLES,
+  ENS_ETH_REGISTRY,
+  ENS_ROLE_REGISTRAR,
+  ensRegistryAbi,
+  ETH_COIN_TYPE,
+  resolverAbi,
+  vaultAbi,
+} from './config.js'
 import { useNow, useTx } from './hooks.js'
 import { Rolling, Words } from './Motion.jsx'
 import Setup from './Setup.jsx'
@@ -213,19 +223,95 @@ function ContactRow({ vault, contact, index, isRules, busy, send }) {
   )
 }
 
-function SaveContact({ vault, isRules, busy, send }) {
+function parentLabelOf(vault) {
+  const match = /^([a-z0-9-]+)\.eth$/.exec(vault.ensName ?? '')
+  return vault.directory && match ? match[1] : null
+}
+
+function useNaming(vault, account, label) {
+  const parent = parentLabelOf(vault)
+  const [naming, setNaming] = useState({ ready: false })
+  useEffect(() => {
+    if (!parent || !account) return undefined
+    let current = true
+    const wallet = getWallet()
+    const client = createPublicClient({ chain, transport: custom(wallet) })
+    const read = (address, functionName, args) => client.readContract({ address, abi: ensRegistryAbi, functionName, args })
+    Promise.all([read(ENS_ETH_REGISTRY, 'getSubregistry', [parent]), read(ENS_ETH_REGISTRY, 'findExpiry', [parent]), nameResolver(wallet, vault.directory, vault.ensName)])
+      .then(async ([registry, expiry, resolver]) => {
+        const allowed = registry !== zeroAddress && resolver ? await read(registry, 'hasRootRoles', [ENS_ROLE_REGISTRAR, account]) : false
+        if (current) setNaming({ ready: true, registry, expiry, resolver, allowed })
+      })
+      .catch(() => current && setNaming({ ready: true, allowed: false }))
+    return () => {
+      current = false
+    }
+  }, [parent, account, vault.directory, vault.ensName])
+  const [taken, setTaken] = useState({ label: null, owner: null })
+  useEffect(() => {
+    if (!naming.allowed || !label) return undefined
+    let current = true
+    const client = createPublicClient({ chain, transport: custom(getWallet()) })
+    const timer = setTimeout(() => {
+      client.readContract({ address: naming.registry, abi: ensRegistryAbi, functionName: 'findOwner', args: [label] })
+        .then((owner) => current && setTaken({ label, owner }))
+        .catch(() => current && setTaken({ label, owner: null }))
+    }, 400)
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [naming.allowed, naming.registry, label])
+  return { ...naming, parent, takenBy: taken.label === label ? taken.owner : undefined }
+}
+
+function labelError(label, full, takenBy) {
+  if (!label) return null
+  if (label.includes('.') || !full) return 'Use one word: letters, numbers or hyphens, no dots'
+  if (takenBy && takenBy !== zeroAddress) return `${full} already exists. To save it, type the full name in the box above instead.`
+  return null
+}
+
+function SaveContact({ vault, account, isRules, busy, send }) {
   const [text, setText] = useState('')
+  const [label, setLabel] = useState('')
   const trimmed = text.trim()
   const asName = trimmed.includes('.') && !trimmed.startsWith('0x')
   const name = asName ? normalName(trimmed) : null
   const lookup = useNameLookup(vault.directory, name && vault.directory ? name : null)
   const error = contactError(vault, trimmed, asName, name, lookup)
-  const canSave = Boolean(trimmed) && !error && (!asName || Boolean(lookup.address))
-  const save = () => {
+  const cleanLabel = label.trim()
+  const full = cleanLabel && vault.ensName ? normalName(`${cleanLabel}.${vault.ensName}`) : null
+  const naming = useNaming(vault, account, cleanLabel && !cleanLabel.includes('.') ? normalName(cleanLabel) : null)
+  const canName = !asName && naming.allowed && isAddress(trimmed, { strict: false }) && !error
+  const nameError = canName ? labelError(cleanLabel, full, naming.takenBy) : null
+  const nameChecking = canName && Boolean(full) && naming.takenBy === undefined
+  const canSave = Boolean(trimmed) && !error && (!asName || Boolean(lookup.address)) && !nameError && !nameChecking
+  const save = async () => {
     const target = { address: vault.address, abi: vaultAbi }
     if (asName) send(`Save ${name}`, target, 'saveContactName', [name])
-    else send(`Save ${shortAddress(getAddress(trimmed))}`, target, 'saveContact', [getAddress(trimmed)])
+    else if (canName && full) {
+      const address = getAddress(trimmed)
+      const subLabel = full.slice(0, -(vault.ensName.length + 1))
+      const created = await send(`Create ${full} (1 of 3)`, { address: naming.registry, abi: ensRegistryAbi }, 'register', [
+        subLabel,
+        account,
+        zeroAddress,
+        naming.resolver,
+        ENS_CONTACT_NAME_ROLES,
+        naming.expiry,
+      ])
+      if (!created) return
+      const pointed = await send(`Point ${full} to ${shortAddress(address)} (2 of 3)`, { address: naming.resolver, abi: resolverAbi }, 'setAddress', [
+        dnsName(full),
+        ETH_COIN_TYPE,
+        address,
+      ])
+      if (!pointed) return
+      await send(`Save ${full} (3 of 3)`, target, 'saveContactName', [full])
+    } else send(`Save ${shortAddress(getAddress(trimmed))}`, target, 'saveContact', [getAddress(trimmed)])
     setText('')
+    setLabel('')
   }
   return (
     <section className="card">
@@ -238,6 +324,24 @@ function SaveContact({ vault, isRules, busy, send }) {
         <input className="address" placeholder="0x… or name.eth" value={text} onChange={(e) => setText(e.target.value)} />
         <button onClick={save} disabled={!isRules || busy || !canSave}>Save contact</button>
       </div>
+      {canName && (
+        <div className="name-contact">
+          <label className="stack">
+            <span className="muted small">Give it a name (optional)</span>
+            <span className="name-field">
+              <input placeholder="mom" value={label} onChange={(e) => setLabel(e.target.value.toLowerCase())} disabled={busy} />
+              <span className="mono small">.{vault.ensName}</span>
+            </span>
+          </label>
+          {full && !nameError && !nameChecking && (
+            <p className="muted small">
+              Creates <strong>{full}</strong>, pointing to this address, then saves it. Three confirmations in MetaMask. Only your phone can change it later.
+            </p>
+          )}
+          {nameChecking && <p className="muted small">Checking {full}…</p>}
+          {nameError && <p className="panel warn small">{nameError}</p>}
+        </div>
+      )}
       {asName && name && !error && lookup.status === 'reading' && <p className="muted small">Reading {name}…</p>}
       {asName && !error && lookup.address && (
         <p className="panel ok small">
@@ -308,7 +412,7 @@ export default function Phone({ vault, account, role, blocked, onDone }) {
 
       <EnsRecords vault={vault} now={now} />
 
-      <SaveContact vault={vault} isRules={isRules} busy={busy} send={send} />
+      <SaveContact vault={vault} account={account} isRules={isRules} busy={busy} send={send} />
     </>
   )
 }

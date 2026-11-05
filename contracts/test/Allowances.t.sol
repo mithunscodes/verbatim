@@ -34,7 +34,7 @@ contract AllowancesTest is Test {
         vault.setDailyLimit(ETH, 0.1 ether);
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(vm.getBlockTimestamp() + 7 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -51,7 +51,7 @@ contract AllowancesTest is Test {
         uint256 id = proposeAllowance(contact, token, amount);
         vm.prank(rulesKey);
         vault.approve(id);
-        return block.timestamp + vault.looseningWait();
+        return vm.getBlockTimestamp() + vault.looseningWait();
     }
 
     function payWithAllowance(address contact, uint256 amount) internal {
@@ -60,7 +60,7 @@ contract AllowancesTest is Test {
     }
 
     function test_AllowancePaysOnceAboveTheDailyLimit() public {
-        uint256 activeFrom = block.timestamp + 24 hours;
+        uint256 activeFrom = vm.getBlockTimestamp() + 24 hours;
         uint256 id = proposeAllowance(warmWallet, address(usdc), 600e6);
         vm.expectEmit(address(vault));
         emit AllowanceCreated(warmWallet, address(usdc), 600e6, activeFrom, activeFrom + 48 hours);
@@ -189,7 +189,7 @@ contract AllowancesTest is Test {
         uint256 id = vault.propose(VerbatimVault.ChangeKind.AllowanceValidity, address(0), address(0), 30 days);
         vm.prank(rulesKey);
         vault.approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vault.switchOn(id);
         assertEq(vault.allowanceValidity(), 30 days);
         vm.warp(activeFrom + 48 hours + 1);
@@ -204,16 +204,16 @@ contract AllowancesTest is Test {
         leaky.finishSetup();
         vm.stopPrank();
         VerbatimVault.Allowance memory planted =
-            VerbatimVault.Allowance(address(usdc), 1000e6, block.timestamp, block.timestamp + 48 hours, false);
+            VerbatimVault.Allowance(address(usdc), 1000e6, vm.getBlockTimestamp(), vm.getBlockTimestamp() + 48 hours, false);
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
         actions[0] =
             VerbatimVault.Action(address(leaky), 0, abi.encodeCall(LeakyVault.giveAllowance, (warmWallet, planted)), 0);
         vm.prank(everydayKey);
         vm.expectRevert("Your account would change");
-        leaky.run(actions, new VerbatimVault.Check[](0), block.timestamp);
+        leaky.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp());
         actions[0] = VerbatimVault.Action(address(leaky), 0, abi.encodeCall(LeakyVault.setValidity, (365 days)), 0);
         vm.prank(everydayKey);
         vm.expectRevert("Your account would change");
-        leaky.run(actions, new VerbatimVault.Check[](0), block.timestamp);
+        leaky.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp());
     }
 }

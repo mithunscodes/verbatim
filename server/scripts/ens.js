@@ -143,7 +143,7 @@ export async function startLocalCopy() {
 }
 
 export function connect(url) {
-  const transport = http(url, { timeout: 120_000 })
+  const transport = http(url)
   const publicClient = createPublicClient({ chain: sepolia, transport })
   const testClient = live ? null : createTestClient({ chain: sepolia, mode: 'anvil', transport })
   const wallet = (account) => createWalletClient({ account, chain: sepolia, transport })
@@ -164,7 +164,7 @@ export function ensTools({ publicClient, testClient, wallet, builder }) {
       const estimate = await publicClient.estimateContractGas({ account, ...request })
       hash = await wallet(account).writeContract({ ...simulated, gas: (estimate * 12n) / 10n })
     }
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 600_000 })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
     if (receipt.status !== 'success') throw new Error(`Transaction failed: ${hash}`)
     console.log(`    ${live ? `${EXPLORER}${hash}` : 'done on the local copy'}, gas ${receipt.gasUsed}`)
     return receipt

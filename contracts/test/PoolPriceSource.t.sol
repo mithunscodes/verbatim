@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {PoolPriceSource} from "../src/PoolPriceSource.sol";
 import {MockPool} from "./MockPool.sol";
 import {TestToken} from "./TestToken.sol";
@@ -162,7 +163,7 @@ contract PoolPriceSourceTest is Test {
         watched[0] = address(token);
         address[] memory trusted = new address[](1);
         trusted[0] = address(router);
-        VerbatimVault vault = new VerbatimVault(everydayKey, rulesKey, watched, trusted);
+        VerbatimVault vault = new VerbatimVault(everydayKey, rulesKey, watched, address(new TestDirectory(trusted)));
         token.mint(address(vault), 1000e6);
         vm.startPrank(rulesKey);
         vault.setDailyLimit(address(token), 1000e6);
@@ -172,11 +173,11 @@ contract PoolPriceSourceTest is Test {
         VerbatimVault.Check[] memory checks = new VerbatimVault.Check[](1);
         checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, address(token), address(0), 46_796_560);
         vm.prank(everydayKey);
-        vault.run(swapActions(token, router, 0.001 ether), checks, block.timestamp);
+        vault.run(swapActions(token, router, 0.001 ether), checks, vm.getBlockTimestamp());
         assertEq(address(vault).balance, 0.001 ether);
         vm.prank(everydayKey);
         vm.expectRevert("Unfair trade");
-        vault.run(swapActions(token, router, 0.0005 ether), checks, block.timestamp);
+        vault.run(swapActions(token, router, 0.0005 ether), checks, vm.getBlockTimestamp());
     }
 
     function swapActions(TestToken token, TestRouter router, uint256 ethOut)
@@ -190,7 +191,7 @@ contract PoolPriceSourceTest is Test {
         actions[1] = VerbatimVault.Action(
             permit2,
             0,
-            abi.encodeCall(IPermit2.approve, (address(token), address(router), uint160(46_796_560), uint48(block.timestamp))),
+            abi.encodeCall(IPermit2.approve, (address(token), address(router), uint160(46_796_560), uint48(vm.getBlockTimestamp()))),
             0
         );
         actions[2] = VerbatimVault.Action(

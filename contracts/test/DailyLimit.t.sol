@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -27,7 +28,7 @@ contract DailyLimitTest is Test {
         vm.etch(PERMIT2, vm.parseJsonBytes(vm.readFile("test/fixtures/permit2-sepolia.json"), ".code"));
         usdc = new TestToken();
         router = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
@@ -42,7 +43,7 @@ contract DailyLimitTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -70,7 +71,7 @@ contract DailyLimitTest is Test {
         actions[1] = VerbatimVault.Action(
             PERMIT2,
             0,
-            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amount), uint48(block.timestamp))),
+            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amount), uint48(vm.getBlockTimestamp()))),
             0
         );
         actions[2] = VerbatimVault.Action(
@@ -80,17 +81,17 @@ contract DailyLimitTest is Test {
 
     function pay(address to, uint256 amount) internal {
         vm.prank(everydayKey);
-        vault.run(only(sendUsdc(to, amount)), atMost(address(usdc), amount), block.timestamp);
+        vault.run(only(sendUsdc(to, amount)), atMost(address(usdc), amount), vm.getBlockTimestamp());
     }
 
     function payEth(address to, uint256 amount) internal {
         vm.prank(everydayKey);
-        vault.run(only(VerbatimVault.Action(to, amount, "", 0)), atMost(ETH, amount), block.timestamp);
+        vault.run(only(VerbatimVault.Action(to, amount, "", 0)), atMost(ETH, amount), vm.getBlockTimestamp());
     }
 
     function swap(uint256 amount) internal {
         vm.prank(everydayKey);
-        vault.run(swapActions(amount), atMost(address(usdc), amount), block.timestamp);
+        vault.run(swapActions(amount), atMost(address(usdc), amount), vm.getBlockTimestamp());
     }
 
     function test_LimitHoldsAcrossSeveralSends() public {
@@ -114,13 +115,13 @@ contract DailyLimitTest is Test {
         actions[1] = sendUsdc(dad, 6e6);
         vm.prank(everydayKey);
         vm.expectRevert("Over the daily limit");
-        vault.run(actions, atMost(address(usdc), 12e6), block.timestamp);
+        vault.run(actions, atMost(address(usdc), 12e6), vm.getBlockTimestamp());
         assertEq(vault.leftToday(address(usdc)), 10e6);
         assertEq(usdc.balanceOf(address(vault)), 100e6);
     }
 
     function test_LimitResetsTheNextDay() public {
-        uint256 firstSend = block.timestamp;
+        uint256 firstSend = vm.getBlockTimestamp();
         pay(mom, 10e6);
         vm.warp(firstSend + 1 days - 1);
         assertEq(vault.leftToday(address(usdc)), 0);
@@ -133,7 +134,7 @@ contract DailyLimitTest is Test {
     }
 
     function test_TheDayStartsAtTheFirstSend() public {
-        uint256 start = block.timestamp;
+        uint256 start = vm.getBlockTimestamp();
         pay(mom, 10e6);
         vm.warp(start + 30 hours);
         pay(mom, 4e6);
@@ -167,7 +168,7 @@ contract DailyLimitTest is Test {
     }
 
     function test_NoLimitSetMeansNothingCanLeave() public {
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.startPrank(rulesKey);
@@ -216,7 +217,7 @@ contract DailyLimitTest is Test {
             VerbatimVault.Action(address(leaky), 0, abi.encodeCall(LeakyVault.setLimit, (1, 1000e6)), 0);
         vm.prank(everydayKey);
         vm.expectRevert("Your account would change");
-        leaky.run(only(sneaky), new VerbatimVault.Check[](0), block.timestamp);
+        leaky.run(only(sneaky), new VerbatimVault.Check[](0), vm.getBlockTimestamp());
         assertEq(leaky.dailyLimit(address(usdc)), 0);
     }
 }

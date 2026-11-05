@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -33,7 +34,7 @@ contract HackedAppTest is Test {
         watched[1] = address(dai);
         address[] memory trusted = new address[](1);
         trusted[0] = address(router);
-        vault = new VerbatimVault(everydayKey, rulesKey, watched, trusted);
+        vault = new VerbatimVault(everydayKey, rulesKey, watched, address(new TestDirectory(trusted)));
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);
@@ -50,8 +51,8 @@ contract HackedAppTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
-        deadline = block.timestamp + 5 minutes;
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+        deadline = vm.getBlockTimestamp() + 5 minutes;
     }
 
     function act(address target, bytes memory data) internal pure returns (VerbatimVault.Action memory) {
@@ -63,7 +64,7 @@ contract HackedAppTest is Test {
     }
 
     function permit2ToRouter(uint160 amount) internal view returns (VerbatimVault.Action memory) {
-        return act(PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), amount, uint48(block.timestamp))));
+        return act(PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), amount, uint48(vm.getBlockTimestamp()))));
     }
 
     function swap(uint160 amountIn) internal view returns (VerbatimVault.Action memory) {

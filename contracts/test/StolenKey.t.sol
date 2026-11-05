@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -28,7 +29,7 @@ contract StolenKeyTest is Test {
         prices = new TestPriceSource();
         prices.setPrice(address(usdc), 1e6, 1e6);
         prices.setPrice(ETH, 1 ether, 50_000e6);
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), ALL_USDC);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
@@ -40,7 +41,7 @@ contract StolenKeyTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 30 days);
+        vm.warp(vm.getBlockTimestamp() + 30 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -65,7 +66,7 @@ contract StolenKeyTest is Test {
 
     function attack(VerbatimVault.Action[] memory actions) internal {
         vm.prank(everydayKey);
-        vault.run(actions, attackersOwnChecks(), block.timestamp);
+        vault.run(actions, attackersOwnChecks(), vm.getBlockTimestamp());
     }
 
     function routerActions(uint256 amount, bytes memory routerCall)
@@ -76,7 +77,7 @@ contract StolenKeyTest is Test {
         actions = new VerbatimVault.Action[](3);
         actions[0] = act(address(usdc), abi.encodeCall(TestToken.approve, (PERMIT2, amount)));
         actions[1] = act(
-            PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amount), uint48(block.timestamp)))
+            PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amount), uint48(vm.getBlockTimestamp())))
         );
         actions[2] = act(address(router), routerCall);
     }
@@ -191,7 +192,7 @@ contract StolenKeyTest is Test {
         vm.expectRevert("Only the rules key can approve");
         vault.approve(id);
         vm.stopPrank();
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(vm.getBlockTimestamp() + 365 days);
         vm.prank(everydayKey);
         vm.expectRevert("No allowance for this contact");
         vault.payWithAllowance(mom, ALL_USDC);
@@ -208,7 +209,7 @@ contract StolenKeyTest is Test {
         vm.expectRevert("Only the rules key can change settings");
         vault.setTradeTolerance(10_000);
         vm.stopPrank();
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(vm.getBlockTimestamp() + 365 days);
         vm.expectRevert("Not approved yet");
         vault.switchOn(raise);
         vm.expectRevert("Not approved yet");
@@ -225,7 +226,7 @@ contract StolenKeyTest is Test {
         payChecks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, address(usdc), address(0), 100e6);
         payChecks[1] = VerbatimVault.Check(VerbatimVault.CheckKind.ExactlyTo, address(usdc), mom, 100e6);
         vm.prank(everydayKey);
-        vault.run(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 100e6)))), payChecks, block.timestamp);
+        vault.run(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 100e6)))), payChecks, vm.getBlockTimestamp());
         VerbatimVault.Check[] memory swapChecks = new VerbatimVault.Check[](2);
         swapChecks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, address(usdc), address(0), 100e6);
         swapChecks[1] = VerbatimVault.Check(VerbatimVault.CheckKind.AtLeastArrives, ETH, address(0), 0.00194 ether);
@@ -233,7 +234,7 @@ contract StolenKeyTest is Test {
         vault.run(
             routerActions(100e6, abi.encodeCall(TestRouter.swap, (address(usdc), uint160(100e6), 0.002 ether))),
             swapChecks,
-            block.timestamp
+            vm.getBlockTimestamp()
         );
         assertEq(usdc.balanceOf(mom), 100e6);
         assertEq(usdc.balanceOf(address(vault)), ALL_USDC - 200e6);

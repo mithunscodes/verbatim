@@ -64,6 +64,7 @@ contract VaultFactoryTest is Test {
         address[] memory guarded = factory.vaultsGuardedBy(alicePhone);
         assertEq(guarded.length, 1);
         assertEq(guarded[0], address(vault));
+        assertEq(factory.vaultCount(), 1);
         assertFalse(vault.setupFinished());
     }
 

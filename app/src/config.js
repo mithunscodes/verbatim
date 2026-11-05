@@ -3,15 +3,29 @@ import { sepolia } from 'viem/chains'
 
 export const chain = sepolia
 
-export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69']
+export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69', '0x7f2bb9a7779B44e5F6926d186CE521981AdbAc20']
 
-export const FACTORY = '0x8eF83334CE142d09e1fF47ee3DB5e434affd88E6'
+export const FACTORY = '0x5BC4F28E35B05e7541FB191D143D9ce1C5163770'
+
+export const PRINTS = '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab'
+
+export const PRINT_PRICE = 100000000000000n
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 
 export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 
 export const ENS_UNIVERSAL_RESOLVER = '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe'
+
+export const ENS_VERIFIABLE_FACTORY = '0xDa70306C98E97eCe36F997a21368e53298572991'
+
+export const ENS_RESOLVER_IMPL = '0x115eb53F0c60696633855F90b138178Fb40b2b2C'
+
+export const ENS_ETH_REGISTRY = '0xD4eBcbBdF463C9c45784603Db0dDD499BC44A8B4'
+
+export const ETH_COIN_TYPE = 60n
+
+export const DEMO_ENS_NAME = 'verbatimalice.eth'
 
 export const DIRECTORY_NAMES = [
   'router.uniswap.verbatimdirectory.eth',
@@ -51,6 +65,8 @@ export const DEMO_POLL_MS = 2_000
 
 export const DEMO_ATTACK_GAS = 3_000_000n
 
+export const DEMO_PRIORITY_FEE = 100_000_000n
+
 export const DEMO_PROPOSED_LIMIT = '1000'
 
 export const EXPLORER = 'https://sepolia.etherscan.io'
@@ -71,7 +87,7 @@ export const SHOWN_DIGITS = 4
 
 export const DEADLINE_SECONDS = 600
 
-export const FORCED_GAS = 1_000_000n
+export const FORCED_GAS = 3_000_000n
 
 export const AUTO_REFRESH_MS = 15_000
 
@@ -131,7 +147,22 @@ export const directoryAbi = parseAbi([
 
 export const resolverAbi = parseAbi([
   'function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)',
+  'function setAddress(bytes name, uint256 coinType, bytes value)',
 ])
+
+export const ensRegistryAbi = parseAbi([
+  'function findOwner(string label) view returns (address)',
+  'function findExpiry(string label) view returns (uint64)',
+  'function getSubregistry(string label) view returns (address)',
+  'function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)',
+  'function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)',
+])
+
+export const ENS_ROLE_REGISTRAR = 1n
+
+export const ENS_CONTACT_NAME_ROLES = (1n << 24n) | (1n << 20n) | (((1n << 24n) | (1n << 20n)) << 128n) | ((1n << 28n) << 128n)
+
+export const verifiableFactoryAbi = parseAbi(['function verifyContract(address proxy) view returns (address implementation)'])
 
 export const permit2Abi = parseAbi([
   'function approve(address token, address spender, uint160 amount, uint48 expiration)',

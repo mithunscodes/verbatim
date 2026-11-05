@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestMultisig} from "./TestMultisig.sol";
 import {LeakyVault} from "./LeakyVault.sol";
@@ -26,7 +27,7 @@ contract SlowLooseningTest is Test {
 
     function setUp() public {
         usdc = new TestToken();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
         usdc.mint(address(vault), 2 * MILLION);
         vm.startPrank(rulesKey);
         vault.saveContact(warmWallet);
@@ -35,7 +36,7 @@ contract SlowLooseningTest is Test {
         vault.setNewContactLimit(address(usdc), 50e6);
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 30 days);
+        vm.warp(vm.getBlockTimestamp() + 30 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -80,7 +81,7 @@ contract SlowLooseningTest is Test {
         VerbatimVault.Check[] memory checks = new VerbatimVault.Check[](1);
         checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, address(usdc), address(0), amount);
         vm.prank(everydayKey);
-        target.run(actions, checks, block.timestamp);
+        target.run(actions, checks, vm.getBlockTimestamp());
     }
 
     function readyAtOf(VerbatimVault target, uint256 id) internal view returns (uint256 readyAt) {
@@ -89,7 +90,7 @@ contract SlowLooseningTest is Test {
 
     function test_MillionAllowance_OneSendBetween24And72HoursAfterApproval() public {
         uint256 id = proposeMillion(warmWallet);
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(id);
         vm.warp(approvedAt + 24 hours);
         pay(warmWallet, MILLION);
@@ -98,7 +99,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_MillionAllowance_StillWorksAt72Hours() public {
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(proposeMillion(warmWallet));
         vm.warp(approvedAt + 72 hours);
         pay(warmWallet, 400_000e6);
@@ -107,7 +108,7 @@ contract SlowLooseningTest is Test {
 
     function test_MillionAllowance_DifferentContactFails() public {
         approve(proposeMillion(warmWallet));
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.expectRevert("No allowance for this contact");
         pay(vendor, MILLION);
         vm.expectRevert("No allowance for this contact");
@@ -116,7 +117,7 @@ contract SlowLooseningTest is Test {
 
     function test_MillionAllowance_SecondUseFails() public {
         approve(proposeMillion(warmWallet));
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         pay(warmWallet, 600_000e6);
         vm.expectRevert("Allowance already used");
         pay(warmWallet, 400_000e6);
@@ -124,7 +125,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_MillionAllowance_ExpiresAfter72Hours() public {
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(proposeMillion(warmWallet));
         vm.warp(approvedAt + 72 hours + 1);
         vm.expectRevert("Allowance expired");
@@ -132,7 +133,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_MillionAllowance_NotActiveBeforeTheWaitEnds() public {
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(proposeMillion(warmWallet));
         vm.expectRevert("Allowance not active yet");
         pay(warmWallet, MILLION);
@@ -149,9 +150,9 @@ contract SlowLooseningTest is Test {
         assertEq(id, 0);
         assertEq(vault.changeCount(), 1);
         vm.expectEmit(address(vault));
-        emit ChangeApproved(id, block.timestamp + 24 hours, block.timestamp + 72 hours);
+        emit ChangeApproved(id, vm.getBlockTimestamp() + 24 hours, vm.getBlockTimestamp() + 72 hours);
         approve(id);
-        assertEq(readyAtOf(vault, id), block.timestamp + 24 hours);
+        assertEq(readyAtOf(vault, id), vm.getBlockTimestamp() + 24 hours);
     }
 
     function test_PhoneCancelsBeforeApproving() public {
@@ -170,9 +171,9 @@ contract SlowLooseningTest is Test {
     function test_PhoneCancelsDuringTheWait() public {
         uint256 id = proposeMillion(warmWallet);
         approve(id);
-        vm.warp(block.timestamp + 12 hours);
+        vm.warp(vm.getBlockTimestamp() + 12 hours);
         cancel(id);
-        vm.warp(block.timestamp + 12 hours);
+        vm.warp(vm.getBlockTimestamp() + 12 hours);
         vm.expectRevert("No allowance for this contact");
         pay(warmWallet, MILLION);
     }
@@ -181,7 +182,7 @@ contract SlowLooseningTest is Test {
         uint256 id = proposeLimit(50_000e6);
         approve(id);
         cancel(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.expectRevert("Change cancelled");
         vault.switchOn(id);
         assertEq(vault.dailyLimit(address(usdc)), 10_000e6);
@@ -200,7 +201,7 @@ contract SlowLooseningTest is Test {
     function test_CantCancelAUsedAllowance() public {
         uint256 id = proposeMillion(warmWallet);
         approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         pay(warmWallet, MILLION);
         vm.prank(rulesKey);
         vm.expectRevert("Allowance already used or replaced");
@@ -210,13 +211,13 @@ contract SlowLooseningTest is Test {
     function test_CancellingAnOldAllowanceLeavesItsReplacementAlone() public {
         uint256 first = proposeMillion(warmWallet);
         approve(first);
-        vm.warp(block.timestamp + 1 hours);
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
         uint256 second = propose(VerbatimVault.ChangeKind.Allowance, warmWallet, address(usdc), 300_000e6);
         approve(second);
         vm.prank(rulesKey);
         vm.expectRevert("Allowance already used or replaced");
         vault.cancel(first);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.expectRevert("More than the allowance");
         pay(warmWallet, MILLION);
         pay(warmWallet, 300_000e6);
@@ -225,7 +226,7 @@ contract SlowLooseningTest is Test {
 
     function test_LimitRaiseWaits24HoursThenAnyoneCanSwitchItOn() public {
         uint256 id = proposeLimit(50_000e6);
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(id);
         vm.expectRevert("Still waiting");
         vault.switchOn(id);
@@ -248,7 +249,7 @@ contract SlowLooseningTest is Test {
 
     function test_AnApprovedChangeMustBeSwitchedOnWithin48Hours() public {
         uint256 id = proposeLimit(50_000e6);
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(id);
         vm.warp(approvedAt + 24 hours + 48 hours + 1);
         vm.expectRevert("Change expired");
@@ -258,7 +259,7 @@ contract SlowLooseningTest is Test {
 
     function test_AnApprovedChangeWorksUntilItExpires() public {
         uint256 id = proposeLimit(50_000e6);
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(id);
         vm.warp(approvedAt + 72 hours);
         vault.switchOn(id);
@@ -268,7 +269,7 @@ contract SlowLooseningTest is Test {
     function test_AForgottenApprovalCantBeUsedMonthsLater() public {
         uint256 id = proposeLimit(2 * MILLION);
         approve(id);
-        vm.warp(block.timestamp + 180 days);
+        vm.warp(vm.getBlockTimestamp() + 180 days);
         vm.prank(everydayKey);
         vm.expectRevert("Change expired");
         vault.switchOn(id);
@@ -277,7 +278,7 @@ contract SlowLooseningTest is Test {
 
     function test_ChangingTheSettingDoesntMoveAPendingDeadline() public {
         uint256 id = proposeLimit(50_000e6);
-        uint256 approvedAt = block.timestamp;
+        uint256 approvedAt = vm.getBlockTimestamp();
         approve(id);
         vm.prank(rulesKey);
         vault.setAllowanceValidity(1 hours);
@@ -309,7 +310,7 @@ contract SlowLooseningTest is Test {
         vm.expectRevert("Only the rules key can approve");
         vault.approve(allowance);
         vm.stopPrank();
-        vm.warp(block.timestamp + 365 days);
+        vm.warp(vm.getBlockTimestamp() + 365 days);
         vm.expectRevert("Not approved yet");
         vault.switchOn(raise);
         vm.expectRevert("No allowance for this contact");
@@ -358,10 +359,10 @@ contract SlowLooseningTest is Test {
     function test_EmergencyTighteningBeatsAnOldApproval() public {
         uint256 id = proposeLimit(50_000e6);
         approve(id);
-        vm.warp(block.timestamp + 12 hours);
+        vm.warp(vm.getBlockTimestamp() + 12 hours);
         vm.prank(rulesKey);
         vault.setDailyLimit(address(usdc), 0);
-        vm.warp(block.timestamp + 12 hours);
+        vm.warp(vm.getBlockTimestamp() + 12 hours);
         vm.expectRevert("This rule changed during the wait");
         vault.switchOn(id);
         assertEq(vault.dailyLimit(address(usdc)), 0);
@@ -372,7 +373,7 @@ contract SlowLooseningTest is Test {
         uint256 second = proposeLimit(30_000e6);
         approve(first);
         approve(second);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vault.switchOn(first);
         vm.expectRevert("This rule changed during the wait");
         vault.switchOn(second);
@@ -390,7 +391,7 @@ contract SlowLooseningTest is Test {
         for (uint256 i = 0; i < ids.length; i++) {
             approve(ids[i]);
         }
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         for (uint256 i = 0; i < ids.length; i++) {
             vault.switchOn(ids[i]);
         }
@@ -401,7 +402,7 @@ contract SlowLooseningTest is Test {
         assertEq(vault.looseningWait(), 1 hours);
         uint256 next = proposeLimit(20_000e6);
         approve(next);
-        vm.warp(block.timestamp + 1 hours);
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
         vault.switchOn(next);
         assertEq(vault.dailyLimit(address(usdc)), 20_000e6);
     }
@@ -426,7 +427,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_NothingMovesBeforeSetupIsFinished() public {
-        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
+        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
         usdc.mint(address(fresh), 100e6);
         vm.startPrank(rulesKey);
         fresh.setNewContactPeriod(0);
@@ -462,7 +463,7 @@ contract SlowLooseningTest is Test {
         address firstManager = makeAddr("firstManager");
         address secondManager = makeAddr("secondManager");
         TestMultisig managers = new TestMultisig(firstManager, secondManager);
-        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), new address[](0));
+        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), address(new TestDirectory(new address[](0))));
         bytes memory finish = abi.encodeCall(VerbatimVault.finishSetup, ());
         vm.prank(firstManager);
         managers.submit(address(team), finish);
@@ -481,7 +482,7 @@ contract SlowLooseningTest is Test {
         managers.submit(address(team), approval);
         vm.prank(secondManager);
         managers.submit(address(team), approval);
-        assertEq(readyAtOf(team, id), block.timestamp + 24 hours);
+        assertEq(readyAtOf(team, id), vm.getBlockTimestamp() + 24 hours);
     }
 
     function test_WaitAndSetupCantChangeDuringARun() public {
@@ -495,7 +496,7 @@ contract SlowLooseningTest is Test {
             actions[0] = VerbatimVault.Action(address(leaky), 0, sneaky[i], 0);
             vm.prank(everydayKey);
             vm.expectRevert("Your account would change");
-            leaky.run(actions, new VerbatimVault.Check[](0), block.timestamp);
+            leaky.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp());
         }
     }
 }

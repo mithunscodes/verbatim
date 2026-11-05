@@ -141,7 +141,7 @@ async function deployVault(clients, everydayKey, rulesKey) {
   const deploy = async (label, { abi, bytecode }, args) => {
     console.log(`  ${label}`)
     const hash = await wallet(builder).deployContract({ abi, bytecode, args })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 600_000 })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash })
     console.log(`    done on the local copy, gas ${receipt.gasUsed}`)
     return receipt.contractAddress
   }
@@ -155,7 +155,7 @@ async function rehearse() {
   try {
     const clients = connect(copy.url)
     const { publicClient, testClient } = clients
-    const { send, refusal, readText } = ensTools(clients)
+    const { send, refusal } = ensTools(clients)
     const { abi } = vaultArtifact()
     await testClient.setBalance({ address: clients.builder.address, value: parseEther('10') })
     await setupDirectory(clients)
@@ -177,7 +177,6 @@ async function rehearse() {
 
     console.log('\nYour phone sets up the vault')
     const target = { address: vault, abi }
-    await send(`Give the vault its name, ${label}.eth (it writes your rules there from now on)`, phone, { ...target, functionName: 'setEnsName', args: [`${label}.eth`] })
     await send(`Save ${raviName} as a contact (its address is pinned)`, phone, { ...target, functionName: 'saveContactName', args: [raviName] })
     await send('Daily limit: 1 ETH', phone, { ...target, functionName: 'setDailyLimit', args: [zeroAddress, parseEther('1')] })
     await send('New-contact limit: 0.02 ETH', phone, { ...target, functionName: 'setNewContactLimit', args: [zeroAddress, parseEther('0.02')] })
@@ -206,28 +205,6 @@ async function rehearse() {
     report(moved === "This contact's address changed", `After ${raviName} is pointed elsewhere, payments to it are refused (${moved ?? 'it was allowed'})`)
     const toThief = await refusal(everyday, payment(thief, parseEther('0.01')))
     report(toThief === 'Not a saved contact', `…and so are payments to its new address, until re-approved (${toThief ?? 'it was allowed'})`)
-
-    const name = `${label}.eth`
-    const rule = (key) => readText(name, `verbatim.${key}`)
-    report((await rule('dailyLimit.ETH')) === '1 ETH' && (await rule('newContactLimit.ETH')) === '0.02 ETH', `Your rules are in ENS: daily limit "${await rule('dailyLimit.ETH')}", new-contact limit "${await rule('newContactLimit.ETH')}", wait "${await rule('looseningWait')}"`)
-    report((await rule(`contact.${raviName}`)) === ravi.toLowerCase(), `Ravi's pinned address is in ENS: ${await rule(`contact.${raviName}`)}`)
-    const editRule = { address: resolver, abi: resolverAbi, functionName: 'setText', args: [dns(name), 'verbatim.dailyLimit.ETH', '1000 ETH'] }
-    const everydayEdit = await refusal(everyday, editRule)
-    report(everydayEdit !== null, `The everyday key can't edit your rules in ENS (${everydayEdit ?? 'it was allowed'})`)
-    const phoneEdit = await refusal(phone, editRule)
-    report(phoneEdit !== null, `Even your phone can't edit them directly: only the vault can (${phoneEdit ?? 'it was allowed'})`)
-
-    console.log('\nA rule change, from proposal to switched on')
-    await send('The everyday key proposes a daily limit of 2 ETH', everyday, { ...target, functionName: 'propose', args: [0, zeroAddress, zeroAddress, parseEther('2')] })
-    report((await rule('change.0')).includes('"status":"proposed"'), `ENS shows it as proposed: ${await rule('change.0')}`)
-    await send('Your phone approves it', phone, { ...target, functionName: 'approve', args: [0n] })
-    report((await rule('dailyLimit.ETH')) === '1 ETH' && (await rule('change.0')).includes('"status":"approved"'), `During the wait, ENS shows it approved, and the limit is still ${await rule('dailyLimit.ETH')}`)
-    const early = await refusal(everyday, { ...target, functionName: 'switchOn', args: [0n] })
-    report(early === 'Still waiting', `It can't switch on before the wait ends (${early ?? 'it was allowed'})`)
-    await testClient.increaseTime({ seconds: 86_401 })
-    await testClient.mine({ blocks: 1 })
-    await send('After the wait, it switches on', everyday, { ...target, functionName: 'switchOn', args: [0n] })
-    report((await rule('dailyLimit.ETH')) === '2 ETH' && (await rule('change.0')).includes('"status":"switched on"'), `After the wait, ENS shows the new limit: ${await rule('dailyLimit.ETH')}`)
     finish()
     if (process.argv.includes('--keep')) {
       console.log(`\nThe local copy is still running at ${copy.url}, with this vault: ${vault}`)
@@ -256,7 +233,6 @@ async function main() {
   if (command === 'setup') {
     const { name } = await setupName(clients, { label, vault: getAddress(vault), contacts })
     console.log(`\nDone. Now, with your phone (the Rules key), in the app or on Etherscan:`)
-    console.log(`- setEnsName("${name}"), before finishing setup, so the vault writes your rules into ENS`)
     for (const contact of contacts) console.log(`- saveContactName("${contact.label}.${name}")`)
     return
   }

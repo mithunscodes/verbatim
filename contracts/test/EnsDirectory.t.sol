@@ -53,13 +53,13 @@ contract EnsDirectoryTest is DirectoryFork {
         fresh.setDailyLimit(address(0), 1 ether);
         fresh.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
     }
 
     function routerCall() internal view returns (VerbatimVault.Action[] memory actions) {
         actions = new VerbatimVault.Action[](1);
         actions[0] = VerbatimVault.Action(
-            UNIVERSAL_ROUTER, 0, abi.encodeCall(IUniversalRouter.execute, ("", new bytes[](0), block.timestamp)), 0
+            UNIVERSAL_ROUTER, 0, abi.encodeCall(IUniversalRouter.execute, ("", new bytes[](0), vm.getBlockTimestamp())), 0
         );
     }
 
@@ -85,7 +85,7 @@ contract EnsDirectoryTest is DirectoryFork {
 
     function run(VerbatimVault target, VerbatimVault.Action[] memory actions) internal {
         vm.prank(everydayKey);
-        target.run(actions, new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        target.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_DirectoryReadsTheTrustedNames() public view {
@@ -129,13 +129,13 @@ contract EnsDirectoryTest is DirectoryFork {
     function test_RevertWhen_UnknownContract() public {
         vm.prank(everydayKey);
         vm.expectRevert("Not a trusted contract");
-        vault.run(call(WETH, abi.encodeCall(IWeth.deposit, ())), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(call(WETH, abi.encodeCall(IWeth.deposit, ())), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_RevertWhen_PermissionForUnknownContract() public {
         vm.prank(everydayKey);
         vm.expectRevert("Permission for an untrusted contract");
-        vault.run(permissionFor(WETH), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(permissionFor(WETH), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_RevertWhen_ListedContractSavedAsContact() public {
@@ -151,7 +151,7 @@ contract EnsDirectoryTest is DirectoryFork {
         );
         vm.prank(everydayKey);
         vm.expectRevert("Not a trusted contract");
-        vault.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
         run(vault, call(WETH, abi.encodeCall(IWeth.deposit, ())));
     }
 
@@ -162,7 +162,7 @@ contract EnsDirectoryTest is DirectoryFork {
         assertEq(directory.addressOf(nameOf("router", "uniswap")), address(0));
         vm.prank(everydayKey);
         vm.expectRevert("Not a trusted contract");
-        vault.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_RevertWhen_ResolverRunsOtherCode() public {
@@ -177,7 +177,7 @@ contract EnsDirectoryTest is DirectoryFork {
         assertEq(directory.addressOf(nameOf("router", "uniswap")), address(0));
         vm.prank(everydayKey);
         vm.expectRevert("Not a trusted contract");
-        vault.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_ExpiredDirectoryClosesTheDoor() public {
@@ -185,13 +185,13 @@ contract EnsDirectoryTest is DirectoryFork {
         assertEq(directory.addressOf(nameOf("router", "uniswap")), address(0));
         vm.prank(everydayKey);
         vm.expectRevert("Not a trusted contract");
-        vault.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_PlainPaymentDoesNotReadTheDirectory() public {
         vm.prank(everydayKey);
         vm.expectCall(address(directory), abi.encodeCall(EnsDirectory.listed, ()), 0);
-        vault.run(payMom(0.1 ether), ethLimit(0.1 ether), block.timestamp + 1 hours);
+        vault.run(payMom(0.1 ether), ethLimit(0.1 ether), vm.getBlockTimestamp() + 1 hours);
         assertEq(mom.balance, 0.1 ether);
     }
 
@@ -212,15 +212,15 @@ contract EnsDirectoryTest is DirectoryFork {
         uint256 readGas = vm.lastFrameGas().gasTotalUsed;
 
         vm.prank(everydayKey);
-        vault.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
         uint256 ensRunGas = vm.lastFrameGas().gasTotalUsed;
 
         vm.prank(everydayKey);
-        plain.run(routerCall(), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        plain.run(routerCall(), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
         uint256 plainRunGas = vm.lastFrameGas().gasTotalUsed;
 
         vm.prank(everydayKey);
-        vault.run(payMom(0.1 ether), ethLimit(0.1 ether), block.timestamp + 1 hours);
+        vault.run(payMom(0.1 ether), ethLimit(0.1 ether), vm.getBlockTimestamp() + 1 hours);
         uint256 paymentGas = vm.lastFrameGas().gasTotalUsed;
 
         console.log("Read the directory (1 name):", readGas);

@@ -56,10 +56,6 @@ interface IRegistry {
     function getResolver(string calldata label) external view returns (address);
 }
 
-interface ITextProfile {
-    function text(bytes32 node, string calldata key) external view returns (string memory);
-}
-
 interface IProxyFactory {
     function deployProxy(address implementation, uint256 salt, bytes calldata data) external returns (address);
 }
@@ -268,14 +264,6 @@ abstract contract DirectoryFork is Test {
             (bytes)
         );
         if (value.length == 20) record = address(bytes20(value));
-    }
-
-    function readText(string memory name, string memory key) internal view returns (string memory) {
-        bytes memory encoded = dns(name);
-        (address resolver, bytes32 node,) = IUniversalResolver(EnsSettings.UNIVERSAL_RESOLVER).findResolver(encoded);
-        return abi.decode(
-            IExtendedResolver(resolver).resolve(encoded, abi.encodeCall(ITextProfile.text, (node, key))), (string)
-        );
     }
 
     function nameOf(string memory contractLabel, string memory organizationLabel) internal pure returns (string memory) {

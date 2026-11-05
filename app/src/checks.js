@@ -36,7 +36,7 @@ export function holdingOf(vault, token) {
 
 export function nameOf(vault, address) {
   const contact = vault.contacts.find((c) => c.address === address)
-  return vault.names?.[address] ?? contact?.nickname ?? shortAddress(address)
+  return contact?.nickname ?? shortAddress(address)
 }
 
 function show(vault, token, amount) {
@@ -81,7 +81,6 @@ export function describeCheck(vault, check) {
 }
 
 function labelOf(vault, address) {
-  if (vault.names?.[address]) return vault.names[address]
   if (address === PERMIT2) return 'Permit2'
   if (address === UNIVERSAL_ROUTER) return 'Universal Router'
   return holdingOf(vault, address)?.symbol ?? nameOf(vault, address)
@@ -160,7 +159,7 @@ export function classifyFailure(vault, request, failure) {
 }
 
 function describeUnsaved(vault, payments) {
-  const sends = payments.map((p) => `${show(vault, p.token, p.amount)} to ${nameOf(vault, p.to)}`).join(' and ')
+  const sends = payments.map((p) => `${show(vault, p.token, p.amount)} to ${shortAddress(p.to)}`).join(' and ')
   const first = payments[0]
   const what = !first
     ? "money to an address you haven't saved"

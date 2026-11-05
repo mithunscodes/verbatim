@@ -21,12 +21,6 @@ interface IEnsDirectory {
     function listed() external view returns (address[] memory);
     function isListed(address account) external view returns (bool);
     function addressOf(string calldata name) external view returns (address);
-    function resolverOf(string calldata name) external view returns (address);
-    function records(address vault, uint256 kind, uint256 detail) external view returns (bytes[] memory);
-}
-
-interface IMulticallResolver {
-    function multicall(bytes[] calldata calls) external returns (bytes[] memory);
 }
 
 contract VerbatimVault {
@@ -95,8 +89,6 @@ contract VerbatimVault {
     }
 
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
-    uint256 private constant ENS_GAS = 3_000_000;
-    uint256 private constant MAX_WAITING = 5;
 
     address public everydayKey;
     address public rulesKey;
@@ -113,8 +105,6 @@ contract VerbatimVault {
     uint256 public looseningWait = 24 hours;
     uint256 public tradeTolerance = 300;
     address public priceSource;
-    string public ensName;
-    address public ensResolver;
     bool public setupFinished;
     mapping(address => Allowance) public allowances;
     mapping(address => uint256) public savedAt;
@@ -122,7 +112,6 @@ contract VerbatimVault {
     mapping(bytes32 => address) public pinnedAddress;
     mapping(address => mapping(uint256 => uint256)) receivedWhileNew;
     Change[] public changes;
-    uint256 waitingChanges;
     bool transient running;
 
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
@@ -182,7 +171,6 @@ contract VerbatimVault {
 
     function recordContact(address contact) private {
         require(contact != address(0), "A contact can't be empty");
-        require(contact != address(this), "Your account can't be its own contact");
         require(!contains(contacts, contact), "Already a saved contact");
         require(
             contact != PERMIT2 && !IEnsDirectory(directory).isListed(contact) && !contains(watchedTokens, contact),
@@ -197,15 +185,6 @@ contract VerbatimVault {
         nameOf[contact] = name;
         pinnedAddress[keccak256(bytes(name))] = contact;
         emit ContactNamed(contact, name);
-        publish(2, uint256(uint160(contact)));
-    }
-
-    function publish(uint256 kind, uint256 detail) private {
-        if (ensResolver == address(0)) return;
-        require(gasleft() > ENS_GAS, "Not enough gas to update ENS");
-        try IEnsDirectory(directory).records(address(this), kind, detail) returns (bytes[] memory calls) {
-            try IMulticallResolver(ensResolver).multicall(calls) {} catch {}
-        } catch {}
     }
 
     function requireSameAddress(address contact) private view {
@@ -254,16 +233,6 @@ contract VerbatimVault {
         changeRule(ChangeKind.PriceSource, address(0), uint256(uint160(source)));
     }
 
-    function setEnsName(string calldata name) external {
-        require(msg.sender == rulesKey, "Only the rules key can change settings");
-        require(!setupFinished, "Setup already finished");
-        address resolver = IEnsDirectory(directory).resolverOf(name);
-        require(resolver != address(0), "This name has no genuine ENS resolver");
-        ensName = name;
-        ensResolver = resolver;
-        publish(0, 0);
-    }
-
     function finishSetup() external {
         require(msg.sender == rulesKey, "Only the rules key can finish setup");
         require(!setupFinished, "Setup already finished");
@@ -287,12 +256,9 @@ contract VerbatimVault {
             require(IEnsDirectory(directory).addressOf(name) == address(uint160(value)), "The name doesn't point there");
             require(!contains(contacts, address(uint160(value))), "Already a saved contact");
         }
-        require(waitingChanges < MAX_WAITING, "Too many changes waiting for your phone");
-        waitingChanges++;
         id = changes.length;
         changes.push(Change(kind, contact, token, value, 0, 0, 0, false, false));
         emit ChangeProposed(id, kind, contact, token, value);
-        publish(1, id);
     }
 
     function approve(uint256 id) external {
@@ -300,7 +266,6 @@ contract VerbatimVault {
         Change storage change = changeAt(id);
         require(!change.cancelled, "Change cancelled");
         require(change.readyAt == 0, "Already approved");
-        waitingChanges--;
         uint256 readyAt = block.timestamp + looseningWait;
         uint256 expiresAt = readyAt + allowanceValidity;
         change.readyAt = readyAt;
@@ -313,7 +278,6 @@ contract VerbatimVault {
             change.valueBefore = currentValue(change.kind, change.token);
         }
         emit ChangeApproved(id, readyAt, expiresAt);
-        publish(1, id);
     }
 
     function cancel(uint256 id) external {
@@ -322,14 +286,12 @@ contract VerbatimVault {
         require(!change.cancelled, "Change cancelled");
         require(!change.done, "Already switched on");
         change.cancelled = true;
-        if (change.readyAt == 0) waitingChanges--;
         if (change.kind == ChangeKind.Allowance && change.readyAt != 0) {
             Allowance storage allowance = allowances[change.contact];
             require(allowance.activeFrom == change.readyAt && !allowance.used, "Allowance already used or replaced");
             delete allowances[change.contact];
         }
         emit ChangeCancelled(id);
-        publish(1, id);
     }
 
     function switchOn(uint256 id) external {
@@ -348,7 +310,6 @@ contract VerbatimVault {
             writeValue(change.kind, change.token, change.value);
         }
         emit ChangeSwitchedOn(id);
-        publish(1, id);
     }
 
     function payWithAllowance(address contact, uint256 amount) external {
@@ -404,31 +365,34 @@ contract VerbatimVault {
         require(!running, "Already running");
         running = true;
         bytes32 accountBefore = fingerprint();
-        Permission[] memory permissions = inspect(actions);
+        (Permission[] memory permissions, uint256[] memory paid) = inspect(actions);
         uint256[] memory balancesBefore = measure(checks);
         uint256[] memory holdingsBefore = holdingsOf(address(this));
-        (uint256[] memory tradedOut, uint256[] memory tradedIn) = execute(actions);
+        address[] memory fresh = newContacts();
+        uint256[][] memory freshBefore = measureAccounts(fresh);
+        execute(actions);
         verify(checks, balancesBefore);
         requireNoPermissionLeft(permissions);
         uint256[] memory holdingsAfter = holdingsOf(address(this));
         requireNothingElseLeft(checks, holdingsBefore, holdingsAfter);
         countTowardDailyLimits(holdingsBefore, holdingsAfter);
-        countTowardNewContactLimits(actions);
-        requireFairTrade(tradedOut, tradedIn);
+        countTowardNewContactLimits(fresh, freshBefore);
+        requireFairTrade(holdingsBefore, holdingsAfter, paid);
         require(fingerprint() == accountBefore, "Your account would change");
         running = false;
         emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(checks)), actions.length, deadline);
     }
 
-    function inspect(Action[] calldata actions) private view returns (Permission[] memory permissions) {
+    function inspect(Action[] calldata actions) private view returns (Permission[] memory permissions, uint256[] memory paid) {
         permissions = new Permission[](actions.length);
+        paid = new uint256[](watchedTokens.length + 1);
         KnownContracts memory known;
         for (uint256 i = 0; i < actions.length; i++) {
-            permissions[i] = inspectOne(actions[i], known);
+            permissions[i] = inspectOne(actions[i], paid, known);
         }
     }
 
-    function inspectOne(Action calldata action, KnownContracts memory known)
+    function inspectOne(Action calldata action, uint256[] memory paid, KnownContracts memory known)
         private
         view
         returns (Permission memory none)
@@ -437,15 +401,17 @@ contract VerbatimVault {
         if (action.data.length == 0) {
             require(contains(contacts, action.target), "Not a saved contact");
             requireSameAddress(action.target);
+            paid[0] += action.value;
             return none;
         }
         if (contains(watchedTokens, action.target)) {
             require(action.data.length >= 4, "This kind of action isn't allowed");
             bytes4 selector = bytes4(action.data[:4]);
             if (selector == IERC20.transfer.selector) {
-                (address to,) = abi.decode(action.data[4:], (address, uint256));
+                (address to, uint256 amount) = abi.decode(action.data[4:], (address, uint256));
                 require(contains(contacts, to), "Not a saved contact");
                 requireSameAddress(to);
+                paid[indexOf(action.target)] += amount;
                 return none;
             }
             require(selector == IERC20.approve.selector, "This kind of action isn't allowed");
@@ -473,39 +439,10 @@ contract VerbatimVault {
         return false;
     }
 
-    function execute(Action[] calldata actions) private returns (uint256[] memory tradedOut, uint256[] memory tradedIn) {
-        tradedOut = new uint256[](watchedTokens.length + 1);
-        tradedIn = new uint256[](watchedTokens.length + 1);
+    function execute(Action[] calldata actions) private {
         for (uint256 i = 0; i < actions.length; i++) {
-            bool trade = !isPayment(actions[i]);
-            uint256[] memory before;
-            if (trade) before = holdingsOf(address(this));
             (bool ok,) = actions[i].target.call{value: actions[i].value}(actions[i].data);
             require(ok, "An action failed");
-            if (trade) countTrade(before, holdingsOf(address(this)), tradedOut, tradedIn);
-        }
-    }
-
-    function isPayment(Action calldata action) private view returns (bool) {
-        if (action.data.length == 0) return true;
-        return contains(watchedTokens, action.target) && bytes4(action.data[:4]) == IERC20.transfer.selector;
-    }
-
-    function paymentOf(Action calldata action) private view returns (address to, uint256 tokenIndex, uint256 amount) {
-        if (action.data.length == 0) return (action.target, 0, action.value);
-        (to, amount) = abi.decode(action.data[4:], (address, uint256));
-        tokenIndex = indexOf(action.target);
-    }
-
-    function countTrade(
-        uint256[] memory before,
-        uint256[] memory afterwards,
-        uint256[] memory tradedOut,
-        uint256[] memory tradedIn
-    ) private pure {
-        for (uint256 j = 0; j < afterwards.length; j++) {
-            if (afterwards[j] < before[j]) tradedOut[j] += before[j] - afterwards[j];
-            else tradedIn[j] += afterwards[j] - before[j];
         }
     }
 
@@ -560,13 +497,33 @@ contract VerbatimVault {
         }
     }
 
-    function countTowardNewContactLimits(Action[] calldata actions) private {
-        for (uint256 i = 0; i < actions.length; i++) {
-            if (!isPayment(actions[i])) continue;
-            (address to, uint256 j, uint256 amount) = paymentOf(actions[i]);
-            if (!isNew(to)) continue;
-            receivedWhileNew[to][j] += amount;
-            require(receivedWhileNew[to][j] <= newContactLimits[j], "Over the new-contact limit");
+    function newContacts() private view returns (address[] memory fresh) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < contacts.length; i++) {
+            if (isNew(contacts[i])) count++;
+        }
+        fresh = new address[](count);
+        uint256 next = 0;
+        for (uint256 i = 0; i < contacts.length; i++) {
+            if (isNew(contacts[i])) fresh[next++] = contacts[i];
+        }
+    }
+
+    function measureAccounts(address[] memory accounts) private view returns (uint256[][] memory amounts) {
+        amounts = new uint256[][](accounts.length);
+        for (uint256 i = 0; i < accounts.length; i++) {
+            amounts[i] = holdingsOf(accounts[i]);
+        }
+    }
+
+    function countTowardNewContactLimits(address[] memory fresh, uint256[][] memory before) private {
+        for (uint256 i = 0; i < fresh.length; i++) {
+            uint256[] memory afterwards = holdingsOf(fresh[i]);
+            for (uint256 j = 0; j < afterwards.length; j++) {
+                if (afterwards[j] <= before[i][j]) continue;
+                receivedWhileNew[fresh[i]][j] += afterwards[j] - before[i][j];
+                require(receivedWhileNew[fresh[i]][j] <= newContactLimits[j], "Over the new-contact limit");
+            }
         }
     }
 
@@ -601,21 +558,25 @@ contract VerbatimVault {
         }
     }
 
-    function requireFairTrade(uint256[] memory tradedOut, uint256[] memory tradedIn) private view {
+    function requireFairTrade(uint256[] memory holdingsBefore, uint256[] memory holdingsAfter, uint256[] memory paid)
+        private
+        view
+    {
         bool tradedAway = false;
-        for (uint256 i = 0; i < tradedOut.length; i++) {
-            if (tradedOut[i] > tradedIn[i]) tradedAway = true;
+        for (uint256 i = 0; i < holdingsAfter.length; i++) {
+            if (holdingsAfter[i] + paid[i] < holdingsBefore[i]) tradedAway = true;
         }
         if (!tradedAway) return;
         require(priceSource != address(0), "No fair price available");
         uint256 valueOut = 0;
         uint256 valueIn = 0;
-        for (uint256 i = 0; i < tradedOut.length; i++) {
+        for (uint256 i = 0; i < holdingsAfter.length; i++) {
+            uint256 kept = holdingsAfter[i] + paid[i];
             address token = i == 0 ? address(0) : watchedTokens[i - 1];
-            if (tradedOut[i] > tradedIn[i]) {
-                valueOut += IPriceSource(priceSource).valueOf(token, tradedOut[i] - tradedIn[i]);
-            } else if (tradedIn[i] > tradedOut[i]) {
-                valueIn += IPriceSource(priceSource).valueOf(token, tradedIn[i] - tradedOut[i]);
+            if (kept < holdingsBefore[i]) {
+                valueOut += IPriceSource(priceSource).valueOf(token, holdingsBefore[i] - kept);
+            } else if (kept > holdingsBefore[i]) {
+                valueIn += IPriceSource(priceSource).valueOf(token, kept - holdingsBefore[i]);
             }
         }
         require(valueIn * 10_000 >= valueOut * (10_000 - tradeTolerance), "Unfair trade");
@@ -693,7 +654,6 @@ contract VerbatimVault {
         } else {
             revert("Not a rule");
         }
-        publish(0, 0);
     }
 
     function hasLimit(Check[] calldata checks, address token) private pure returns (bool) {

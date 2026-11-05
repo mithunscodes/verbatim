@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -36,11 +37,11 @@ contract FairTradesTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
     }
 
     function newVault() internal returns (VerbatimVault fresh) {
-        fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(fresh), 10_000e6);
         usdc.mint(address(router), 10_000e6);
         vm.deal(address(fresh), 1 ether);
@@ -75,7 +76,7 @@ contract FairTradesTest is Test {
         actions[1] = act(
             PERMIT2,
             0,
-            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amountIn), uint48(block.timestamp)))
+            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amountIn), uint48(vm.getBlockTimestamp())))
         );
         actions[2] =
             act(address(router), 0, abi.encodeCall(TestRouter.swapTo, (address(usdc), uint160(amountIn), ethOut, recipient)));
@@ -100,7 +101,7 @@ contract FairTradesTest is Test {
 
     function run(VerbatimVault target, VerbatimVault.Action[] memory actions, VerbatimVault.Check[] memory checks) internal {
         vm.prank(everydayKey);
-        target.run(actions, checks, block.timestamp);
+        target.run(actions, checks, vm.getBlockTimestamp());
     }
 
     function swap(uint256 amountIn, uint256 ethOut) internal {
@@ -146,7 +147,7 @@ contract FairTradesTest is Test {
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](3);
         actions[0] = act(address(usdc), 0, abi.encodeCall(TestToken.approve, (PERMIT2, 100e6)));
         actions[1] = act(
-            PERMIT2, 0, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(100e6), uint48(block.timestamp)))
+            PERMIT2, 0, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(100e6), uint48(vm.getBlockTimestamp())))
         );
         actions[2] = act(address(router), 0, abi.encodeCall(TestRouter.sendTo, (address(usdc), uint160(100e6), stranger)));
         vm.expectRevert("Unfair trade");
@@ -183,7 +184,7 @@ contract FairTradesTest is Test {
         VerbatimVault fresh = newVault();
         vm.prank(rulesKey);
         fresh.finishSetup();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
         VerbatimVault.Action[] memory actions = swapActions(100e6, fairEth(100e6), address(fresh));
         vm.expectRevert("No fair price available");
         run(fresh, actions, atMost(address(usdc), 100e6));
@@ -212,7 +213,7 @@ contract FairTradesTest is Test {
         uint256 id = vault.propose(VerbatimVault.ChangeKind.TradeTolerance, address(0), address(0), 500);
         vm.prank(rulesKey);
         vault.approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vault.switchOn(id);
         assertEq(vault.tradeTolerance(), 500);
         swap(100e6, fairEth(100e6) * 96 / 100);
@@ -234,7 +235,7 @@ contract FairTradesTest is Test {
         uint256 id = vault.propose(VerbatimVault.ChangeKind.PriceSource, address(0), address(0), uint256(uint160(address(other))));
         vm.prank(rulesKey);
         vault.approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.expectEmit(address(vault));
         emit PriceSourceSet(address(other));
         vault.switchOn(id);
@@ -246,13 +247,13 @@ contract FairTradesTest is Test {
         uint256 id = vault.propose(VerbatimVault.ChangeKind.PriceSource, address(0), address(0), uint256(type(uint160).max) + 1);
         vm.prank(rulesKey);
         vault.approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.expectRevert("Not an address");
         vault.switchOn(id);
     }
 
     function test_TokensAndTrustedContractsCantBeContacts() public {
-        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         vm.startPrank(rulesKey);
         vm.expectRevert("A token or trusted contract can't be a contact");
         fresh.saveContact(address(router));
@@ -276,7 +277,7 @@ contract FairTradesTest is Test {
             actions[0] = act(address(leaky), 0, sneaky[i]);
             vm.prank(everydayKey);
             vm.expectRevert("Your account would change");
-            leaky.run(actions, new VerbatimVault.Check[](0), block.timestamp);
+            leaky.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp());
         }
     }
 

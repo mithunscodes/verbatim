@@ -36,8 +36,8 @@ contract ContactsTest is Test {
         vault.setNewContactLimit(address(usdc), 50e6);
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
-        deadline = block.timestamp + 5 minutes;
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+        deadline = vm.getBlockTimestamp() + 5 minutes;
     }
 
     function list(address item) internal pure returns (address[] memory items) {

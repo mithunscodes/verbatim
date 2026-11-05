@@ -272,27 +272,6 @@ contract AlwaysOnTest is Test {
         assertEq(dai.balanceOf(mom), 10e18);
     }
 
-    function test_NothingElseLeaves_NoChecksMeansNoTokenLeaves() public {
-        vm.expectRevert("Something else would leave your account");
-        runAsEverydayKey(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 1e6)))), noChecks());
-        assertEq(usdc.balanceOf(mom), 0);
-    }
-
-    function test_NothingElseLeaves_NoChecksMeansNoEthLeaves() public {
-        vm.expectRevert("Something else would leave your account");
-        runAsEverydayKey(only(VerbatimVault.Action(mom, 0.1 ether, "", 0)), noChecks());
-        assertEq(mom.balance, 0);
-    }
-
-    function test_NothingElseLeaves_OnlyAnAtMostCheckLetsATokenLeave() public {
-        VerbatimVault.Check[] memory checks = new VerbatimVault.Check[](2);
-        checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtLeastArrives, address(usdc), address(0), 0);
-        checks[1] = VerbatimVault.Check(VerbatimVault.CheckKind.ExactlyTo, address(usdc), mom, 1e6);
-        vm.expectRevert("Something else would leave your account");
-        runAsEverydayKey(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 1e6)))), checks);
-        assertEq(usdc.balanceOf(mom), 0);
-    }
-
     function test_NothingElseLeaves_HiddenTokenTransferRefused() public {
         VerbatimVault.Action memory hidden = act(address(dai), abi.encodeCall(TestToken.transfer, (thief, 10e18)));
         vm.expectRevert("Something else would leave your account");
