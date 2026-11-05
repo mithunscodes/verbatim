@@ -15,6 +15,10 @@ const LIST_PAGE = 10
 
 const ALLOWANCE = 2
 
+const DELEGATION_PREFIX = '0xef0100'
+
+export const SMART_ACCOUNT_MESSAGE = 'MetaMask turned this key into a smart account. Switch it back first, then try again.'
+
 export function getWallet() {
   return typeof window === 'undefined' ? undefined : window.ethereum
 }
@@ -50,6 +54,36 @@ export async function switchToSepolia(wallet) {
       }],
     })
   }
+}
+
+let signing = 0
+
+export async function whileSigning(task) {
+  signing++
+  try {
+    return await task()
+  } finally {
+    signing--
+  }
+}
+
+export function isSigning() {
+  return signing > 0
+}
+
+export function keyTypeFromCode(code) {
+  if (!code || code === '0x') return { smart: false, delegate: null }
+  const delegated = code.toLowerCase().startsWith(DELEGATION_PREFIX) && code.length === 48
+  return { smart: true, delegate: delegated ? getAddress(`0x${code.slice(8)}`) : null }
+}
+
+export async function readKeyType(wallet, account) {
+  const client = createPublicClient({ chain, transport: custom(wallet) })
+  return keyTypeFromCode(await client.getCode({ address: account }))
+}
+
+export async function requireNormalKey(wallet, account) {
+  if ((await readKeyType(wallet, account)).smart) throw new Error(SMART_ACCOUNT_MESSAGE)
 }
 
 function isRevert(error) {

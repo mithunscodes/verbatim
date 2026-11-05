@@ -9,6 +9,7 @@ import {
   zeroAddress,
 } from 'viem'
 import { chain, DEADLINE_SECONDS, FORCED_GAS, VAULT, vaultAbi } from './config.js'
+import { requireNormalKey, whileSigning } from './chain.js'
 
 const EXTRA_ETH = 10n ** 15n
 
@@ -71,10 +72,11 @@ export async function practiceRun(wallet, vault, run) {
 }
 
 export async function signAndSend(wallet, vault, run, forced) {
+  await requireNormalKey(wallet, vault.everydayKey)
   const { reader, signer } = clients(wallet, vault.everydayKey)
   const call = runCall(vault, run)
   const gas = forced ? FORCED_GAS : ((await reader.estimateContractGas(call)) * 12n) / 10n
-  return signer.writeContract({ ...call, gas })
+  return whileSigning(() => signer.writeContract({ ...call, gas }))
 }
 
 export async function waitForResult(wallet, vault, run, hash) {

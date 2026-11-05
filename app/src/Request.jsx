@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
 import { EXPLORER, SWAP_SLIPPAGE_BPS } from './config.js'
 import { getWallet } from './chain.js'
@@ -23,6 +23,10 @@ const HINTS = {
 }
 
 const PRACTICE_DELAY_MS = 400
+
+function keyOf(request) {
+  return JSON.stringify({ checks: request.checks, actions: request.actions }, (k, x) => (typeof x === 'bigint' ? x.toString() : x))
+}
 
 function readAmount(text, decimals) {
   const trimmed = text.trim()
@@ -171,7 +175,7 @@ function Result({ result, vault, onReset }) {
   )
 }
 
-export default function Request({ vault, role, onDone }) {
+export default function Request({ vault, role, blocked, onDone }) {
   const wallet = getWallet()
   const usdc = vault.holdings.find((h) => h.token !== zeroAddress)?.token ?? zeroAddress
   const [form, setForm] = useState({
@@ -185,10 +189,14 @@ export default function Request({ vault, role, onDone }) {
   const [demo, setDemo] = useState({ hacked: false, forced: false })
   const [practice, setPractice] = useState({ status: 'idle' })
   const [result, setResult] = useState({ status: 'idle' })
+  const [practiceRound, setPracticeRound] = useState(0)
 
   const set = (field) => (value) => setForm((f) => ({ ...f, [field]: value }))
   const toggle = (field) => (e) => setDemo((d) => ({ ...d, [field]: e.target.checked }))
   const request = useMemo(() => buildRequest(vault, form, demo.hacked), [vault, form, demo.hacked])
+  const requestKey = useMemo(() => keyOf(request), [request])
+  const latest = useRef({ vault, request })
+  latest.current = { vault, request }
 
   useEffect(() => {
     setResult({ status: 'idle' })
@@ -202,7 +210,8 @@ export default function Request({ vault, role, onDone }) {
     let current = true
     setPractice({ status: 'running' })
     const timer = setTimeout(async () => {
-      const outcome = await practiceRun(wallet, vault, { ...request, deadline: newDeadline() })
+      const now = latest.current
+      const outcome = await practiceRun(wallet, now.vault, { ...now.request, deadline: newDeadline() })
       if (!current) return
       setPractice(outcome.pass ? { status: 'pass' } : { status: 'fail', failure: outcome.failure })
     }, PRACTICE_DELAY_MS)
@@ -210,14 +219,14 @@ export default function Request({ vault, role, onDone }) {
       current = false
       clearTimeout(timer)
     }
-  }, [wallet, vault, request])
+  }, [wallet, requestKey, practiceRound])
 
   const busy = result.status === 'signing' || result.status === 'pending'
   const finished = result.status === 'done'
   const isEveryday = role === 'Everyday key'
   const practiceDone = practice.status === 'pass' || practice.status === 'fail'
   const allowed = practice.status === 'pass' || (practice.status === 'fail' && demo.forced)
-  const canSend = Boolean(request.actions) && isEveryday && allowed && !busy && !finished
+  const canSend = Boolean(request.actions) && isEveryday && allowed && !busy && !finished && !blocked
 
   const send = async () => {
     const run = { ...request, deadline: newDeadline() }
@@ -233,6 +242,7 @@ export default function Request({ vault, role, onDone }) {
           ? 'You cancelled in MetaMask. Nothing was sent.'
           : error?.shortMessage || error?.message || 'Something went wrong.',
       })
+      onDone()
       return
     }
     setResult({ status: 'pending', hash })
@@ -321,7 +331,14 @@ export default function Request({ vault, role, onDone }) {
               {practice.status === 'fail' && demo.forced ? 'Send anyway (demo)' : 'Sign and send'}
             </button>
           )}
-          <Result result={result} vault={vault} onReset={() => setResult({ status: 'idle' })} />
+          <Result
+            result={result}
+            vault={vault}
+            onReset={() => {
+              setResult({ status: 'idle' })
+              setPracticeRound((n) => n + 1)
+            }}
+          />
         </section>
       )}
 

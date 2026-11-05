@@ -6,7 +6,7 @@ import { useVaultTx } from './hooks.js'
 import { ChangeKind } from './rules.js'
 import TxStatus from './TxStatus.jsx'
 
-export default function Propose({ vault, role, account, onDone }) {
+export default function Propose({ vault, role, account, blocked, onDone }) {
   const usdc = vault.holdings.find((h) => h.token !== zeroAddress)?.token ?? zeroAddress
   const [token, setToken] = useState(usdc)
   const [text, setText] = useState('')
@@ -41,7 +41,7 @@ export default function Propose({ vault, role, account, onDone }) {
         <select value={token} onChange={(e) => setToken(e.target.value)}>
           {vault.holdings.map((h) => <option key={h.token} value={h.token}>{h.symbol}</option>)}
         </select>
-        <button onClick={propose} disabled={!isEveryday || busy || !amount || Boolean(error)}>Propose</button>
+        <button onClick={propose} disabled={!isEveryday || busy || blocked || !amount || Boolean(error)}>Propose</button>
       </div>
       {error && <p className="error">{error}</p>}
       {!isEveryday && <p className="muted small">Switch MetaMask to the Everyday key to propose.</p>}

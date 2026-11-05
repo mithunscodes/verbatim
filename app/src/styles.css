@@ -403,3 +403,21 @@ input.address {
   padding: calc(var(--space) / 2) 0;
   border-top: 1px solid var(--border);
 }
+
+.alert {
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
+.alert h2 {
+  color: var(--error);
+}
+
+.alert ol {
+  margin: 0;
+  padding-left: calc(var(--space) * 1.5);
+}
+
+.alert li {
+  margin-bottom: 4px;
+}

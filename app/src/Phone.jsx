@@ -77,9 +77,10 @@ function SaveContact({ vault, isRules, busy, send }) {
   )
 }
 
-export default function Phone({ vault, account, role, onDone }) {
+export default function Phone({ vault, account, role, blocked, onDone }) {
   const now = useNow()
-  const { tx, send, busy } = useVaultTx(account, onDone)
+  const { tx, send, busy: sending } = useVaultTx(account, onDone)
+  const busy = sending || blocked
   const isRules = role === 'Rules key'
   const newestFirst = [...vault.changes].reverse()
   const open = newestFirst.filter((change) => statusOf(change, now).open)

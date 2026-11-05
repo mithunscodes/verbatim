@@ -29,7 +29,7 @@ function Balances({ vault, loading, onRefresh }) {
     <section className="card">
       <div className="card-head">
         <h2>Your vault holds</h2>
-        <button className="secondary" onClick={onRefresh} disabled={loading}>
+        <button className="secondary" onClick={() => onRefresh()} disabled={loading}>
           {loading ? 'Reading…' : 'Refresh'}
         </button>
       </div>
@@ -49,6 +49,23 @@ function Balances({ vault, loading, onRefresh }) {
         Vault <AddressLink address={VAULT} />
         {vault && <> · read at block {vault.blockNumber.toLocaleString('en-US')}</>}
       </p>
+    </section>
+  )
+}
+
+function SmartAccountAlert({ delegate }) {
+  return (
+    <section className="card alert">
+      <h2>MetaMask turned this key into a smart account</h2>
+      <p>Sending is blocked until you switch it back. MetaMask's smart-account route keeps failing on Sepolia, and while a key is a smart account, a tricked signature could make it act.</p>
+      <ol>
+        <li>Open MetaMask and click the account name at the top.</li>
+        <li>Click the three dots next to this account, then <strong>Account details</strong>.</li>
+        <li>Open <strong>Smart account</strong> and switch it off for Sepolia (MetaMask may call this <strong>Switch back</strong>), then confirm.</li>
+        <li>Come back here and click <strong>Refresh</strong>.</li>
+      </ol>
+      <p className="small">Next time, untick "secure" before you confirm in MetaMask.</p>
+      {delegate && <p className="muted small">The key now runs code from <AddressLink address={delegate} />.</p>}
     </section>
   )
 }
@@ -94,19 +111,21 @@ export default function App() {
         </Notice>
       )}
 
+      {v.account && v.onSepolia && v.smart && <SmartAccountAlert delegate={v.delegate} />}
+
       {v.account && v.onSepolia && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
       {ready && page === 'app' && (
         <>
-          <Request vault={v.vault} role={v.role} onDone={v.refresh} />
-          <Propose vault={v.vault} role={v.role} account={v.account} onDone={v.refresh} />
+          <Request vault={v.vault} role={v.role} blocked={v.smart} onDone={v.refresh} />
+          <Propose vault={v.vault} role={v.role} account={v.account} blocked={v.smart} onDone={v.refresh} />
         </>
       )}
 
       {ready && page === 'phone' && (
-        <Phone vault={v.vault} account={v.account} role={v.role} onDone={v.refresh} />
+        <Phone vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
       )}
 
       {v.error && <p className="error">{v.error}</p>}

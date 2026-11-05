@@ -19,6 +19,8 @@ export const DEADLINE_SECONDS = 600
 
 export const FORCED_GAS = 600_000n
 
+export const AUTO_REFRESH_MS = 15_000
+
 export const vaultAbi = parseAbi([
   'function everydayKey() view returns (address)',
   'function rulesKey() view returns (address)',
