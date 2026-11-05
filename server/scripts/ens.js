@@ -71,6 +71,8 @@ export const registrarAbi = parseAbi([
 export const registryAbi = parseAbi([
   'function initialize((address account, uint256 roleBitmap)[] grants)',
   'function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)',
+  'function renew(uint256 anyId, uint64 newExpiry)',
+  'function unregister(uint256 anyId)',
   'function setParent(address parent, string label)',
   'function getParent() view returns (address parent, string label)',
   'function setResolver(uint256 anyId, address resolver)',
@@ -143,7 +145,7 @@ export async function startLocalCopy() {
 }
 
 export function connect(url) {
-  const transport = http(url)
+  const transport = http(url, { timeout: 120_000 })
   const publicClient = createPublicClient({ chain: sepolia, transport })
   const testClient = live ? null : createTestClient({ chain: sepolia, mode: 'anvil', transport })
   const wallet = (account) => createWalletClient({ account, chain: sepolia, transport })
@@ -164,7 +166,7 @@ export function ensTools({ publicClient, testClient, wallet, builder }) {
       const estimate = await publicClient.estimateContractGas({ account, ...request })
       hash = await wallet(account).writeContract({ ...simulated, gas: (estimate * 12n) / 10n })
     }
-    const receipt = await publicClient.waitForTransactionReceipt({ hash })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 600_000 })
     if (receipt.status !== 'success') throw new Error(`Transaction failed: ${hash}`)
     console.log(`    ${live ? `${EXPLORER}${hash}` : 'done on the local copy'}, gas ${receipt.gasUsed}`)
     return receipt

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getAddress } from 'viem'
 import { DEMO_ENS_NAME, EXPLORER, PRICE_SOURCE } from './config.js'
 import { demoClients, demoRpcUrl } from './demo.js'
-import { shortAddress } from './format.js'
+import { formatMoment, shortAddress } from './format.js'
 import { Dots, Words } from './Motion.jsx'
 import { readName } from './names.js'
 import { ruleLabel } from './Phone.jsx'
@@ -62,13 +62,17 @@ function Contacts({ vault }) {
           {named.map((contact) => (
             <li key={contact.address}>
               <span className={contact.moved ? 'tile filled broken' : 'tile filled'}>{contact.name}</span>
-              {contact.moved ? (
+              {contact.ended ? (
+                <span className="error small">Ended at {formatMoment(contact.end.endsAt)}. Payments to it never happen until the phone renews it.</span>
+              ) : contact.moved ? (
                 <span className="error small">
                   Moved: it now points to {contact.now === '0x0000000000000000000000000000000000000000' ? 'nothing' : shortAddress(contact.now)}, not the pinned{' '}
                   {shortAddress(contact.address)}. Payments to it never happen until the phone approves the new address.
                 </span>
               ) : (
-                <span className="small">still points to the pinned <Address address={contact.address} /> ✓</span>
+                <span className="small">
+                  still points to the pinned <Address address={contact.address} /> ✓{contact.end?.temporary && ` · ends ${formatMoment(contact.end.endsAt)}`}
+                </span>
               )}
             </li>
           ))}

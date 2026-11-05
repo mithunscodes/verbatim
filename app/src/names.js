@@ -11,7 +11,7 @@ import {
   vaultAbi,
   verifiableFactoryAbi,
 } from './config.js'
-import { RULE_KEYS } from './chain.js'
+import { nameEnd, RULE_KEYS } from './chain.js'
 
 const MAX_CONTACTS = 20
 const MAX_TOKENS = 10
@@ -45,8 +45,14 @@ async function readVault(reader, address) {
   const symbols = await Promise.all(tokens.map((token) => optional(reader.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }))))
   const contacts = await Promise.all(contactAddresses.map(async (contact) => {
     const name = (await optional(read('nameOf', [contact]))) || null
-    const now = name ? await optional(reader.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [name] })) : contact
-    return { address: contact, name, now: now ?? zeroAddress, moved: Boolean(name) && now !== contact }
+    const [now, end] = name
+      ? await Promise.all([
+        optional(reader.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [name] })),
+        nameEnd(reader, name).catch(() => null),
+      ])
+      : [contact, null]
+    const ended = Boolean(end) && end.endsAt <= BigInt(Math.floor(Date.now() / 1000))
+    return { address: contact, name, now: now ?? zeroAddress, moved: Boolean(name) && now !== contact, end, ended }
   }))
   const official = await Promise.all(DIRECTORY_NAMES.map(async (name) => ({
     name,

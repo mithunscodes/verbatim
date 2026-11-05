@@ -9,7 +9,7 @@ import TxStatus from './TxStatus.jsx'
 
 function MovedContacts({ vault, isEveryday, account, blocked, onDone }) {
   const { tx, send, busy } = useTx(account, onDone)
-  const moved = vault.contacts.filter((c) => c.moved)
+  const moved = vault.contacts.filter((c) => c.moved && !c.ended)
   if (moved.length === 0) return null
   const proposed = (contact) => vault.changes.some((c) =>
     c.kind === ChangeKind.ContactAddress && c.contact === contact.address && c.value === BigInt(contact.currentAddress) && !c.cancelled && !c.done)
@@ -26,7 +26,7 @@ function MovedContacts({ vault, isEveryday, account, blocked, onDone }) {
             <span>{nameOf(vault, contact.address)} now points to {contact.currentAddress === zeroAddress ? 'nothing' : shortAddress(contact.currentAddress)}</span>
             {contact.currentAddress !== zeroAddress && (
               proposed(contact) ? (
-                <span className="muted small">Proposed. Approve it on the phone page.</span>
+                <span className="pill ok">Proposed. Approve it on the phone page.</span>
               ) : (
                 <button
                   onClick={() => send(`Propose the new address for ${nameOf(vault, contact.address)}`, { address: vault.address, abi: vaultAbi }, 'propose', [ChangeKind.ContactAddress, contact.address, zeroAddress, BigInt(contact.currentAddress)])}
@@ -91,7 +91,7 @@ function RaiseLimit({ vault, role, account, blocked, onDone }) {
         </select>
         <button onClick={propose} disabled={!isEveryday || busy || blocked || !amount || Boolean(error)}>Propose</button>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="panel warn small">{error}</p>}
       {!isEveryday && <p className="muted small">Switch MetaMask to the Everyday key to propose.</p>}
       <TxStatus tx={tx} />
       {tx.status === 'done' && (

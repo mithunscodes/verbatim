@@ -9,6 +9,8 @@ export const FACTORY = '0x5BC4F28E35B05e7541FB191D143D9ce1C5163770'
 
 export const PRINTS = '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab'
 
+export const SNAP_ID = 'npm:verbatim-checks-snap'
+
 export const PRINT_PRICE = 100000000000000n
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
@@ -156,9 +158,15 @@ export const ensRegistryAbi = parseAbi([
   'function getSubregistry(string label) view returns (address)',
   'function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)',
   'function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)',
+  'function renew(uint256 anyId, uint64 newExpiry)',
+  'function unregister(uint256 anyId)',
 ])
 
 export const ENS_ROLE_REGISTRAR = 1n
+
+export const ENS_ROLE_UNREGISTER = 1n << 12n
+
+export const ENS_ROLE_RENEW = 1n << 16n
 
 export const ENS_CONTACT_NAME_ROLES = (1n << 24n) | (1n << 20n) | (((1n << 24n) | (1n << 20n)) << 128n) | ((1n << 28n) << 128n)
 

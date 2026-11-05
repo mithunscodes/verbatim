@@ -1019,7 +1019,8 @@ body {
 }
 
 .vb .form-card .tabs,
-.vb .print-tabs {
+.vb .print-tabs,
+.vb .name-length {
   display: inline-flex;
   gap: 4px;
   margin-bottom: 18px;
@@ -2577,7 +2578,26 @@ body {
 }
 
 .vb .name-demo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-left: auto;
+}
+
+.vb .name-length {
+  flex-wrap: wrap;
+  margin: 10px 0 4px;
+}
+
+.vb .name-days {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.vb .name-days input {
+  width: 110px;
 }
 
 .vb .print-checks {
@@ -3138,4 +3158,29 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.vb .hacked-ribbon {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0 0 18px;
+  padding: 12px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--tangerine);
+  box-shadow: 0 4px 0 var(--ink);
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+.vb .snap-step {
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 2px dashed var(--hairline);
+}
+
+.vb .snap-step button {
+  margin-top: 4px;
 }

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
-import { createPublicClient, custom, getAddress, isAddress, zeroAddress } from 'viem'
+import { createPublicClient, custom, getAddress, isAddress, keccak256, stringToBytes, zeroAddress } from 'viem'
 import { dnsName, getWallet, nameResolver, normalName, readEnsRecords, resolveName } from './chain.js'
+import { limits } from './Caught.jsx'
 import { nameOf } from './checks.js'
-import { formatCountdown, formatTime, shortAddress } from './format.js'
+import { formatCountdown, formatDuration, formatMoment, formatTime, shortAddress } from './format.js'
 import {
   chain,
   DEMO_STRANGER,
+  DEMO_TIMINGS,
+  PERMIT2,
+  PRINTS,
   ENS_CONTACT_NAME_ROLES,
   ENS_ETH_REGISTRY,
   ENS_ROLE_REGISTRAR,
@@ -165,11 +169,19 @@ function useNameLookup(directory, name) {
   return lookup.name === name ? lookup : { name, status: 'reading', address: null }
 }
 
+function isTokenOrContract(vault, address) {
+  const known = [PERMIT2, PRINTS, ...(vault.trusted ?? []), ...vault.holdings.map((h) => h.token).filter((token) => token !== zeroAddress)]
+  return known.some((account) => getAddress(account) === getAddress(address))
+}
+
+const NOT_A_PERSON = "That's a token or a trusted contract, not a person, so it can't be a contact"
+
 function contactError(vault, trimmed, asName, name, lookup) {
   if (!trimmed) return null
   if (!asName) {
     if (!isAddress(trimmed, { strict: false })) return "That isn't a valid address or ENS name"
     if (getAddress(trimmed) === getAddress(vault.address)) return "Your account can't be its own contact"
+    if (isTokenOrContract(vault, trimmed)) return NOT_A_PERSON
     return vault.contacts.some((c) => c.address === getAddress(trimmed)) ? 'Already a saved contact' : null
   }
   if (!name) return "That isn't a valid ENS name"
@@ -178,12 +190,43 @@ function contactError(vault, trimmed, asName, name, lookup) {
   if (lookup.status === 'failed') return "Couldn't read this name. Try again."
   if (lookup.status === 'done' && !lookup.address) return 'This name has no address'
   if (lookup.address && getAddress(lookup.address) === getAddress(vault.address)) return "This name points to your own account, which can't be its own contact"
+  if (lookup.address && isTokenOrContract(vault, lookup.address)) return NOT_A_PERSON
   if (lookup.address && vault.contacts.some((c) => c.address === lookup.address)) return 'That address is already a saved contact'
   return null
 }
 
+const DAY = 86_400n
+
+const NAME_LENGTHS = [DAY, 7n * DAY, 30n * DAY]
+
+const DEMO_NAME_LENGTH = 300n
+
+const CUSTOM = 'custom'
+
+const MAX_DAYS = 365n
+
+function usesDemoTimes(vault) {
+  return vault.newContactPeriod === DEMO_TIMINGS.newContactPeriod
+}
+
+function nowSeconds() {
+  return BigInt(Math.floor(Date.now() / 1000))
+}
+
+function capped(end, limit) {
+  return limit !== null && end > limit ? limit : end
+}
+
+function labelId(label) {
+  return BigInt(keccak256(stringToBytes(label)))
+}
+
 function ContactRow({ vault, contact, index, isRules, busy, send }) {
   const newUntil = contact.savedAt + vault.newContactPeriod
+  const { end } = contact
+  const renewFor = usesDemoTimes(vault) ? DEMO_NAME_LENGTH : DAY
+  const renewTo = end ? capped((end.endsAt > nowSeconds() ? end.endsAt : nowSeconds()) + renewFor, end.parentEnd) : 0n
+  const manage = (label, functionName, args) => send(label, { address: end.registry, abi: ensRegistryAbi }, functionName, args)
   const point = async (to, label) => {
     const resolver = await nameResolver(getWallet(), vault.directory, contact.ensName)
     if (resolver) await send(label, { address: resolver, abi: resolverAbi }, 'setAddress', [dnsName(contact.ensName), ETH_COIN_TYPE, to])
@@ -191,7 +234,9 @@ function ContactRow({ vault, contact, index, isRules, busy, send }) {
   return (
     <li title={contact.address} style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}>
       <span className={contact.moved ? 'tile filled broken' : 'tile filled'}>{nameOf(vault, contact.address)}</span>
-      {contact.moved ? (
+      {contact.ended ? (
+        <span className="error small">Its name ended at {formatMoment(end.endsAt)}. Payments to it never happen until it's renewed.</span>
+      ) : contact.moved ? (
         <span className="error small">
           Its name now points to {contact.currentAddress === zeroAddress ? 'nothing' : shortAddress(contact.currentAddress)}.
           Sends are stopped until the new address is approved.
@@ -199,23 +244,42 @@ function ContactRow({ vault, contact, index, isRules, busy, send }) {
       ) : (
         <span className="muted small">
           {vault.timestamp < newUntil ? `New until ${formatTime(newUntil)}` : `Saved at ${formatTime(contact.savedAt)}`}
+          {end?.temporary && ` · Ends ${formatMoment(end.endsAt)}`}
         </span>
       )}
       {isRules && contact.ensName && (
         <span className="name-demo">
-          {contact.moved ? (
+          {contact.ended ? (
+            contact.canManage && renewTo > end.endsAt && (
+              <button className="secondary" disabled={busy} onClick={() => manage(`Renew ${contact.ensName} for ${formatDuration(renewFor)}`, 'renew', [labelId(end.label), renewTo])}>
+                Renew for {formatDuration(renewFor)}
+              </button>
+            )
+          ) : contact.moved ? (
             <button className="secondary" disabled={busy} onClick={() => point(contact.address, `Put ${contact.ensName} back`)}>
               Put it back
             </button>
           ) : (
-            <button
-              className="secondary"
-              disabled={busy}
-              title="Demo: point this name at a stranger's address, as if it had been taken over. Payments to it then never happen."
-              onClick={() => point(DEMO_STRANGER, `Demo: move ${contact.ensName} to a stranger`)}
-            >
-              Demo: move this name
-            </button>
+            <>
+              {end?.temporary && contact.canManage && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  title="Ends this name at once. Payments to it then never happen."
+                  onClick={() => manage(`End ${contact.ensName} now`, 'unregister', [labelId(end.label)])}
+                >
+                  End now
+                </button>
+              )}
+              <button
+                className="secondary"
+                disabled={busy}
+                title="Demo: point this name at a stranger's address, as if it had been taken over. Payments to it then never happen."
+                onClick={() => point(DEMO_STRANGER, `Demo: move ${contact.ensName} to a stranger`)}
+              >
+                Demo: move this name
+              </button>
+            </>
           )}
         </span>
       )}
@@ -275,6 +339,9 @@ function labelError(label, full, takenBy) {
 function SaveContact({ vault, account, isRules, busy, send }) {
   const [text, setText] = useState('')
   const [label, setLabel] = useState('')
+  const [choice, setChoice] = useState(null)
+  const [days, setDays] = useState('')
+  const lengths = usesDemoTimes(vault) ? [null, DEMO_NAME_LENGTH, ...NAME_LENGTHS, CUSTOM] : [null, ...NAME_LENGTHS, CUSTOM]
   const trimmed = text.trim()
   const asName = trimmed.includes('.') && !trimmed.startsWith('0x')
   const name = asName ? normalName(trimmed) : null
@@ -286,32 +353,41 @@ function SaveContact({ vault, account, isRules, busy, send }) {
   const canName = !asName && naming.allowed && isAddress(trimmed, { strict: false }) && !error
   const nameError = canName ? labelError(cleanLabel, full, naming.takenBy) : null
   const nameChecking = canName && Boolean(full) && naming.takenBy === undefined
+  const daysLeft = naming.expiry ? (naming.expiry - nowSeconds()) / DAY : MAX_DAYS
+  const maxDays = daysLeft < MAX_DAYS ? daysLeft : MAX_DAYS
+  const customOk = /^[1-9][0-9]*$/.test(days.trim()) && BigInt(days.trim()) <= maxDays
+  const length = choice === CUSTOM ? (customOk ? BigInt(days.trim()) * DAY : null) : choice
+  const customError = canName && full && choice === CUSTOM && days.trim() && !customOk ? `Choose a whole number of days, from 1 to ${maxDays}` : null
   const canSave = Boolean(trimmed) && !error && (!asName || Boolean(lookup.address)) && !nameError && !nameChecking
+    && !(canName && full && choice === CUSTOM && !customOk)
   const save = async () => {
     const target = { address: vault.address, abi: vaultAbi }
     if (asName) send(`Save ${name}`, target, 'saveContactName', [name])
     else if (canName && full) {
       const address = getAddress(trimmed)
       const subLabel = full.slice(0, -(vault.ensName.length + 1))
-      const created = await send(`Create ${full} (1 of 3)`, { address: naming.registry, abi: ensRegistryAbi }, 'register', [
-        subLabel,
-        account,
-        zeroAddress,
-        naming.resolver,
-        ENS_CONTACT_NAME_ROLES,
-        naming.expiry,
-      ])
-      if (!created) return
-      const pointed = await send(`Point ${full} to ${shortAddress(address)} (2 of 3)`, { address: naming.resolver, abi: resolverAbi }, 'setAddress', [
+      const pointed = await send(`Point ${full} to ${shortAddress(address)} (1 of 3)`, { address: naming.resolver, abi: resolverAbi }, 'setAddress', [
         dnsName(full),
         ETH_COIN_TYPE,
         address,
       ])
       if (!pointed) return
+      const ends = length ? capped(nowSeconds() + length, naming.expiry) : naming.expiry
+      const created = await send(`Create ${full} (2 of 3)`, { address: naming.registry, abi: ensRegistryAbi }, 'register', [
+        subLabel,
+        account,
+        zeroAddress,
+        naming.resolver,
+        ENS_CONTACT_NAME_ROLES,
+        ends,
+      ])
+      if (!created) return
       await send(`Save ${full} (3 of 3)`, target, 'saveContactName', [full])
     } else send(`Save ${shortAddress(getAddress(trimmed))}`, target, 'saveContact', [getAddress(trimmed)])
     setText('')
     setLabel('')
+    setChoice(null)
+    setDays('')
   }
   return (
     <section className="card">
@@ -334,9 +410,29 @@ function SaveContact({ vault, account, isRules, busy, send }) {
             </span>
           </label>
           {full && !nameError && !nameChecking && (
-            <p className="muted small">
-              Creates <strong>{full}</strong>, pointing to this address, then saves it. Three confirmations in MetaMask. Only your phone can change it later.
-            </p>
+            <>
+              <div className="name-length" role="group" aria-label="How long?">
+                {lengths.map((option) => (
+                  <button key={String(option)} className={choice === option ? 'tab active' : 'tab'} onClick={() => setChoice(option)} disabled={busy}>
+                    {option === null ? 'Keep' : option === CUSTOM ? 'Custom' : `${formatDuration(option)}${option === DEMO_NAME_LENGTH ? ' (demo)' : ''}`}
+                  </button>
+                ))}
+              </div>
+              {choice === CUSTOM && (
+                <label className="name-days">
+                  <input type="number" min="1" max={String(maxDays)} step="1" placeholder="90" value={days} onChange={(e) => setDays(e.target.value)} disabled={busy} />
+                  <span className="muted small">days (up to {maxDays.toString()})</span>
+                </label>
+              )}
+              {customError && <p className="panel warn small">{customError}</p>}
+              <p className="muted small">
+                Creates <strong>{full}</strong>, pointing to this address{length ? ` for ${formatDuration(length)}` : ''}, then saves it. Three confirmations in MetaMask. Only your phone can change it later.
+                {length ? ' After that, your vault never pays it unless your phone renews it.' : ''}
+                {length && length <= vault.newContactPeriod ? ` It stays a new contact its whole life: at most ${limits(vault, 'newContactLimit')} can ever go to it.` : ''}
+                {length && length > vault.newContactPeriod ? ` For its first ${formatDuration(vault.newContactPeriod)} it's a new contact: at most ${limits(vault, 'newContactLimit')}.` : ''}
+                {choice === null ? ` Keep lasts until your own name ends, on ${formatMoment(naming.expiry)}.` : ''}
+              </p>
+            </>
           )}
           {nameChecking && <p className="muted small">Checking {full}…</p>}
           {nameError && <p className="panel warn small">{nameError}</p>}

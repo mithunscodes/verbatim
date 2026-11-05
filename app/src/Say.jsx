@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { planFor, understandSentence } from './ai.js'
 import { nameOf } from './checks.js'
+import { formatMoment } from './format.js'
 import { Dots, Words } from './Motion.jsx'
 import Proof from './Proof.jsx'
 import WordTiles from './Tiles.jsx'
@@ -67,10 +68,13 @@ export default function Say({ vault, onUse, busy }) {
     const lower = text.toLowerCase()
     const moved = vault.contacts
       .filter((contact) => contact.moved)
-      .map((contact) => nameOf(vault, contact.address))
-      .find((name) => !name.startsWith('0x') && lower.includes(name.toLowerCase()))
+      .map((contact) => ({ contact, name: nameOf(vault, contact.address) }))
+      .find(({ name }) => !name.startsWith('0x') && lower.includes(name.toLowerCase()))
     if (moved) {
-      setState({ status: 'error', turns: [], error: `⚠ ${moved} now points to a new address, so sends to it are stopped. Approve the new address first, or put the name back.` })
+      const error = moved.contact.ended
+        ? `⚠ ${moved.name} ended at ${formatMoment(moved.contact.end.endsAt)}. Payments to it never happen until your phone renews it.`
+        : `⚠ ${moved.name} now points to a new address, so sends to it are stopped. Approve the new address first, or put the name back.`
+      setState({ status: 'error', turns: [], error })
       return
     }
     ask([])

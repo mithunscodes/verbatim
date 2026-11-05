@@ -55,3 +55,10 @@ export function formatCountdown(seconds) {
 export function formatTime(timestamp) {
   return new Date(Number(timestamp) * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
+
+export function formatMoment(timestamp) {
+  const date = new Date(Number(timestamp) * 1000)
+  if (date.toDateString() === new Date().toDateString()) return formatTime(timestamp)
+  const year = date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+  return `${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year })}, ${formatTime(timestamp)}`
+}
