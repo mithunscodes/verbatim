@@ -1,7 +1,13 @@
+import { lazy, Suspense } from 'react'
 import Attack from './Attack.jsx'
 import { EXPLORER } from './config.js'
+import { CopyButton } from './Copy.jsx'
 import CreateVault from './CreateVault.jsx'
+import Evidence from './Evidence.jsx'
 import { formatAmount, shortAddress } from './format.js'
+import Mint from './Mint.jsx'
+import { Rolling, Words } from './Motion.jsx'
+import Names from './Names.jsx'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
@@ -10,6 +16,9 @@ import Replays from './Replays.jsx'
 import SideBySide from './SideBySide.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
+import { canSignIn } from './credits.js'
+
+const ZeroG = lazy(() => import('./ZeroG.jsx'))
 
 function AddressLink({ address, name }) {
   return (
@@ -24,17 +33,21 @@ function Notice({ title, children, action, onAction }) {
     <section className="card notice">
       <h2>{title}</h2>
       <p>{children}</p>
-      {action && <button onClick={onAction}>{action}</button>}
+      {action && (
+        <div className="actions">
+          <button className="big" onClick={onAction}>{action}</button>
+        </div>
+      )}
     </section>
   )
 }
 
 function Balances({ vault, loading, onRefresh }) {
   return (
-    <section className="card">
+    <section className="card vault-card">
       <div className="card-head">
-        <h2>Your vault holds</h2>
-        <button className="secondary" onClick={() => onRefresh()} disabled={loading}>
+        <span className="eyebrow">Your vault holds</span>
+        <button className="secondary compact" onClick={() => onRefresh()} disabled={loading}>
           {loading ? 'Reading…' : 'Refresh'}
         </button>
       </div>
@@ -42,7 +55,7 @@ function Balances({ vault, loading, onRefresh }) {
         <ul className="balances">
           {vault.holdings.map((holding) => (
             <li key={holding.token}>
-              <span className="amount">{formatAmount(holding.amount, holding.decimals)}</span>
+              <span className="amount"><Rolling value={formatAmount(holding.amount, holding.decimals)} /></span>
               <span className="symbol">{holding.symbol}</span>
             </li>
           ))}
@@ -52,16 +65,18 @@ function Balances({ vault, loading, onRefresh }) {
       )}
       {vault && (
         <p className="muted small">
-          Vault <AddressLink address={vault.address} name={vault.ensName} /> · read at block {vault.blockNumber.toLocaleString('en-US')}
+          Vault <AddressLink address={vault.address} name={vault.ensName} /> <CopyButton label="Copy address" text={vault.address} /> · read at block{' '}
+          {vault.blockNumber.toLocaleString('en-US')}
         </p>
       )}
       {vault && vault.holdings.every((h) => h.amount === 0n) && (
         <p className="muted small">
-          To add money, send test USDC to {vault.ensName ? <strong>{vault.ensName}</strong> : 'this address'}: <span className="mono full">{vault.address}</span>
+          To add money, send test USDC to {vault.ensName ? <strong>{vault.ensName}</strong> : 'this address'}: <span className="mono full">{vault.address}</span>{' '}
+          <CopyButton label="Copy address" text={vault.address} />
         </p>
       )}
       {vault && !vault.setupFinished && (
-        <p className="error small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
+        <p className="panel warn small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
       )}
     </section>
   )
@@ -69,8 +84,8 @@ function Balances({ vault, loading, onRefresh }) {
 
 function VaultPicker({ vaults, selected, onChoose }) {
   return (
-    <label className="picker">
-      <span className="muted small">Vault</span>
+    <label className="picker card">
+      <span className="eyebrow">Vault</span>
       <select value={selected} onChange={(e) => onChoose(e.target.value)}>
         {vaults.map((v) => (
           <option key={v.address} value={v.address}>
@@ -99,12 +114,64 @@ function SmartAccountAlert({ delegate }) {
   )
 }
 
+function Hero() {
+  return (
+    <section className="hero">
+      <h1><Words text="Say what you want." step={90} /></h1>
+      <p><Words text="That's the only thing your money can do." delay={450} step={60} /></p>
+    </section>
+  )
+}
+
 export default function App() {
   const page = useHashPage()
-  if (page.startsWith('attack:')) return <Attack link={page.slice('attack:'.length)} />
-  if (page.startsWith('side:')) return <SideBySide link={page.slice('side:'.length)} />
-  if (page === 'replays') return <Replays />
-  return <WalletApp page={page} />
+  if (page.startsWith('attack:')) {
+    return (
+      <div className="console-theme">
+        <Attack link={page.slice('attack:'.length)} />
+      </div>
+    )
+  }
+  if (page.startsWith('side:')) {
+    return (
+      <div className="vb">
+        <SideBySide link={page.slice('side:'.length)} />
+      </div>
+    )
+  }
+  if (page.startsWith('proof:')) {
+    return (
+      <div className="vb">
+        <Evidence key={page} hash={page.slice('proof:'.length)} />
+      </div>
+    )
+  }
+  if (page === 'replays') {
+    return (
+      <div className="vb">
+        <Replays />
+      </div>
+    )
+  }
+  if (page === 'mint') {
+    return (
+      <div className="vb">
+        <Mint />
+      </div>
+    )
+  }
+  if (page.startsWith('names:')) {
+    return (
+      <div className="vb">
+        <Names name={page.slice('names:'.length)} />
+      </div>
+    )
+  }
+  return (
+    <div className="vb">
+      <WalletApp page={page} />
+    </div>
+  )
 }
 
 function WalletApp({ page }) {
@@ -115,21 +182,26 @@ function WalletApp({ page }) {
   return (
     <main className="page">
       <header className="top">
-        <div>
-          <h1>Verbatim</h1>
+        <div className="top-left">
+          <a className="brand" href="#">Verbatim</a>
           <nav className="nav">
-            <a href="#" className={page === 'app' ? 'active' : undefined}>App</a>
-            <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone page</a>
+            <a href="#" className={page === 'app' ? 'active' : undefined}>Pay</a>
+            <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone</a>
             <a href="#replays">Replays</a>
+            <a href="#mint">Mint</a>
+            <a href="#names">Names</a>
           </nav>
         </div>
         {v.account && (
           <div className="who">
+            <span className="dot" />
             <AddressLink address={v.account} name={v.vault?.names?.[v.account]} />
             {v.role && <span className="role">{v.role}</span>}
           </div>
         )}
       </header>
+
+      {page === 'app' && <Hero />}
 
       {!v.hasWallet && (
         <Notice title="MetaMask not found">
@@ -162,12 +234,18 @@ function WalletApp({ page }) {
       {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} vault={v.vault} />}
       {receiptRoot && v.account && <RecentReceipts account={v.account} current={receiptRoot} />}
 
-      {!receiptRoot && v.account && v.onSepolia && v.vaults?.length !== 0 && (
+      {!receiptRoot && page !== 'phone' && v.account && v.onSepolia && v.vaults?.length !== 0 && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
+      {page === 'app' && canSignIn() && (
+        <Suspense fallback={null}>
+          <ZeroG />
+        </Suspense>
+      )}
+
       {ready && page === 'app' && (
-        <div key={v.vault.address}>
+        <div key={v.vault.address} className="page-flow">
           <Request vault={v.vault} role={v.role} blocked={v.smart} onDone={v.refresh} />
           <Propose vault={v.vault} role={v.role} account={v.account} blocked={v.smart} onDone={v.refresh} />
           <RecentReceipts account={v.account} />
@@ -175,10 +253,16 @@ function WalletApp({ page }) {
       )}
 
       {ready && page === 'phone' && (
-        <Phone key={v.vault.address} vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
+        <div className="phone-page">
+          <Phone key={v.vault.address} vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
+        </div>
       )}
 
-      {v.error && <p className="error">{v.error}</p>}
+      {page === 'phone' && v.account && v.onSepolia && v.vaults?.length !== 0 && (
+        <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
+      )}
+
+      {v.error && <p className="panel warn">{v.error}</p>}
     </main>
   )
 }

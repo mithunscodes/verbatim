@@ -5,9 +5,10 @@ import {
   custom,
   erc20Abi,
   getAddress,
+  toHex,
   zeroAddress,
 } from 'viem'
-import { normalize } from 'viem/ens'
+import { normalize, packetToBytes } from 'viem/ens'
 import {
   chain,
   DIRECTORY_NAMES,
@@ -132,6 +133,16 @@ export async function resolveName(wallet, directory, name) {
   return found === zeroAddress ? null : found
 }
 
+export function dnsName(name) {
+  return toHex(packetToBytes(normalize(name)))
+}
+
+export async function nameResolver(wallet, directory, name) {
+  const client = createPublicClient({ chain, transport: custom(wallet) })
+  const resolver = await client.readContract({ address: directory, abi: directoryAbi, functionName: 'resolverOf', args: [name] })
+  return resolver === zeroAddress ? null : resolver
+}
+
 export async function checkEnsName(wallet, vault, name) {
   const client = createPublicClient({ chain, transport: custom(wallet) })
   const resolver = await client.readContract({ address: vault.directory, abi: directoryAbi, functionName: 'resolverOf', args: [name] })
@@ -152,7 +163,7 @@ async function directoryNames(client, directory, blockNumber) {
   return found.map((address, i) => (address && address !== zeroAddress ? [address, DIRECTORY_NAMES[i]] : null)).filter(Boolean)
 }
 
-const RULE_KEYS = ['allowanceValidity', 'newContactPeriod', 'allowanceMinAge', 'looseningWait', 'tradeTolerance', 'priceSource']
+export const RULE_KEYS = ['allowanceValidity', 'newContactPeriod', 'allowanceMinAge', 'looseningWait', 'tradeTolerance', 'priceSource']
 
 function parseChange(text) {
   try {

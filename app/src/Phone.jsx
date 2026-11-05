@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getAddress, isAddress, zeroAddress } from 'viem'
-import { getWallet, normalName, readEnsRecords, resolveName } from './chain.js'
+import { dnsName, getWallet, nameResolver, normalName, readEnsRecords, resolveName } from './chain.js'
 import { nameOf } from './checks.js'
 import { formatCountdown, formatTime, shortAddress } from './format.js'
-import { vaultAbi } from './config.js'
+import { DEMO_STRANGER, ETH_COIN_TYPE, resolverAbi, vaultAbi } from './config.js'
 import { useNow, useTx } from './hooks.js'
 import { Rolling, Words } from './Motion.jsx'
 import Setup from './Setup.jsx'
@@ -69,7 +69,7 @@ const RULE_LABELS = {
   priceSource: 'Fair-price source',
 }
 
-function ruleLabel(key) {
+export function ruleLabel(key) {
   const [kind, symbol] = key.split('.')
   if (kind === 'dailyLimit') return `Daily limit for ${symbol}`
   if (kind === 'newContactLimit') return `New-contact limit for ${symbol}`
@@ -172,8 +172,12 @@ function contactError(vault, trimmed, asName, name, lookup) {
   return null
 }
 
-function ContactRow({ vault, contact, index }) {
+function ContactRow({ vault, contact, index, isRules, busy, send }) {
   const newUntil = contact.savedAt + vault.newContactPeriod
+  const point = async (to, label) => {
+    const resolver = await nameResolver(getWallet(), vault.directory, contact.ensName)
+    if (resolver) await send(label, { address: resolver, abi: resolverAbi }, 'setAddress', [dnsName(contact.ensName), ETH_COIN_TYPE, to])
+  }
   return (
     <li title={contact.address} style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}>
       <span className={contact.moved ? 'tile filled broken' : 'tile filled'}>{nameOf(vault, contact.address)}</span>
@@ -185,6 +189,24 @@ function ContactRow({ vault, contact, index }) {
       ) : (
         <span className="muted small">
           {vault.timestamp < newUntil ? `New until ${formatTime(newUntil)}` : `Saved at ${formatTime(contact.savedAt)}`}
+        </span>
+      )}
+      {isRules && contact.ensName && (
+        <span className="name-demo">
+          {contact.moved ? (
+            <button className="secondary" disabled={busy} onClick={() => point(contact.address, `Put ${contact.ensName} back`)}>
+              Put it back
+            </button>
+          ) : (
+            <button
+              className="secondary"
+              disabled={busy}
+              title="Demo: point this name at a stranger's address, as if it had been taken over. Payments to it then never happen."
+              onClick={() => point(DEMO_STRANGER, `Demo: move ${contact.ensName} to a stranger`)}
+            >
+              Demo: move this name
+            </button>
+          )}
         </span>
       )}
     </li>
@@ -226,7 +248,9 @@ function SaveContact({ vault, isRules, busy, send }) {
       {error && <p className="panel warn small">{error}</p>}
       <h3>Saved contacts</h3>
       <ul className="contact-tiles">
-        {vault.contacts.map((contact, i) => <ContactRow key={contact.address} vault={vault} contact={contact} index={i} />)}
+        {vault.contacts.map((contact, i) => (
+          <ContactRow key={contact.address} vault={vault} contact={contact} index={i} isRules={isRules} busy={busy} send={send} />
+        ))}
       </ul>
     </section>
   )

@@ -4,31 +4,41 @@ import { formatAmount, shortAddress } from './format.js'
 import { Dots, Words } from './Motion.jsx'
 
 const MAINNET_EXPLORER = 'https://etherscan.io'
+const HOOK_REPORT = 'https://cryptoslate.com/malicious-uniswap-v4-hooks-are-baiting-defi-traders-with-fake-swap-quotes/'
 const SLOW_SECONDS = 30
 const MISSES_ALLOWED = 5
 const ACTIVE = ['waiting', 'preparing', 'running']
-const NAMES = { bybit: 'Bybit', aave: 'Aave' }
+const NAMES = { bybit: 'Bybit', aave: 'Aave', hook: 'Uniswap hook' }
 
 const CARDS = {
   bybit: {
     title: 'Bybit, 21 Feb 2025',
-    loss: '$1.5 billion',
+    pill: 'Lost: $1.5 billion',
     intro: "Bybit's signers approved what looked like a routine move. It actually ran borrowed code that replaced their wallet's code.",
     preparing: "Getting a fresh Safe like Bybit's ready on Sepolia",
     running: "3 signers approve Bybit's instruction, and a Verbatim vault gets the same one",
   },
   aave: {
     title: 'The $50.4M Aave trade, 12 Mar 2026',
-    loss: '$50.4 million',
+    pill: 'Lost: $50.4 million',
     intro: 'A user swapped 50.4 million USDT for AAVE. The quote said about 329 AAVE, and the user accepted it.',
     preparing: 'Checking both pools are back where they started',
     running: 'Sending the same trade from a normal wallet and from a Verbatim vault',
+  },
+  hook: {
+    title: 'A bad Uniswap v4 hook, Sep 2026',
+    pill: 'Quotes 100, pays 80',
+    intro:
+      "On 14 Sep 2026, 0x warned about Uniswap v4 hooks built to quote one price and settle at another. Ours does just that: it pays fairly when Uniswap's quoter asks, and takes 20% when the swap is real.",
+    preparing: 'Checking the v4 pool is back where it started',
+    running: "Asking Uniswap's quoter, then sending the same swap from a normal wallet and from a Verbatim vault",
+    wide: true,
   },
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function ask(path, body) {
+export async function ask(path, body) {
   const options = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : undefined
   const response = await fetch(path, options).catch(() => null)
   if (!response) throw new Error("The Verbatim server isn't running. Start it from server/ with npm start.")
@@ -37,8 +47,8 @@ async function ask(path, body) {
   return json
 }
 
-async function runReplay(name, onUpdate) {
-  let job = await ask('/api/replay', { name })
+export async function runReplay(name, onUpdate, extra = {}) {
+  let job = await ask('/api/replay', { name, ...extra })
   let misses = 0
   onUpdate(job)
   while (ACTIVE.includes(job.status)) {
@@ -60,7 +70,7 @@ const amount = (value, decimals, digits = 2) =>
 
 const eth = (value) => formatAmount(BigInt(value), 18, 4)
 
-function Link({ tx, address, children }) {
+export function Link({ tx, address, children }) {
   return (
     <a href={tx ? `${EXPLORER}/tx/${tx}` : `${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer">
       {children} ↗
@@ -150,6 +160,47 @@ function Aave({ job }) {
   )
 }
 
+function Hook({ job }) {
+  const r = job.result
+  return (
+    <>
+      <p className="small replay-said">
+        You said: "Swap {amount(r.amount, 6, 0)} tUSDC for at least {amount(r.atLeast, 18, 4)} tWETH". That's Uniswap's quote,{' '}
+        {amount(r.quoted, 18, 4)} tWETH, less 0.5%. The app sent the swap with no minimum of its own.
+      </p>
+      <div className="replay-pair">
+        <Side title="A normal wallet, same swap: 20% less than quoted">
+          <p className="replay-amount">{amount(r.quoted, 18, 4)} → {amount(r.got, 18, 4)} tWETH</p>
+          <p className="small">
+            Quoted {amount(r.quoted, 18, 4)}, paid {amount(r.got, 18, 4)}. The hook sent the other {amount(r.cut, 18, 4)} tWETH to its owner.
+          </p>
+          <p className="small">
+            <Link tx={r.trade.hash}>The swap</Link> · <Link address={r.pool.hook}>The hook</Link> · <Link address={r.pool.manager}>Uniswap v4</Link>
+          </p>
+        </Side>
+        <Side title="A Verbatim vault, same swap: refused, nothing lost" safe>
+          <p className="replay-amount">{amount(r.vault.usdcAfter, 6, 0)} tUSDC kept</p>
+          <p className="small">
+            Your words said at least {amount(r.atLeast, 18, 4)} tWETH. Only {amount(r.attempt.actual ?? r.got, 18, 4)} would arrive, so your
+            check "{r.attempt.reason}" failed. Without your words, the vault's fair-price rule refuses it too: "{r.withoutWords}".
+          </p>
+          <p className="small">
+            <Link tx={r.attempt.hash}>Refused</Link> · <Link address={r.vault.address}>The vault</Link>
+          </p>
+        </Side>
+      </div>
+      <p className="muted small">
+        0x, 14 Sep 2026: hooks "designed to quote one price and settle at another" ·{' '}
+        <a href={HOOK_REPORT} target="_blank" rel="noreferrer">CryptoSlate's report ↗</a>
+      </p>
+      <p className="muted small">
+        Test amounts: test tokens in a real Uniswap v4 pool on Sepolia, through Uniswap's own quoter and Universal Router, starting at Chainlink's ETH
+        price (${amount(r.prices.ethUsd, r.prices.decimals, 2)}). The hook is ours. The pool is reset after each run.
+      </p>
+    </>
+  )
+}
+
 function Progress({ card, job, since }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -191,8 +242,8 @@ function ReplayCard({ name, index }) {
     }
   }
   return (
-    <section className="card column" style={{ animationDelay: `${200 + index * 150}ms` }}>
-      <span className="pill bad loss">Lost: {card.loss}</span>
+    <section className={card.wide ? 'card column wide' : 'card column'} style={{ animationDelay: `${200 + index * 150}ms` }}>
+      <span className="pill bad loss">{card.pill}</span>
       <h2>{card.title}</h2>
       <p>{card.intro}</p>
       <div className="actions">
@@ -204,7 +255,7 @@ function ReplayCard({ name, index }) {
       {state.status === 'error' && <p className="panel warn">{state.error}</p>}
       {state.status === 'done' && (
         <div key={state.job.id}>
-          {name === 'bybit' ? <Bybit job={state.job} /> : <Aave job={state.job} />}
+          {name === 'bybit' ? <Bybit job={state.job} /> : name === 'aave' ? <Aave job={state.job} /> : <Hook job={state.job} />}
           <p className="muted small">
             Live on Sepolia, block {String(name === 'bybit' ? state.job.result.takeover.block : state.job.result.trade.block)}, in{' '}
             {state.seconds.toFixed(1)} s. The vault is Verbatim's real vault code.
@@ -225,18 +276,21 @@ export default function Replays() {
             <a href="#">Pay</a>
             <a href="#phone">Phone</a>
             <a href="#replays" className="active">Replays</a>
+            <a href="#mint">Mint</a>
+            <a href="#names">Names</a>
           </nav>
         </div>
       </header>
       <header className="side-head">
         <div>
           <h1><Words text="Real history, cancelled live" step={90} /></h1>
-          <p className="lead">Two real attacks, replayed live on Sepolia with test money. Every line links to Etherscan.</p>
+          <p className="lead">Two real attacks and a trick 0x warned about, replayed live on Sepolia with test money. Every line links to Etherscan.</p>
         </div>
       </header>
       <div className="columns">
         <ReplayCard name="bybit" index={0} />
         <ReplayCard name="aave" index={1} />
+        <ReplayCard name="hook" index={2} />
       </div>
     </main>
   )

@@ -15,9 +15,14 @@ export function useHashPage() {
   const read = () => {
     const { hash } = window.location
     if (hash === '#phone') return 'phone'
+    if (hash === '#replays') return 'replays'
+    if (hash === '#mint') return 'mint'
+    if (hash === '#names') return 'names:'
+    if (hash.startsWith('#names/')) return `names:${decodeURIComponent(hash.slice('#names/'.length))}`
     if (hash.startsWith('#receipt/')) return `receipt:${hash.slice('#receipt/'.length)}`
     if (hash.startsWith('#attack/')) return `attack:${hash.slice('#attack/'.length)}`
     if (hash.startsWith('#side/')) return `side:${hash.slice('#side/'.length)}`
+    if (hash.startsWith('#proof/')) return `proof:${hash.slice('#proof/'.length)}`
     return 'app'
   }
   const [page, setPage] = useState(read)
