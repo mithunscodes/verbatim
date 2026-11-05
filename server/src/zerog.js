@@ -1,4 +1,4 @@
-import { AI_MAX_TOKENS, AI_MODEL, AI_TIMEOUT_MS, ZG_ROUTER } from './config.js'
+import { AI_MAX_TOKENS, AI_MODEL, AI_TIMEOUT_MS, ZG_PROVIDER, ZG_ROUTER } from './config.js'
 import { RequestError } from './uniswap.js'
 
 export function parseJson(content) {
@@ -22,6 +22,7 @@ export async function askSealedModel(messages, schema, name) {
         'content-type': 'application/json',
         authorization: `Bearer ${process.env.ZG_ROUTER_API_KEY}`,
         'x-0g-provider-trust-mode': 'private',
+        'x-0g-provider-address': ZG_PROVIDER,
       },
       body: JSON.stringify({
         model: AI_MODEL,

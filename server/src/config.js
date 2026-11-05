@@ -25,6 +25,8 @@ export const TOKENS = {
 
 export const ZG_ROUTER = 'https://router-api.0g.ai/v1'
 
+export const ZG_PROVIDER = '0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D'
+
 export const AI_MODEL = 'glm-5.3'
 
 export const AI_MAX_TOKENS = 4000
@@ -95,3 +97,23 @@ export const SCRIPTED_SENTENCES = [
 ]
 
 export const RECORDED_FALLBACK_MS = 25_000
+
+export const PUBLIC_ROUTES = ['GET /api/go', 'POST /api/rpc']
+
+export const OUTSIDE_LIMITS = {
+  'GET /api/go': { count: 30, minutes: 10 },
+  'POST /api/rpc': { count: 1_200, minutes: 10 },
+  eth_sendRawTransaction: { count: 30, minutes: 10 },
+}
+
+export const LAPTOP_LIMITS = {
+  'POST /api/understand': { count: 60, minutes: 60 },
+  'POST /api/preview': { count: 60, minutes: 60 },
+  'POST /api/quote': { count: 120, minutes: 60 },
+  'POST /api/receipt': { count: 30, minutes: 60 },
+  'POST /api/replay': { count: 20, minutes: 60 },
+}
+
+export const LOOPBACK = ['127.0.0.1', '::1', '::ffff:127.0.0.1']
+
+export const PROXY_HEADERS = ['cf-connecting-ip', 'cf-ray', 'x-real-ip', 'true-client-ip', 'forwarded']
