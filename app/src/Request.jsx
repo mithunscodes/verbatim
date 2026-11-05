@@ -27,7 +27,7 @@ import ChainProof from './ChainProof.jsx'
 import { brokenRule, Caught } from './Caught.jsx'
 import { Check, Cross, Spinner, useFlight, Words } from './Motion.jsx'
 import WordTiles from './Tiles.jsx'
-import { explainRefusal, quoteWords, saidFor, UNFAIR_TRADE } from './words.js'
+import { explainRefusal, saidFor, UNFAIR_TRADE } from './words.js'
 import { compareToFair, describeRoute, useQuote } from './quotes.js'
 import {
   extraActions,
@@ -310,12 +310,7 @@ function CheckCard({ index, number, label, text, words, failed, detail, kept, no
         )}
         <div className="check-text" style={{ animationDelay: `${base + 650}ms` }}>{text}</div>
         {detail && <p className="check-detail">{detail}</p>}
-        {words.length > 0 && (
-          <div className="check-said" style={{ animationDelay: `${base + 800}ms` }}>
-            you said <strong>{quoteWords(words)}</strong>{note}
-          </div>
-        )}
-        {!words.length && note && <div className="check-said" style={{ animationDelay: `${base + 800}ms` }}>{note}</div>}
+        {note && <div className="check-said" style={{ animationDelay: `${base + 800}ms` }}>{note}</div>}
       </div>
     </div>
   )
@@ -330,11 +325,6 @@ function ChecksList({ vault, request, failure, quote, said, kept }) {
     <section className="checks-area">
       <div className="checks-head">
         <h2>{said ? 'Your words, as checks' : 'Your checks'}</h2>
-        <p>
-          {said
-            ? 'Amounts come from your sentence, names from your contacts and prices from the fair price, never from the AI. The vault refuses anything that breaks a check.'
-            : 'The vault refuses any transaction that breaks a check.'}
-        </p>
       </div>
       <div className="check-grid">
         {request.checks.map((check, i) => {
@@ -362,7 +352,7 @@ function ChecksList({ vault, request, failure, quote, said, kept }) {
           failed={otherFailed}
           detail={otherFailed ? failure.reason : null}
           kept={kept}
-          note={said?.nothingElse ? ", and it's always on" : 'Always on, for every request'}
+          note="Always on"
         />
       </div>
       {rule && <p className="panel warn small"><strong>⚠ {failure.reason}.</strong> {rule}.</p>}
@@ -421,7 +411,7 @@ function Practice({ practice, vault, checks, said }) {
     return <p className="practice pass"><Check size={32} /><span>Practice run: every check passes</span></p>
   }
   if (practice.status === 'fail') {
-    return <p className="practice fail"><span className="mark-bad"><Cross size={32} /></span><span>Practice run: {explainRefusal(practice.failure, vault, checks, said)}</span></p>
+    return <p className="practice fail"><span className="mark-bad"><Cross size={32} /></span><span>Practice run: your vault would refuse this.</span></p>
   }
   return null
 }
@@ -514,7 +504,7 @@ function Result({ result, vault, receipt, said, actions, onReset }) {
             <h2><Words text="This never happens." delay={300} step={110} /></h2>
           </div>
           <p className="lead-in">Your vault refused it. {explainRefusal(result.failure, vault, result.checks, said)}</p>
-          <p className="muted">Nothing left your vault. Only the network fee was paid.</p>
+          <p className="muted">Nothing left your vault, only the network fee.</p>
         </section>
       )}
       {!result.ok && !outside && (
@@ -764,7 +754,6 @@ export default function Request({ vault, role, blocked, onDone }) {
           )}
           {!finished && (
             <div className="send-row">
-              <span className="muted small">Your vault checks every step again when it runs.</span>
               <button className="big" onClick={send} disabled={!canSend}>
                 {practice.status === 'fail' && demo.forced ? 'Send anyway (demo)' : 'Sign and send'}
               </button>
@@ -794,9 +783,7 @@ export default function Request({ vault, role, blocked, onDone }) {
           <span>
             <strong>Hacked app: send it anyway</strong>
             <span className="from">
-              Turns this app into a hacked one. The screen keeps showing your words, but the app secretly changes what it
-              sends: an extra or a stranger on a send, or a hidden drain inside a swap. It then sends the transaction even
-              though the practice run fails, so you can watch your vault refuse it on Sepolia.
+              The app secretly changes what it sends, then sends it anyway, so you can watch your vault refuse it on Sepolia.
             </span>
           </span>
         </label>

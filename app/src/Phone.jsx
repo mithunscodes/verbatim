@@ -108,8 +108,7 @@ function EnsRecords({ vault, now }) {
     <section className="card">
       <h2>Your rules in ENS</h2>
       <p className="muted small">
-        Read from the text records of <strong>{vault.ensName}</strong>, which only your vault can write. Anyone can check
-        them in any ENS app.
+        Read live from <strong>{vault.ensName}</strong> in ENS. Only your vault can write them.
       </p>
       {failed && <p className="panel warn small">Couldn't read your ENS records. Try Refresh.</p>}
       {!data && !failed && <p className="muted">Reading {vault.ensName}…</p>}
@@ -393,8 +392,7 @@ function SaveContact({ vault, account, isRules, busy, send }) {
     <section className="card">
       <h2>Save a contact</h2>
       <p className="muted small">
-        Paste an address, or type an ENS name like ravi.yourname.eth. Contacts can't be removed, so check carefully.
-        A new contact can receive at most the new-contact limit for its first few minutes.
+        Paste an address or an ENS name. Contacts can't be removed, so check carefully.
       </p>
       <div className="row">
         <input className="address" placeholder="0x… or name.eth" value={text} onChange={(e) => setText(e.target.value)} />
@@ -426,8 +424,8 @@ function SaveContact({ vault, account, isRules, busy, send }) {
               )}
               {customError && <p className="panel warn small">{customError}</p>}
               <p className="muted small">
-                Creates <strong>{full}</strong>, pointing to this address{length ? ` for ${formatDuration(length)}` : ''}, then saves it. Three confirmations in MetaMask. Only your phone can change it later.
-                {length ? ' After that, your vault never pays it unless your phone renews it.' : ''}
+                Creates <strong>{full}</strong>{length ? ` for ${formatDuration(length)}` : ''}. Three confirmations in MetaMask.
+                {length ? ' After that, payments to it never happen unless your phone renews it.' : ''}
                 {length && length <= vault.newContactPeriod ? ` It stays a new contact its whole life: at most ${limits(vault, 'newContactLimit')} can ever go to it.` : ''}
                 {length && length > vault.newContactPeriod ? ` For its first ${formatDuration(vault.newContactPeriod)} it's a new contact: at most ${limits(vault, 'newContactLimit')}.` : ''}
                 {choice === null ? ` Keep lasts until your own name ends, on ${formatMoment(naming.expiry)}.` : ''}

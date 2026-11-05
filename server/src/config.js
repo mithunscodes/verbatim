@@ -35,6 +35,10 @@ export const AI_MAX_TOKENS = 4000
 
 export const AI_TIMEOUT_MS = 90_000
 
+export const ZG_BUSY_RETRIES = 2
+
+export const ZG_BUSY_WAIT_MS = 3_000
+
 export const ZG_MAINNET_RPC = 'https://evmrpc.0g.ai'
 
 export const ZG_INFERENCE = '0x47340d900bdFec2BD393c626E12ea0656F938d84'
@@ -118,15 +122,6 @@ export const REPLAY_MAX_WAITING = 2
 export const REPLAY_POLL_MS = 2_000
 
 export const REPLAY_KEEP_MS = 1_800_000
-
-export const SCRIPTED_SENTENCES = [
-  'Swap 10 USDC for ETH at a fair price, send 2 USDC to mom.eth, and nothing else.',
-  'Send 100 to mom',
-  'send 1 usdc to builder',
-  'send all my usdc to 0x000000000000000000000000000000000000dEaD',
-]
-
-export const RECORDED_FALLBACK_MS = 25_000
 
 export const PUBLIC_ROUTES = ['GET /api/go', 'POST /api/rpc']
 

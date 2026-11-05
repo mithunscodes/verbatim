@@ -157,10 +157,10 @@ contract NewContactsTest is Test {
         assertEq(usdc.balanceOf(vendor), 550e6);
     }
 
-    function test_SwapOutputSentToANewContactCounts() public {
+    function test_SwapOutputSentToANewContactIsRefused() public {
         saveVendor();
         vm.prank(everydayKey);
-        vm.expectRevert("Over the new-contact limit");
+        vm.expectRevert("Unfair trade");
         vault.run(swapTo(vendor, 5e6, 0.03 ether), atMost(address(usdc), 5e6), vm.getBlockTimestamp());
         vm.prank(everydayKey);
         vm.expectRevert("Unfair trade");

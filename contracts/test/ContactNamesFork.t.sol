@@ -83,6 +83,22 @@ contract ContactNamesForkTest is DirectoryFork {
         payEth(thief, 0.1 ether);
     }
 
+    function test_RevertWhen_ContactNameExpired() public {
+        payEth(ravi, 0.1 ether);
+        vm.warp(uint256(IRegistry(EnsSettings.ETH_REGISTRY).findExpiry(USER_LABEL)) + 1);
+        vm.expectRevert("This contact's address changed");
+        payEth(ravi, 0.1 ether);
+    }
+
+    function test_DirectoryNamesStopCountingWhenTheyExpire() public {
+        address[] memory before = directory.listed();
+        assertGt(before.length, 0);
+        assertTrue(directory.isListed(before[0]));
+        vm.warp(uint256(expiry) + 1);
+        assertEq(directory.listed().length, 0);
+        assertFalse(directory.isListed(before[0]));
+    }
+
     function test_AfterReapprovalAndTheWaitSendsWorkCapped() public {
         pointRavi(raviNew);
         vm.prank(everydayKey);

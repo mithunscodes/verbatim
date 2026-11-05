@@ -78,8 +78,7 @@ function RaiseLimit({ vault, role, account, blocked, onDone }) {
     <section className="card">
       <h2>Raise a daily limit</h2>
       <p className="muted small">
-        Today: {formatAmount(holding.dailyLimit, holding.decimals)} {holding.symbol} a day. A raise needs your phone's
-        approval, then a wait of {formatDuration(vault.looseningWait)}, then one more tap to switch it on.
+        Today: {formatAmount(holding.dailyLimit, holding.decimals)} {holding.symbol} a day. A raise needs your phone, then a {formatDuration(vault.looseningWait)} wait.
       </p>
       <div className="form">
         <label>

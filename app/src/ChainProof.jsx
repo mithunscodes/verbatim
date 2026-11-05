@@ -81,8 +81,11 @@ export default function ChainProof({ vault, hash, checks, outside, describe }) {
         <Check size={30} />
         <div>
           <strong>Checked on Sepolia, not just in this app</strong>
-          The vault enforced exactly these {count}. The fingerprint of the checks in the transaction,{' '}
-          <span className="mono">{shortAddress(state.fingerprint)}</span>, matches {record}.
+          The vault enforced exactly these {count}.
+          <details className="fold">
+            <summary>How</summary>
+            The fingerprint of the checks in the transaction, <span className="mono">{shortAddress(state.fingerprint)}</span>, matches {record}.
+          </details>
         </div>
       </div>
     )

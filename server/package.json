@@ -8,6 +8,8 @@
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "1.2.12",
     "@arkiv-network/sdk": "0.8.1",
+    "@ethereum-sourcify/clear-signing": "0.2.2",
+    "ajv": "8.20.0",
     "ethers": "6.13.1",
     "viem": "^2.57.5"
   }

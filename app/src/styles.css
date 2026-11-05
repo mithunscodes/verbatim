@@ -3184,3 +3184,7 @@ body {
 .vb .snap-step button {
   margin-top: 4px;
 }
+
+.vb .send-row > :only-child {
+  margin-left: auto;
+}

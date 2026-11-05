@@ -36,15 +36,15 @@ function tokenAmount(vault, token, amount) {
   const holding = holdingOf(vault, token)
   return holding
     ? `${formatAmount(amount, holding.decimals, holding.decimals)} ${holding.symbol}`
-    : `${amount} of ${shortAddress(token)}`
+    : `${amount} of ${nameOf(vault, token)}`
 }
 
 function percent(basisPoints) {
   return `${formatAmount(basisPoints, 2)}%`
 }
 
-function asAddress(value) {
-  return shortAddress(getAddress(numberToHex(value, { size: 20 })))
+function asAddress(vault, value) {
+  return nameOf(vault, getAddress(numberToHex(value, { size: 20 })))
 }
 
 function direction(next, before) {
@@ -58,9 +58,9 @@ export function describeChange(vault, change) {
   const next = change.value
   switch (change.kind) {
     case ChangeKind.DailyLimit:
-      return `${direction(next, before)} the daily limit for ${holdingOf(vault, change.token)?.symbol ?? shortAddress(change.token)} from ${tokenAmount(vault, change.token, before)} to ${tokenAmount(vault, change.token, next)}`
+      return `${direction(next, before)} the daily limit for ${holdingOf(vault, change.token)?.symbol ?? nameOf(vault, change.token)} from ${tokenAmount(vault, change.token, before)} to ${tokenAmount(vault, change.token, next)}`
     case ChangeKind.NewContactLimit:
-      return `${direction(next, before)} the new-contact limit for ${holdingOf(vault, change.token)?.symbol ?? shortAddress(change.token)} from ${tokenAmount(vault, change.token, before)} to ${tokenAmount(vault, change.token, next)}`
+      return `${direction(next, before)} the new-contact limit for ${holdingOf(vault, change.token)?.symbol ?? nameOf(vault, change.token)} from ${tokenAmount(vault, change.token, before)} to ${tokenAmount(vault, change.token, next)}`
     case ChangeKind.Allowance:
       return `Allow one payment of up to ${tokenAmount(vault, change.token, next)} to ${nameOf(vault, change.contact)}, beyond your daily limit`
     case ChangeKind.AllowanceValidity:
@@ -74,9 +74,11 @@ export function describeChange(vault, change) {
     case ChangeKind.TradeTolerance:
       return `Allow trades up to ${percent(next)} below the fair price, instead of ${percent(before)}`
     case ChangeKind.PriceSource:
-      return `Use the price source ${asAddress(next)}, instead of ${asAddress(before)}`
+      return `Use the price source ${asAddress(vault, next)}, instead of ${asAddress(vault, before)}`
     case ChangeKind.ContactAddress:
-      return `Accept ${nameOf(vault, change.contact)} at its new address ${asAddress(next)}. It then counts as a new contact`
+      return change.done
+        ? `${nameOf(vault, change.contact)} moved to its new address, as a new contact`
+        : `Accept ${nameOf(vault, change.contact)} at its new address ${shortAddress(getAddress(numberToHex(next, { size: 20 })))}. It then counts as a new contact`
     default:
       return `An unknown change (kind ${change.kind})`
   }
@@ -94,6 +96,15 @@ export function statusOf(change, now) {
   if (now <= change.expiresAt) {
     return { key: 'ready', text: allowance ? 'Active. Expires in' : 'Ready to switch on. Expires in', until: change.expiresAt, open: true }
   }
+  return { key: 'expired', text: 'Expired', open: false }
+}
+
+export function ensStatusOf(change, now) {
+  if (change.status === 'cancelled') return { key: 'cancelled', text: 'Cancelled', open: false }
+  if (change.status === 'switched on') return { key: 'done', text: 'Switched on', open: false }
+  if (change.status === 'proposed') return { key: 'waiting', text: 'Waiting for your approval', open: true }
+  if (now < change.readyAt) return { key: 'approved', text: 'Approved. Can switch on in', until: change.readyAt, open: true }
+  if (now <= change.expiresAt) return { key: 'ready', text: 'Ready to switch on. Expires in', until: change.expiresAt, open: true }
   return { key: 'expired', text: 'Expired', open: false }
 }
 

@@ -79,7 +79,7 @@ function Account() {
       {!ready && <p className="muted small">Loading 0G sign-in…</p>}
       {ready && !authenticated && (
         <>
-          <p>Verbatim pays for the sealed AI that reads your words. Sign in with 0G to pay with your own 0G credits instead.</p>
+          <p>Sign in with 0G to pay for the sealed AI with your own credits.</p>
           <div className="actions">
             <button onClick={login}>Sign in with 0G</button>
           </div>
@@ -88,10 +88,10 @@ function Account() {
       {authenticated && state.status === 'opening' && <p className="muted small">Connecting to your 0G account…</p>}
       {authenticated && state.status === 'open' && (
         <>
-          <p>Your 0G account pays for each sealed AI read: your sentence and the live preview.</p>
           <p className="credits">
             Free credits <strong><Rolling value={usd(state.balance.credit_balance)} /></strong>
           </p>
+          <p className="muted small">Paid by your 0G account: every sealed AI read spends these.</p>
         </>
       )}
       {authenticated && state.status === 'error' && (

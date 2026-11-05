@@ -88,7 +88,7 @@ const routes = {
     limit: 120_000,
     run: preview,
     describe: (body, result) => result
-      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}${result.cached ? ' (cached)' : ''}`
+      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}`
       : 'preview',
   },
   'POST /api/receipt': {

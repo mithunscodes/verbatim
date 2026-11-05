@@ -4,16 +4,21 @@ import { checkEnsName, getWallet, normalName } from './chain.js'
 import { DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
 import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
+import { Check } from './Motion.jsx'
 import TxStatus from './TxStatus.jsx'
+
+function Mark({ done }) {
+  return done ? <Check size={26} /> : <span className="circle" />
+}
 
 function LimitStep({ title, note, holding, current, onSet, disabled }) {
   const [text, setText] = useState('')
   const trimmed = text.trim()
   const valid = amountPattern(holding.decimals).test(trimmed)
   return (
-    <li className="step">
+    <li className={current > 0n ? 'step is-done' : 'step'}>
       <div className="step-head">
-        <span>{current > 0n ? '✓' : '○'} {title}</span>
+        <span><Mark done={current > 0n} />{title}</span>
         <span className="muted small">Now: {formatAmount(current, holding.decimals)} {holding.symbol}</span>
       </div>
       <p className="muted small">{note}</p>
@@ -56,14 +61,14 @@ function EnsNameStep({ vault, disabled, onSet }) {
     : `Your vault will write your rules, pending changes and contacts to ${name}.`
   const ready = result.status === 'done' && result.canWrite
   return (
-    <li className="step">
+    <li className={vault.ensName ? 'step is-done' : 'step'}>
       <div className="step-head">
-        <span>{vault.ensName ? '✓' : '○'} Your ENS name (recommended, first)</span>
+        <span><Mark done={Boolean(vault.ensName)} />Your ENS name (recommended, first)</span>
         <span className="muted small">{vault.ensName ? `Now: ${vault.ensName}` : 'Not set'}</span>
       </div>
       <p className="muted small">
-        Your rules then live in ENS, where anyone can check them, and only your vault can change them. Set it before the
-        other steps, so they're written there too.
+        Your vault then publishes your rules on this name, where anyone can check them, and only your vault can write there.
+        Set it before the other steps, so they're published too.
       </p>
       {!vault.ensName && (
         <div className="row">
@@ -71,7 +76,7 @@ function EnsNameStep({ vault, disabled, onSet }) {
           <button className="secondary" disabled={disabled || !ready} onClick={() => onSet(name)}>Set</button>
         </div>
       )}
-      {message && !vault.ensName && <p className={ready ? 'muted small' : 'error small'}>{message}</p>}
+      {message && !vault.ensName && <p className={ready ? 'panel ok small' : 'panel warn small'}>{message}</p>}
     </li>
   )
 }
@@ -133,9 +138,9 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
             onSet={(amount) => send(`New-contact limit ${formatAmount(amount, usdc.decimals)} ${usdc.symbol}`, target, 'setNewContactLimit', [usdc.token, amount])}
           />
         )}
-        <li className="step">
+        <li className={hasPrice ? 'step is-done' : 'step'}>
           <div className="step-head">
-            <span>{hasPrice ? '✓' : '○'} Fair-price source (needed, for swaps)</span>
+            <span><Mark done={hasPrice} />Fair-price source (needed, for swaps)</span>
             <span className="muted small mono">{shortAddress(PRICE_SOURCE)}</span>
           </div>
           <p className="muted small">
@@ -145,9 +150,9 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
             Use Verbatim's price reader
           </button>
         </li>
-        <li className="step">
+        <li className={demoSet ? 'step is-done' : 'step'}>
           <div className="step-head">
-            <span>{demoSet ? '✓' : '○'} Short demo waiting times (optional)</span>
+            <span><Mark done={demoSet} />Short demo waiting times (optional)</span>
             <span className="muted small">Now: {formatDuration(vault.looseningWait)} wait</span>
           </div>
           <p className="muted small">
@@ -158,13 +163,13 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
         </li>
         <li className="step">
           <div className="step-head">
-            <span>○ Finish setup (needed, last)</span>
+            <span><Mark done={false} />Finish setup (needed, last)</span>
           </div>
           <p className="muted small">
             After this, your phone can only tighten rules straight away. Loosening them needs a proposal, your approval
             and a wait.
           </p>
-          <button disabled={disabled || (usdc && usdc.dailyLimit === 0n) || !hasPrice} onClick={() => send('Finish setup', target, 'finishSetup', [])}>
+          <button className="big" disabled={disabled || (usdc && usdc.dailyLimit === 0n) || !hasPrice} onClick={() => send('Finish setup', target, 'finishSetup', [])}>
             Finish setup
           </button>
         </li>

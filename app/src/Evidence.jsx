@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createPublicClient, decodeFunctionData, erc20Abi, http, zeroAddress } from 'viem'
 import { getWallet } from './chain.js'
 import { CheckKind, describeCheck } from './checks.js'
-import { chain, DEMO_RPC_PATH, EXPLORER, vaultAbi } from './config.js'
+import { chain, DEMO_RPC_PATH, EXPLORER, PRINTS, vaultAbi } from './config.js'
 import { formatAmount, shortAddress } from './format.js'
 import { etherscanLine, plainSteps, VerifyIt } from './Caught.jsx'
 import { Check, Cross, Dots, Words } from './Motion.jsx'
@@ -43,6 +43,7 @@ async function contactsOf(reader, address) {
 
 async function holdingFor(reader, token) {
   if (token === zeroAddress) return { token, symbol: 'ETH', decimals: 18 }
+  if (token === PRINTS) return { token, symbol: 'Verbatim Print', decimals: 0 }
   const [symbol, decimals] = await Promise.all([
     reader.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }).catch(() => shortAddress(token)),
     reader.readContract({ address: token, abi: erc20Abi, functionName: 'decimals' }).catch(() => 18),

@@ -2,12 +2,13 @@
 pragma solidity ^0.8.28;
 
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 
 contract LeakyVault is VerbatimVault {
     constructor(address everydayKey_, address rulesKey_, address[] memory watchedTokens_)
-        VerbatimVault(everydayKey_, rulesKey_, watchedTokens_, new address[](0))
+        VerbatimVault(everydayKey_, rulesKey_, watchedTokens_, address(new TestDirectory(new address[](0))))
     {
-        trustedContracts.push(address(this));
+        TestDirectory(directory).add(address(this));
     }
 
     function setEverydayKey(address newKey) external {

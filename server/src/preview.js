@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { createPublicClient, formatUnits, getAddress, http, isAddress, isHex, numberToHex, parseAbi, zeroAddress } from 'viem'
 import { sepolia } from 'viem/chains'
 import { PERMIT2, UNISWAP_POOL_MANAGER, UNISWAP_V3_POOLS, UNIVERSAL_ROUTER, WETH } from './config.js'
@@ -13,7 +12,6 @@ const ETH_LOGS = ['0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', '0xfffffffffffff
 const MAX_ACTIONS = 12
 const MAX_DATA = 40_000
 const SHOWN_DECIMALS = 8
-const CACHE_MS = 10 * 60_000
 
 const KNOWN = {
   [PERMIT2.toLowerCase()]: 'Permit2 (Uniswap)',
@@ -49,7 +47,6 @@ const SYSTEM = [
 ].join('\n')
 
 const tokenInfo = new Map()
-const verdicts = new Map()
 
 function sepoliaClient() {
   if (!process.env.SEPOLIA_RPC_URL) throw new RequestError('The live preview is not set up: SEPOLIA_RPC_URL is missing from .env.', 503)
@@ -204,9 +201,6 @@ export async function describeTransaction(ask, client = sepoliaClient()) {
 }
 
 export async function compare(sentence, facts, session = null) {
-  const key = createHash('sha256').update(JSON.stringify([sentence, facts])).digest('hex')
-  const cached = verdicts.get(key)
-  if (cached && Date.now() - cached.at < CACHE_MS) return { ...cached.value, cached: true }
   const answer = await askSealedModel(
     [
       { role: 'system', content: SYSTEM },
@@ -225,9 +219,7 @@ export async function compare(sentence, facts, session = null) {
       }
     : null
   const proof = answer.provider ? await proveAnswer({ provider: answer.provider, chatId: answer.chatId }) : { verified: false, problem: 'No provider was named' }
-  const value = { verdict, proof, model: answer.model, latencyMs: answer.latencyMs, costUsdMicro: answer.costUsdMicro }
-  if (verdict) verdicts.set(key, { at: Date.now(), value })
-  return value
+  return { verdict, proof, model: answer.model, latencyMs: answer.latencyMs, costUsdMicro: answer.costUsdMicro }
 }
 
 export async function preview(body, { session = null } = {}) {

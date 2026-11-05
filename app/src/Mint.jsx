@@ -139,7 +139,7 @@ function Picture({ picture, onPicture }) {
       </div>
       {mode === 'draw' ? (
         <>
-          <p>0G's z-image model draws your picture inside sealed hardware. If you signed in with 0G on the Pay page, your own credits pay.</p>
+          <p>0G's z-image model draws it inside sealed hardware, paid by your 0G credits when you're signed in on the Pay page.</p>
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} maxLength={300} rows={3} aria-label="Describe the picture" />
           <div className="actions">
             <button className="big" onClick={() => run('/api/image', { prompt })} disabled={busy || prompt.trim().length < 3}>
@@ -150,8 +150,7 @@ function Picture({ picture, onPicture }) {
       ) : (
         <>
           <p>
-            Pick a PNG or JPEG. Your browser shrinks it to {MAX_SIDE} px and drops hidden photo data, like where it was taken. It's saved on 0G
-            Storage, which is public and permanent, so only use a picture you're happy to share. Works on the team's laptop only.
+            A PNG or JPEG, shrunk to {MAX_SIDE} px. 0G Storage is public and permanent, so only use a picture you're happy to share.
           </p>
           <input className="print-file" type="file" accept="image/png,image/jpeg" onChange={choose} disabled={busy} aria-label="Your picture" />
           {chosen && <img className="print-image" src={chosen} alt="Your picture, ready to save" />}
@@ -269,7 +268,7 @@ function MintResult({ result, vault, onReset }) {
       ) : result.outside ? (
         <div className="replay-side lost">
           <h3>It didn't go through</h3>
-          <p className="small">{result.failure?.reason} Nothing left your vault. Only the network fee was paid.</p>
+          <p className="small">{result.failure?.reason} Nothing left your vault, only the network fee.</p>
         </div>
       ) : (
         <div className="replay-side lost">
@@ -277,7 +276,7 @@ function MintResult({ result, vault, onReset }) {
           <p className="small"><strong>{refusalWords(result.failure)}</strong></p>
           <p className="small">
             <strong>Without Verbatim:</strong> {eth(result.value)} test ETH gone, and the print goes to a stranger.<br />
-            <strong>With Verbatim:</strong> nothing left your vault. Only the network fee was paid.
+            <strong>With Verbatim:</strong> nothing left your vault, only the network fee.
           </p>
         </div>
       )}
@@ -446,8 +445,7 @@ function MintIt({ picture }) {
           <span>
             <strong>Hacked mint site: send it anyway</strong>
             <span className="from">
-              The screen keeps showing your words, but the site secretly asks ten times the price and sends the print to a stranger. MetaMask still
-              asks you to confirm, so you can watch your vault refuse it on Sepolia.
+              The site secretly asks ten times the price and sends the print to a stranger, so you can watch your vault refuse it.
             </span>
           </span>
         </label>

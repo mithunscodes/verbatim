@@ -47,25 +47,28 @@ export default function Preview({ vault, sentence, actions, previewKey }) {
           ) : (
             <p className="muted small">{state.problem ?? "The sealed AI didn't answer."} Here is what the simulation saw.</p>
           )}
-          {verdict?.lines.length > 0 && (
-            <ul className="muted small">
-              {verdict.lines.map((line, i) => <li key={i}>{line}</li>)}
-            </ul>
-          )}
+          <Proof proof={state.proof} />
           <details className="fold">
-            <summary>What the simulation saw</summary>
-            <ul>
+            <summary>Details</summary>
+            {verdict?.lines.length > 0 && (
+              <ul className="muted small">
+                {verdict.lines.map((line, i) => <li key={i}>{line}</li>)}
+              </ul>
+            )}
+            <p className="muted small">What the simulation saw:</p>
+            <ul className="muted small">
               {state.facts.map((fact, i) => <li key={i}>{fact}</li>)}
             </ul>
+            <p className="muted small">
+              A preview is only a warning: clever attacks can behave nicely in a preview. Your vault's checks on the real result
+              are the guarantee.
+            </p>
           </details>
-          <Proof proof={state.proof} />
         </>
       )}
-      <p className="muted small">
-        A preview is only a warning: clever attacks can behave nicely in a preview. Your vault's checks on the real result
-        are the guarantee.{' '}
-        {state.status !== 'reading' && <button className="link" onClick={() => setRound((n) => n + 1)}>Check again</button>}
-      </p>
+      {state.status !== 'reading' && (
+        <button className="link small" onClick={() => setRound((n) => n + 1)}>Check again</button>
+      )}
     </div>
   )
 }
