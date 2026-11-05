@@ -67,8 +67,8 @@ function EnsNameStep({ vault, disabled, onSet }) {
         <span className="muted small">{vault.ensName ? `Now: ${vault.ensName}` : 'Not set'}</span>
       </div>
       <p className="muted small">
-        Your rules then live in ENS, where anyone can check them, and only your vault can change them. Set it before the
-        other steps, so they're written there too.
+        Your vault then publishes your rules on this name, where anyone can check them, and only your vault can write there.
+        Set it before the other steps, so they're published too.
       </p>
       {!vault.ensName && (
         <div className="row">
