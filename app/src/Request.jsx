@@ -8,6 +8,7 @@ import {
   describeAction,
   describeCheck,
   describeFailure,
+  describeOutcome,
   holdingOf,
   nameOf,
   rulesFor,
@@ -47,6 +48,13 @@ function readAmount(text, decimals) {
   return { amount }
 }
 
+function noPriceSource(vault) {
+  const how = vault.setupFinished
+    ? "Setup is finished, so adding one now needs a proposal, the phone's approval and a wait."
+    : 'Add one on the phone page, in the setup step "Fair-price source".'
+  return `This vault has no fair-price source, so swaps can't be checked. ${how}`
+}
+
 function badRouteAllowed(form) {
   return form.from !== zeroAddress
 }
@@ -71,6 +79,7 @@ function buildRequest(vault, form, demo, quote) {
       actions: sendActions({ token: form.token, amount: sent, to: form.to }),
     }
   }
+  if (vault.priceSource === zeroAddress) return { error: noPriceSource(vault) }
   if (!vault.fairPrice) return { error: "There's no fair price right now, so swaps can't be checked." }
   if (!canSwap(vault, form.from, form.swapTo)) return { error: 'Swaps work between ETH and USDC only, for now.' }
   if (demo.badRoute && !badRouteAllowed(form)) return { error: 'The bad route works for USDC → ETH only.' }
@@ -226,7 +235,19 @@ function Result({ result, vault, onReset }) {
   return (
     <div className={result.ok ? 'result ok' : 'result refused'}>
       {result.ok ? (
-        <h3>✅ Done, exactly as you said</h3>
+        <>
+          <h3>✅ Done, exactly as you said</h3>
+          {result.moved && (
+            <ul className="checks">
+              {result.checks.map((check, i) => (
+                <li key={i}>
+                  <span className="icon">✓</span>
+                  <span>{describeCheck(vault, check).text}: {describeOutcome(vault, check, result.moved[i])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
         <>
           <h3>❌ Your vault refused it, so it never happened</h3>
@@ -315,7 +336,7 @@ export default function Request({ vault, role, blocked, onDone }) {
     setResult({ status: 'pending', hash })
     try {
       const outcome = await waitForResult(wallet, vault, run, hash)
-      setResult({ status: 'done', hash, ok: outcome.ok, failure: outcome.failure, checks: run.checks })
+      setResult({ status: 'done', hash, ok: outcome.ok, failure: outcome.failure, moved: outcome.moved, checks: run.checks })
     } catch (error) {
       setResult({ status: 'error', error: error?.shortMessage || error?.message || 'Something went wrong.' })
     }

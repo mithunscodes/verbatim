@@ -98,6 +98,11 @@ export function describeAction(vault, action) {
   return `${target} · ${call.functionName}(${args.join(', ')})${value}`
 }
 
+export function describeOutcome(vault, check, moved) {
+  if (check.kind === CheckKind.AtMostLeaves) return `${show(vault, check.token, moved.left)} left`
+  return `${show(vault, check.token, moved.arrived)} arrived`
+}
+
 export function describeFailure(vault, check, actual) {
   const amount = show(vault, check.token, actual)
   if (check.kind === CheckKind.AtMostLeaves) return `but ${amount} would leave`

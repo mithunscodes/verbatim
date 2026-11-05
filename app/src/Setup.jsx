@@ -37,6 +37,7 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
     vault.newContactPeriod === DEMO_TIMINGS.newContactPeriod &&
     vault.allowanceMinAge === DEMO_TIMINGS.allowanceMinAge
   const priceSet = vault.priceSource.toLowerCase() === PRICE_SOURCE.toLowerCase()
+  const hasPrice = vault.priceSource !== zeroAddress
 
   const setDemoTimings = async () => {
     if (!(await send('Demo wait (1 of 3)', target, 'setLooseningWait', [DEMO_TIMINGS.looseningWait]))) return
@@ -82,9 +83,12 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
         )}
         <li className="step">
           <div className="step-head">
-            <span>{priceSet ? '✓' : '○'} Fair-price source (optional, for swaps)</span>
+            <span>{hasPrice ? '✓' : '○'} Fair-price source (needed, for swaps)</span>
             <span className="muted small mono">{shortAddress(PRICE_SOURCE)}</span>
           </div>
+          <p className="muted small">
+            Every swap is checked against a fair price. Adding one after setup needs a proposal and a wait.
+          </p>
           <button className="secondary" disabled={disabled || priceSet} onClick={() => send('Price source', target, 'setPriceSource', [PRICE_SOURCE])}>
             Use Verbatim's price reader
           </button>
@@ -108,7 +112,7 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
             After this, your phone can only tighten rules straight away. Loosening them needs a proposal, your approval
             and a wait.
           </p>
-          <button disabled={disabled || (usdc && usdc.dailyLimit === 0n)} onClick={() => send('Finish setup', target, 'finishSetup', [])}>
+          <button disabled={disabled || (usdc && usdc.dailyLimit === 0n) || !hasPrice} onClick={() => send('Finish setup', target, 'finishSetup', [])}>
             Finish setup
           </button>
         </li>

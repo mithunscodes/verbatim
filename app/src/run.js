@@ -24,6 +24,7 @@ import {
   WETH,
 } from './config.js'
 import { lowFees, requireNormalKey, whileSigning } from './chain.js'
+import { CheckKind } from './checks.js'
 
 const EXTRA_ETH = 10n ** 15n
 
@@ -145,10 +146,29 @@ export async function signAndSend(wallet, vault, run, forced) {
   return whileSigning(() => signer.writeContract({ ...call, gas, ...fees }))
 }
 
+function balanceAt(reader, token, account, blockNumber) {
+  if (token === zeroAddress) return reader.getBalance({ address: account, blockNumber })
+  return reader.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [account], blockNumber })
+}
+
+export async function measureChecks(reader, vault, checks, blockNumber) {
+  return Promise.all(checks.map(async (check) => {
+    const account = check.kind === CheckKind.ExactlyTo ? check.to : vault.address
+    const [before, after] = await Promise.all([
+      balanceAt(reader, check.token, account, blockNumber - 1n),
+      balanceAt(reader, check.token, account, blockNumber),
+    ])
+    return { left: before > after ? before - after : 0n, arrived: after > before ? after - before : 0n }
+  }))
+}
+
 export async function waitForResult(wallet, vault, run, hash) {
   const { reader } = clients(wallet)
   const receipt = await reader.waitForTransactionReceipt({ hash })
-  if (receipt.status === 'success') return { ok: true, receipt }
+  if (receipt.status === 'success') {
+    const moved = await measureChecks(reader, vault, run.checks, receipt.blockNumber).catch(() => null)
+    return { ok: true, receipt, moved }
+  }
   try {
     await reader.simulateContract({ ...runCall(vault, run), blockNumber: receipt.blockNumber - 1n })
     return { ok: false, receipt, failure: { reason: 'The vault refused it.' } }
