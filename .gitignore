@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+out/
+cache/
+node_modules/
+contracts/fork-states/
+app/.vercel/
