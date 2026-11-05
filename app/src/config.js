@@ -15,6 +15,10 @@ export const SWAP_SLIPPAGE_BPS = 100n
 
 export const SHOWN_DIGITS = 4
 
+export const DEADLINE_SECONDS = 600
+
+export const FORCED_GAS = 600_000n
+
 export const vaultAbi = parseAbi([
   'function everydayKey() view returns (address)',
   'function rulesKey() view returns (address)',
@@ -27,6 +31,10 @@ export const vaultAbi = parseAbi([
   'function newContactPeriod() view returns (uint256)',
   'function tradeTolerance() view returns (uint256)',
   'function priceSource() view returns (address)',
+  'struct Action { address target; uint256 value; bytes data; uint8 operation; }',
+  'struct Check { uint8 kind; address token; address to; uint256 amount; }',
+  'function run(Action[] actions, Check[] checks, uint256 deadline)',
+  'error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual)',
 ])
 
 export const priceSourceAbi = parseAbi([

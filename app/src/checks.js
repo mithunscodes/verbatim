@@ -77,6 +77,13 @@ export function describeCheck(vault, check) {
   return { icon: '→', text: `Exactly ${amount} goes to ${nameOf(vault, check.to)}` }
 }
 
+export function describeFailure(vault, check, actual) {
+  const amount = show(vault, check.token, actual)
+  if (check.kind === CheckKind.AtMostLeaves) return `but ${amount} would leave`
+  if (check.kind === CheckKind.AtLeastArrives) return `but only ${amount} would arrive`
+  return `but ${amount} would arrive`
+}
+
 export function rulesFor(vault, checks) {
   const lines = []
   for (const check of checks.filter((c) => c.kind === CheckKind.AtMostLeaves)) {

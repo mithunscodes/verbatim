@@ -87,7 +87,7 @@ export default function App() {
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
-      {v.account && v.onSepolia && v.vault && <Request vault={v.vault} />}
+      {v.account && v.onSepolia && v.vault && <Request vault={v.vault} role={v.role} onDone={v.refresh} />}
 
       {v.error && <p className="error">{v.error}</p>}
     </main>
