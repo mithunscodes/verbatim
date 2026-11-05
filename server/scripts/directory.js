@@ -46,8 +46,15 @@ export const ORGANIZATIONS = [
       usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
     },
   },
+  {
+    label: 'verbatim',
+    keyName: 'VERBATIM_ORG_PRIVATE_KEY',
+    contracts: {
+      prints: '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab',
+    },
+  },
 ]
-export const TRUSTED_NAMES = [`router.uniswap.${DIRECTORY_LABEL}.eth`]
+export const TRUSTED_NAMES = [`router.uniswap.${DIRECTORY_LABEL}.eth`, `prints.verbatim.${DIRECTORY_LABEL}.eth`]
 
 const OPERATOR_ROLES = ROLE_REGISTRAR | ROLE_RENEW | ROLE_SET_PARENT | admin(ROLE_REGISTRAR | ROLE_RENEW | ROLE_SET_PARENT)
 const ORGANIZATION_GAS = 6_000_000n

@@ -4,7 +4,7 @@ import { FACTORY, factoryAbi } from './config.js'
 import { useTx } from './hooks.js'
 import TxStatus from './TxStatus.jsx'
 
-export default function CreateVault({ account, blocked, loading, onDone }) {
+export default function CreateVault({ account, blocked, loading, onDone, upgrade }) {
   const [text, setText] = useState('')
   const { tx, send, busy } = useTx(account, onDone)
   const trimmed = text.trim()
@@ -24,13 +24,13 @@ export default function CreateVault({ account, blocked, loading, onDone }) {
   return (
     <section className="card">
       <div className="card-head">
-        <h2>Create my vault</h2>
+        <h2>{upgrade ? 'Create my version 4 vault' : 'Create my vault'}</h2>
         <button className="secondary compact" onClick={() => onDone()} disabled={loading}>
           {loading ? 'Reading…' : 'Refresh'}
         </button>
       </div>
       <p>
-        You don't have a vault yet. This key becomes its <strong>Everyday key</strong>, which can spend within your
+        {upgrade ? "Your vaults were made before version 4, so they can't buy items like prints. Create a new one." : "You don't have a vault yet."} This key becomes its <strong>Everyday key</strong>, which can spend within your
         rules. Your phone's key becomes its <strong>Rules key</strong>, the only key that can change them.
       </p>
       <label className="stack">

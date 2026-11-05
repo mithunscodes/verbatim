@@ -19,8 +19,9 @@ library EnsSettings {
     }
 
     function trustedNames() internal pure returns (string[] memory names) {
-        names = new string[](1);
+        names = new string[](2);
         names[0] = string.concat("router.uniswap.", directoryName());
+        names[1] = string.concat("prints.verbatim.", directoryName());
     }
 
     function deployDirectory() internal returns (EnsDirectory) {

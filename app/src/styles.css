@@ -1715,6 +1715,10 @@ body {
   background: transparent;
 }
 
+.vb .column .demo {
+  margin-top: 24px;
+}
+
 .vb .demo summary {
   display: flex;
   align-items: center;
@@ -2448,6 +2452,11 @@ body {
 
 .vb .verdict {
   text-align: left;
+}
+
+.vb .banner .muted {
+  color: inherit;
+  opacity: 0.8;
 }
 
 .vb .verdict h2 {

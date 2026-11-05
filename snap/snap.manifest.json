@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "description": "Shows the checks a Verbatim vault will enforce, read from the transaction itself.",
+  "proposedName": "Verbatim checks",
+  "source": {
+    "shasum": "0NcIrNiNjhRGqL6qOvDjVVbXsqsrS+0fhuU2DOzyPEs=",
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "packageName": "verbatim-checks-snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    }
+  },
+  "initialPermissions": {
+    "endowment:transaction-insight": {
+      "allowTransactionOrigin": true
+    },
+    "endowment:ethereum-provider": {}
+  },
+  "platformVersion": "12.1.0",
+  "manifestVersion": "0.1"
+}

@@ -1,7 +1,8 @@
-import { decodeFunctionData, erc20Abi, isAddress, zeroAddress } from 'viem'
+import { decodeFunctionData, erc20Abi, isAddress, parseAbi, zeroAddress } from 'viem'
 import {
   PERMIT2,
   permit2Abi,
+  PRINTS,
   routerAbi,
   SHOWN_DIGITS,
   SMALL_EXTRA_BPS,
@@ -10,7 +11,7 @@ import {
 } from './config.js'
 import { formatAmount, formatDuration, roundDown, shortAddress } from './format.js'
 
-const actionAbi = [...erc20Abi, ...permit2Abi, ...routerAbi]
+const actionAbi = [...erc20Abi, ...permit2Abi, ...routerAbi, ...parseAbi(['function mint(address to, bytes32 root) payable returns (uint256)'])]
 
 export const CheckKind = {
   AtMostLeaves: 0,
@@ -36,11 +37,12 @@ export function holdingOf(vault, token) {
 
 export function nameOf(vault, address) {
   const contact = vault.contacts.find((c) => c.address === address)
-  return contact?.nickname ?? shortAddress(address)
+  return vault.names?.[address] ?? contact?.nickname ?? shortAddress(address)
 }
 
 function show(vault, token, amount) {
   const holding = holdingOf(vault, token)
+  if (!holding) return token === PRINTS ? `${amount} Verbatim Print${amount === 1n ? '' : 's'}` : `${amount} of ${shortAddress(token)}`
   return `${formatAmount(amount, holding.decimals, holding.decimals)} ${holding.symbol}`
 }
 
@@ -81,6 +83,7 @@ export function describeCheck(vault, check) {
 }
 
 function labelOf(vault, address) {
+  if (vault.names?.[address]) return vault.names[address]
   if (address === PERMIT2) return 'Permit2'
   if (address === UNIVERSAL_ROUTER) return 'Universal Router'
   return holdingOf(vault, address)?.symbol ?? nameOf(vault, address)
@@ -96,13 +99,13 @@ function decodeAction(data) {
 
 export function describeAction(vault, action) {
   const target = labelOf(vault, action.target)
-  const value = action.value ? ` · value ${action.value}` : ''
+  const value = action.value ? ` · sends ${formatAmount(BigInt(action.value), 18, 18)} ETH` : ''
   if (action.data === '0x') return `${target} · plain payment${value}`
   const call = decodeAction(action.data)
   if (!call) return `${target} · call ${action.data.slice(0, 10)}${value}`
   const args = call.functionName === 'execute'
     ? [call.args[0], `${call.args[1].length} input${call.args[1].length === 1 ? '' : 's'}`, `deadline ${call.args[2]}`]
-    : call.args.map((arg) => (typeof arg === 'string' && isAddress(arg) ? labelOf(vault, arg) : String(arg)))
+    : call.args.map((arg) => (typeof arg === 'string' && isAddress(arg) ? labelOf(vault, arg) : /^0x[0-9a-fA-F]{64}$/.test(String(arg)) ? shortAddress(arg) : String(arg)))
   return `${target} · ${call.functionName}(${args.join(', ')})${value}`
 }
 
@@ -159,7 +162,7 @@ export function classifyFailure(vault, request, failure) {
 }
 
 function describeUnsaved(vault, payments) {
-  const sends = payments.map((p) => `${show(vault, p.token, p.amount)} to ${shortAddress(p.to)}`).join(' and ')
+  const sends = payments.map((p) => `${show(vault, p.token, p.amount)} to ${nameOf(vault, p.to)}`).join(' and ')
   const first = payments[0]
   const what = !first
     ? "money to an address you haven't saved"

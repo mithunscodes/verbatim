@@ -9,6 +9,7 @@ import {
   encodePacked,
   erc20Abi,
   http,
+  isAddressEqual,
   parseAbiParameters,
   parseUnits,
   zeroAddress,
@@ -126,6 +127,10 @@ export function drainTransaction({ from, amount, balance }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: balance - amount } })
 }
 
+export function fairSwapTransaction({ from, amount }) {
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE })
+}
+
 export function divertedSwapTransaction({ from, amount, to, bps }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, portion: { to, bps } })
 }
@@ -164,7 +169,7 @@ export function explainFailure(error) {
   const revert = error instanceof BaseError
     ? error.walk((e) => e instanceof ContractFunctionRevertedError)
     : null
-  if (!revert) return { reason: error?.shortMessage || error?.message || 'Something went wrong.', network: true }
+  if (!revert || /RetryOnEmpty|retries exhausted/i.test(revert.reason ?? '')) return { reason: error?.shortMessage || error?.message || 'Something went wrong.', network: true }
   if (revert.data?.errorName === 'CheckFailed') {
     const [checkNumber, check, expected, actual] = revert.data.args
     return { checkNumber: Number(checkNumber), check, expected, actual, reason: `Check ${checkNumber} would fail` }
@@ -219,6 +224,10 @@ export async function measureChecks(reader, vault, checks, blockNumber) {
 
 const UNREAD_REASON = "The vault refused it, but its reason couldn't be read from the network just now. Etherscan shows it."
 
+export const PASSED_REASON = "It failed outside your vault's checks. Replayed against your vault at the block before, every check passes. Etherscan shows the error."
+
+const SMART_ROUTE_REASON = "MetaMask sent it through its own smart-account contract (its \"Added protection\" switch) instead of straight to your vault, and it failed there. Replayed against your vault at the block before, every check passes."
+
 function relayReader() {
   return createPublicClient({ chain, transport: http(new URL(DEMO_RPC_PATH, window.location.origin).href, { timeout: 30_000 }) })
 }
@@ -227,7 +236,7 @@ export async function replayFailure(readers, vault, run, blockNumber) {
   for (const reader of readers) {
     try {
       await reader.simulateContract({ ...runCall(vault, run), blockNumber })
-      return { reason: 'The vault refused it.' }
+      return { outside: true, reason: PASSED_REASON }
     } catch (error) {
       const failure = explainFailure(error)
       if (!failure.network) return failure
@@ -244,5 +253,6 @@ export async function waitForResult(wallet, vault, run, hash) {
     return { ok: true, receipt, moved }
   }
   const failure = await replayFailure([reader, relayReader()], vault, run, receipt.blockNumber - 1n)
-  return { ok: false, receipt, failure }
+  const direct = Boolean(receipt.to) && isAddressEqual(receipt.to, vault.address)
+  return { ok: false, receipt, failure: failure.outside && !direct ? { ...failure, smartRoute: true, reason: SMART_ROUTE_REASON } : failure }
 }
