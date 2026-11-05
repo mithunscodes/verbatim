@@ -20,6 +20,13 @@ interface IPriceSource {
 interface IEnsDirectory {
     function listed() external view returns (address[] memory);
     function isListed(address account) external view returns (bool);
+    function addressOf(string calldata name) external view returns (address);
+    function resolverOf(string calldata name) external view returns (address);
+    function records(address vault, uint256 kind, uint256 detail) external view returns (bytes[] memory);
+}
+
+interface IMulticallResolver {
+    function multicall(bytes[] calldata calls) external returns (bytes[] memory);
 }
 
 contract VerbatimVault {
@@ -38,7 +45,8 @@ contract VerbatimVault {
         AllowanceMinAge,
         LooseningWait,
         TradeTolerance,
-        PriceSource
+        PriceSource,
+        ContactAddress
     }
 
     struct Action {
@@ -87,6 +95,7 @@ contract VerbatimVault {
     }
 
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+    uint256 private constant ENS_GAS = 3_000_000;
 
     address public everydayKey;
     address public rulesKey;
@@ -103,15 +112,20 @@ contract VerbatimVault {
     uint256 public looseningWait = 24 hours;
     uint256 public tradeTolerance = 300;
     address public priceSource;
+    string public ensName;
+    address public ensResolver;
     bool public setupFinished;
     mapping(address => Allowance) public allowances;
     mapping(address => uint256) public savedAt;
+    mapping(address => string) public nameOf;
+    mapping(bytes32 => address) public pinnedAddress;
     mapping(address => mapping(uint256 => uint256)) receivedWhileNew;
     Change[] public changes;
     bool transient running;
 
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
     event ContactSaved(address indexed contact);
+    event ContactNamed(address indexed contact, string name);
     event DailyLimitSet(address indexed token, uint256 amount);
     event AllowanceValiditySet(uint256 duration);
     event AllowanceCreated(address indexed contact, address indexed token, uint256 amount, uint256 activeFrom, uint256 expiresAt);
@@ -152,6 +166,19 @@ contract VerbatimVault {
 
     function saveContact(address contact) external {
         require(msg.sender == rulesKey, "Only the rules key can save contacts");
+        recordContact(contact);
+    }
+
+    function saveContactName(string calldata name) external {
+        require(msg.sender == rulesKey, "Only the rules key can save contacts");
+        require(pinnedAddress[keccak256(bytes(name))] == address(0), "This name is already saved");
+        address contact = IEnsDirectory(directory).addressOf(name);
+        require(contact != address(0), "This name has no address");
+        recordContact(contact);
+        pin(name, contact);
+    }
+
+    function recordContact(address contact) private {
         require(contact != address(0), "A contact can't be empty");
         require(!contains(contacts, contact), "Already a saved contact");
         require(
@@ -161,6 +188,27 @@ contract VerbatimVault {
         contacts.push(contact);
         savedAt[contact] = block.timestamp;
         emit ContactSaved(contact);
+    }
+
+    function pin(string memory name, address contact) private {
+        nameOf[contact] = name;
+        pinnedAddress[keccak256(bytes(name))] = contact;
+        emit ContactNamed(contact, name);
+        publish(2, uint256(uint160(contact)));
+    }
+
+    function publish(uint256 kind, uint256 detail) private {
+        if (ensResolver == address(0)) return;
+        require(gasleft() > ENS_GAS, "Not enough gas to update ENS");
+        try IEnsDirectory(directory).records(address(this), kind, detail) returns (bytes[] memory calls) {
+            try IMulticallResolver(ensResolver).multicall(calls) {} catch {}
+        } catch {}
+    }
+
+    function requireSameAddress(address contact) private view {
+        string storage name = nameOf[contact];
+        if (bytes(name).length == 0) return;
+        require(IEnsDirectory(directory).addressOf(name) == contact, "This contact's address changed");
     }
 
     function setDailyLimit(address token, uint256 amount) external {
@@ -203,6 +251,16 @@ contract VerbatimVault {
         changeRule(ChangeKind.PriceSource, address(0), uint256(uint160(source)));
     }
 
+    function setEnsName(string calldata name) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        require(!setupFinished, "Setup already finished");
+        address resolver = IEnsDirectory(directory).resolverOf(name);
+        require(resolver != address(0), "This name has no genuine ENS resolver");
+        ensName = name;
+        ensResolver = resolver;
+        publish(0, 0);
+    }
+
     function finishSetup() external {
         require(msg.sender == rulesKey, "Only the rules key can finish setup");
         require(!setupFinished, "Setup already finished");
@@ -219,9 +277,17 @@ contract VerbatimVault {
             require(contains(contacts, contact), "Not a saved contact");
             require(value > 0, "An allowance can't be empty");
         }
+        if (kind == ChangeKind.ContactAddress) {
+            string storage name = nameOf[contact];
+            require(bytes(name).length > 0, "Not a saved name");
+            require(value != 0 && value <= type(uint160).max, "Not an address");
+            require(IEnsDirectory(directory).addressOf(name) == address(uint160(value)), "The name doesn't point there");
+            require(!contains(contacts, address(uint160(value))), "Already a saved contact");
+        }
         id = changes.length;
         changes.push(Change(kind, contact, token, value, 0, 0, 0, false, false));
         emit ChangeProposed(id, kind, contact, token, value);
+        publish(1, id);
     }
 
     function approve(uint256 id) external {
@@ -237,10 +303,11 @@ contract VerbatimVault {
             require(oldEnough(change.contact), "Contact too new for big payments");
             allowances[change.contact] = Allowance(change.token, change.value, readyAt, expiresAt, false);
             emit AllowanceCreated(change.contact, change.token, change.value, readyAt, expiresAt);
-        } else {
+        } else if (change.kind != ChangeKind.ContactAddress) {
             change.valueBefore = currentValue(change.kind, change.token);
         }
         emit ChangeApproved(id, readyAt, expiresAt);
+        publish(1, id);
     }
 
     function cancel(uint256 id) external {
@@ -255,6 +322,7 @@ contract VerbatimVault {
             delete allowances[change.contact];
         }
         emit ChangeCancelled(id);
+        publish(1, id);
     }
 
     function switchOn(uint256 id) external {
@@ -265,10 +333,15 @@ contract VerbatimVault {
         require(!change.done, "Already switched on");
         require(block.timestamp >= change.readyAt, "Still waiting");
         require(block.timestamp <= change.expiresAt, "Change expired");
-        require(currentValue(change.kind, change.token) == change.valueBefore, "This rule changed during the wait");
         change.done = true;
-        writeValue(change.kind, change.token, change.value);
+        if (change.kind == ChangeKind.ContactAddress) {
+            repin(change.contact, address(uint160(change.value)));
+        } else {
+            require(currentValue(change.kind, change.token) == change.valueBefore, "This rule changed during the wait");
+            writeValue(change.kind, change.token, change.value);
+        }
         emit ChangeSwitchedOn(id);
+        publish(1, id);
     }
 
     function payWithAllowance(address contact, uint256 amount) external {
@@ -281,6 +354,7 @@ contract VerbatimVault {
         require(block.timestamp <= allowance.expiresAt, "Allowance expired");
         require(amount <= allowance.amount, "More than the allowance");
         require(oldEnough(contact), "Contact too new for big payments");
+        requireSameAddress(contact);
         allowance.used = true;
         emit AllowanceUsed(contact, allowance.token, amount);
         if (allowance.token == address(0)) {
@@ -289,6 +363,13 @@ contract VerbatimVault {
         } else {
             require(IERC20(allowance.token).transfer(contact, amount), "Payment failed");
         }
+    }
+
+    function repin(address contact, address next) private {
+        string memory name = nameOf[contact];
+        require(IEnsDirectory(directory).addressOf(name) == next, "This contact's address changed");
+        recordContact(next);
+        pin(name, next);
     }
 
     function dailyLimit(address token) external view returns (uint256) {
@@ -351,6 +432,7 @@ contract VerbatimVault {
         require(action.operation == 0, "Borrowed code would run in your account");
         if (action.data.length == 0) {
             require(contains(contacts, action.target), "Not a saved contact");
+            requireSameAddress(action.target);
             paid[0] += action.value;
             return none;
         }
@@ -360,6 +442,7 @@ contract VerbatimVault {
             if (selector == IERC20.transfer.selector) {
                 (address to, uint256 amount) = abi.decode(action.data[4:], (address, uint256));
                 require(contains(contacts, to), "Not a saved contact");
+                requireSameAddress(to);
                 paid[indexOf(action.target)] += amount;
                 return none;
             }
@@ -603,6 +686,7 @@ contract VerbatimVault {
         } else {
             revert("Not a rule");
         }
+        publish(0, 0);
     }
 
     function hasLimit(Check[] calldata checks, address token) private pure returns (bool) {

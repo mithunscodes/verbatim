@@ -48,7 +48,7 @@ contract VaultFactoryTest is Test {
         address everydayKey = vault.everydayKey();
         if (refusal.length > 0) vm.expectRevert(refusal);
         vm.prank(everydayKey);
-        vault.run(actions, checks, block.timestamp + 1 hours);
+        vault.run(actions, checks, vm.getBlockTimestamp() + 1 hours);
     }
 
     function test_CreateVaultSetsTheRightKeys() public {
@@ -64,7 +64,6 @@ contract VaultFactoryTest is Test {
         address[] memory guarded = factory.vaultsGuardedBy(alicePhone);
         assertEq(guarded.length, 1);
         assertEq(guarded[0], address(vault));
-        assertEq(factory.vaultCount(), 1);
         assertFalse(vault.setupFinished());
     }
 
@@ -114,7 +113,7 @@ contract VaultFactoryTest is Test {
         vault.saveContact(mom);
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
         sendUsdc(vault, mom, 1e6, "Over the daily limit");
         assertEq(usdc.balanceOf(mom), 0);
     }
@@ -127,7 +126,7 @@ contract VaultFactoryTest is Test {
         vault.setDailyLimit(address(usdc), 10e6);
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
         sendUsdc(vault, mom, 2e6, "");
         assertEq(usdc.balanceOf(mom), 2e6);
     }
@@ -152,7 +151,7 @@ contract VaultFactoryTest is Test {
         vm.expectRevert("Only the rules key can finish setup");
         vault.finishSetup();
         vm.expectRevert("Only the everyday key can run");
-        vault.run(new VerbatimVault.Action[](0), new VerbatimVault.Check[](0), block.timestamp + 1 hours);
+        vault.run(new VerbatimVault.Action[](0), new VerbatimVault.Check[](0), vm.getBlockTimestamp() + 1 hours);
         vm.expectRevert("Only the everyday key can propose");
         vault.propose(VerbatimVault.ChangeKind.DailyLimit, address(0), address(usdc), 1e6);
         vm.stopPrank();

@@ -6,7 +6,6 @@ import {VerbatimVault} from "./VerbatimVault.sol";
 contract VaultFactory {
     address[] public watchedTokens;
     address public directory;
-    address[] public vaults;
     mapping(address => address) public vaultOf;
     mapping(address => address[]) private guardedBy;
 
@@ -22,15 +21,10 @@ contract VaultFactory {
         vault = address(new VerbatimVault(msg.sender, rulesKey, watchedTokens, directory));
         vaultOf[msg.sender] = vault;
         guardedBy[rulesKey].push(vault);
-        vaults.push(vault);
         emit VaultCreated(vault, msg.sender, rulesKey);
     }
 
     function vaultsGuardedBy(address rulesKey) external view returns (address[] memory) {
         return guardedBy[rulesKey];
-    }
-
-    function vaultCount() external view returns (uint256) {
-        return vaults.length;
     }
 }
