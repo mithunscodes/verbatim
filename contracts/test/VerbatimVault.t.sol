@@ -25,6 +25,7 @@ contract VerbatimVaultTest is Test {
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(address(0), 1 ether);
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 days);
     }
 
     function sendUsdc(address to, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {

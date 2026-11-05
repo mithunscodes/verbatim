@@ -32,6 +32,7 @@ contract AllowancesTest is Test {
         vault.setDailyLimit(address(usdc), 10e6);
         vault.setDailyLimit(ETH, 0.1 ether);
         vm.stopPrank();
+        vm.warp(block.timestamp + 7 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -102,12 +103,12 @@ contract AllowancesTest is Test {
         vm.prank(rulesKey);
         leaky.saveContact(warmWallet);
         leaky.giveAllowance(
-            warmWallet, VerbatimVault.Allowance(address(usdc), 50e6, block.timestamp + 1 days, block.timestamp + 3 days, false)
+            warmWallet, VerbatimVault.Allowance(address(usdc), 50e6, block.timestamp + 8 days, block.timestamp + 10 days, false)
         );
         vm.prank(everydayKey);
         vm.expectRevert("Allowance not active yet");
         leaky.payWithAllowance(warmWallet, 50e6);
-        vm.warp(block.timestamp + 1 days);
+        vm.warp(block.timestamp + 8 days);
         vm.prank(everydayKey);
         leaky.payWithAllowance(warmWallet, 50e6);
         assertEq(usdc.balanceOf(warmWallet), 50e6);

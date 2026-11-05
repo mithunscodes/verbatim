@@ -35,6 +35,7 @@ contract DailyLimitTest is Test {
         vault.setDailyLimit(address(usdc), 10e6);
         vault.setDailyLimit(ETH, 0.1 ether);
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {

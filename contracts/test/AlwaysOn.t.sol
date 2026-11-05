@@ -74,6 +74,7 @@ contract AlwaysOnTest is Test {
         vault.setDailyLimit(address(dai), 100e18);
         vault.setDailyLimit(ETH, 1 ether);
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;
     }
 
@@ -204,6 +205,7 @@ contract AlwaysOnTest is Test {
         vm.startPrank(rulesKey);
         leaky.saveContact(mom);
         leaky.setDailyLimit(ETH, 1 ether);
+        leaky.setNewContactLimit(ETH, 1 ether);
         vm.stopPrank();
         vm.prank(everydayKey);
         leaky.run(only(VerbatimVault.Action(mom, 0.1 ether, "", 0)), limit(ETH, 0.1 ether), deadline);

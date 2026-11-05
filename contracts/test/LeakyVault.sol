@@ -29,4 +29,20 @@ contract LeakyVault is VerbatimVault {
     function setValidity(uint256 duration) external {
         allowanceValidity = duration;
     }
+
+    function backdateContact(address contact, uint256 time) external {
+        savedAt[contact] = time;
+    }
+
+    function raiseNewContactLimit(uint256 index, uint256 amount) external {
+        newContactLimits[index] = amount;
+    }
+
+    function shortenNewContactPeriod(uint256 duration) external {
+        newContactPeriod = duration;
+    }
+
+    function shortenAllowanceMinAge(uint256 duration) external {
+        allowanceMinAge = duration;
+    }
 }

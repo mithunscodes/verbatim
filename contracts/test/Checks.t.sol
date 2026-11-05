@@ -34,6 +34,7 @@ contract ChecksTest is Test {
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(ETH, 1 ether);
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;
     }
 

@@ -58,8 +58,13 @@ contract VerbatimVault {
     uint256[] dailyLimits;
     uint256[] spentToday;
     uint256[] dayStarted;
+    uint256[] newContactLimits;
     uint256 public allowanceValidity = 48 hours;
+    uint256 public newContactPeriod = 24 hours;
+    uint256 public allowanceMinAge = 7 days;
     mapping(address => Allowance) public allowances;
+    mapping(address => uint256) public savedAt;
+    mapping(address => mapping(uint256 => uint256)) receivedWhileNew;
     bool transient running;
 
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
@@ -68,6 +73,9 @@ contract VerbatimVault {
     event AllowanceValiditySet(uint256 duration);
     event AllowanceCreated(address indexed contact, address indexed token, uint256 amount, uint256 activeFrom, uint256 expiresAt);
     event AllowanceUsed(address indexed contact, address indexed token, uint256 amount);
+    event NewContactLimitSet(address indexed token, uint256 amount);
+    event NewContactPeriodSet(uint256 duration);
+    event AllowanceMinAgeSet(uint256 duration);
 
     error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual);
 
@@ -81,6 +89,7 @@ contract VerbatimVault {
         dailyLimits = new uint256[](watchedTokens_.length + 1);
         spentToday = new uint256[](watchedTokens_.length + 1);
         dayStarted = new uint256[](watchedTokens_.length + 1);
+        newContactLimits = new uint256[](watchedTokens_.length + 1);
     }
 
     receive() external payable {}
@@ -94,6 +103,7 @@ contract VerbatimVault {
         require(contact != address(0), "A contact can't be empty");
         require(!contains(contacts, contact), "Already a saved contact");
         contacts.push(contact);
+        savedAt[contact] = block.timestamp;
         emit ContactSaved(contact);
     }
 
@@ -109,9 +119,28 @@ contract VerbatimVault {
         emit AllowanceValiditySet(duration);
     }
 
+    function setNewContactLimit(address token, uint256 amount) external {
+        require(msg.sender == rulesKey, "Only the rules key can set limits");
+        newContactLimits[indexOf(token)] = amount;
+        emit NewContactLimitSet(token, amount);
+    }
+
+    function setNewContactPeriod(uint256 duration) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        newContactPeriod = duration;
+        emit NewContactPeriodSet(duration);
+    }
+
+    function setAllowanceMinAge(uint256 duration) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        allowanceMinAge = duration;
+        emit AllowanceMinAgeSet(duration);
+    }
+
     function createAllowance(address contact, address token, uint256 amount) external {
         require(msg.sender == rulesKey, "Only the rules key can create allowances");
         require(contains(contacts, contact), "Not a saved contact");
+        require(oldEnough(contact), "Contact too new for big payments");
         require(token == address(0) || contains(watchedTokens, token), "Not a watched token");
         require(amount > 0, "An allowance can't be empty");
         uint256 expiresAt = block.timestamp + allowanceValidity;
@@ -127,6 +156,7 @@ contract VerbatimVault {
         require(block.timestamp >= allowance.activeFrom, "Allowance not active yet");
         require(block.timestamp <= allowance.expiresAt, "Allowance expired");
         require(amount <= allowance.amount, "More than the allowance");
+        require(oldEnough(contact), "Contact too new for big payments");
         allowance.used = true;
         emit AllowanceUsed(contact, allowance.token, amount);
         if (allowance.token == address(0)) {
@@ -147,6 +177,10 @@ contract VerbatimVault {
         return spent >= dailyLimits[i] ? 0 : dailyLimits[i] - spent;
     }
 
+    function newContactLimit(address token) external view returns (uint256) {
+        return newContactLimits[indexOf(token)];
+    }
+
     function run(Action[] calldata actions, Check[] calldata checks, uint256 deadline) external {
         require(msg.sender == everydayKey, "Only the everyday key can run");
         require(block.timestamp <= deadline, "Deadline passed");
@@ -155,13 +189,16 @@ contract VerbatimVault {
         bytes32 accountBefore = fingerprint();
         Permission[] memory permissions = inspect(actions);
         uint256[] memory balancesBefore = measure(checks);
-        uint256[] memory holdingsBefore = holdings();
+        uint256[] memory holdingsBefore = holdingsOf(address(this));
+        address[] memory fresh = newContacts();
+        uint256[][] memory freshBefore = measureAccounts(fresh);
         execute(actions);
         verify(checks, balancesBefore);
         requireNoPermissionLeft(permissions);
-        uint256[] memory holdingsAfter = holdings();
+        uint256[] memory holdingsAfter = holdingsOf(address(this));
         requireNothingElseLeft(checks, holdingsBefore, holdingsAfter);
         countTowardDailyLimits(holdingsBefore, holdingsAfter);
+        countTowardNewContactLimits(fresh, freshBefore);
         require(fingerprint() == accountBefore, "Your account would change");
         running = false;
         emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(checks)), actions.length, deadline);
@@ -252,12 +289,50 @@ contract VerbatimVault {
         }
     }
 
-    function holdings() private view returns (uint256[] memory amounts) {
+    function holdingsOf(address account) private view returns (uint256[] memory amounts) {
         amounts = new uint256[](watchedTokens.length + 1);
-        amounts[0] = address(this).balance;
+        amounts[0] = account.balance;
         for (uint256 i = 0; i < watchedTokens.length; i++) {
-            amounts[i + 1] = IERC20(watchedTokens[i]).balanceOf(address(this));
+            amounts[i + 1] = IERC20(watchedTokens[i]).balanceOf(account);
         }
+    }
+
+    function newContacts() private view returns (address[] memory fresh) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < contacts.length; i++) {
+            if (isNew(contacts[i])) count++;
+        }
+        fresh = new address[](count);
+        uint256 next = 0;
+        for (uint256 i = 0; i < contacts.length; i++) {
+            if (isNew(contacts[i])) fresh[next++] = contacts[i];
+        }
+    }
+
+    function measureAccounts(address[] memory accounts) private view returns (uint256[][] memory amounts) {
+        amounts = new uint256[][](accounts.length);
+        for (uint256 i = 0; i < accounts.length; i++) {
+            amounts[i] = holdingsOf(accounts[i]);
+        }
+    }
+
+    function countTowardNewContactLimits(address[] memory fresh, uint256[][] memory before) private {
+        for (uint256 i = 0; i < fresh.length; i++) {
+            uint256[] memory afterwards = holdingsOf(fresh[i]);
+            for (uint256 j = 0; j < afterwards.length; j++) {
+                if (afterwards[j] <= before[i][j]) continue;
+                receivedWhileNew[fresh[i]][j] += afterwards[j] - before[i][j];
+                require(receivedWhileNew[fresh[i]][j] <= newContactLimits[j], "Over the new-contact limit");
+            }
+        }
+    }
+
+    function isNew(address contact) private view returns (bool) {
+        return block.timestamp < savedAt[contact] + newContactPeriod;
+    }
+
+    function oldEnough(address contact) private view returns (bool) {
+        return block.timestamp >= savedAt[contact] + allowanceMinAge;
     }
 
     function requireNothingElseLeft(Check[] calldata checks, uint256[] memory holdingsBefore, uint256[] memory holdingsAfter)
@@ -307,13 +382,15 @@ contract VerbatimVault {
         address[] memory trusted = trustedContracts;
         address[] memory saved = contacts;
         uint256[] memory limits = dailyLimits;
+        uint256[] memory newLimits = newContactLimits;
         Allowance[] memory given = new Allowance[](saved.length);
+        uint256[] memory ages = new uint256[](saved.length);
         for (uint256 i = 0; i < saved.length; i++) {
             given[i] = allowances[saved[i]];
+            ages[i] = savedAt[saved[i]];
         }
-        return keccak256(
-            abi.encode(everydayKey, rulesKey, watched, trusted, saved, limits, given, allowanceValidity, address(this).codehash)
-        );
+        bytes32 settings = keccak256(abi.encode(limits, newLimits, allowanceValidity, newContactPeriod, allowanceMinAge));
+        return keccak256(abi.encode(everydayKey, rulesKey, watched, trusted, saved, given, ages, settings, address(this).codehash));
     }
 
     function contains(address[] storage list, address item) private view returns (bool) {

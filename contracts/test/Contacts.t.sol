@@ -32,7 +32,9 @@ contract ContactsTest is Test {
         vault.saveContact(mom);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.setNewContactLimit(address(usdc), 50e6);
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 days);
         deadline = block.timestamp + 5 minutes;
     }
 
