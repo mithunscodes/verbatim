@@ -1,0 +1,155 @@
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --border: #e3e1dc;
+  --accent: #1f5eff;
+  --accent-text: #ffffff;
+  --error: #c62828;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 12px;
+  --space: 16px;
+  --width: 560px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --surface: #1d1d1d;
+    --text: #f0f0f0;
+    --muted: #9a9a9a;
+    --border: #2e2e2e;
+    --accent: #5b8cff;
+    --error: #ef5350;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
+.page {
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: calc(var(--space) * 2) var(--space);
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: calc(var(--space) * 1.5);
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.875rem;
+}
+
+.role {
+  color: var(--muted);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: calc(var(--space) * 1.25);
+  margin-bottom: var(--space);
+}
+
+.card h2 {
+  margin: 0 0 calc(var(--space) / 2);
+  font-size: 1.125rem;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.balances {
+  list-style: none;
+  margin: var(--space) 0;
+  padding: 0;
+}
+
+.balances li {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--space) / 2);
+  padding: calc(var(--space) / 2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.balances li:last-child {
+  border-bottom: none;
+}
+
+.amount {
+  font-size: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.symbol {
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  padding: calc(var(--space) / 2) var(--space);
+  border: none;
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
+.error {
+  color: var(--error);
+}
