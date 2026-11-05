@@ -2,6 +2,9 @@
   "name": "verbatim-server",
   "private": true,
   "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
   "dependencies": {
     "viem": "^2.57.5"
   }

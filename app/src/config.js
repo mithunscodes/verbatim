@@ -33,6 +33,10 @@ export const AUTO_REFRESH_MS = 15_000
 
 export const SEPOLIA_TIP = 1_000_000n
 
+export const QUOTE_DELAY_MS = 500
+
+export const QUOTE_REFRESH_MS = 30_000
+
 export const vaultAbi = parseAbi([
   'function everydayKey() view returns (address)',
   'function rulesKey() view returns (address)',

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
-import { EXPLORER, SWAP_SLIPPAGE_BPS } from './config.js'
+import { EXPLORER, QUOTE_REFRESH_MS, SHOWN_DIGITS, SWAP_SLIPPAGE_BPS } from './config.js'
 import { getWallet } from './chain.js'
 import {
   ALWAYS_ON,
@@ -13,7 +13,8 @@ import {
   sendChecks,
   swapChecks,
 } from './checks.js'
-import { amountPattern, formatAmount, shortAddress } from './format.js'
+import { amountPattern, formatAbout, formatAmount, shortAddress } from './format.js'
+import { compareToFair, describeRoute, useQuote } from './quotes.js'
 import { hackedExtra, newDeadline, practiceRun, sendActions, signAndSend, waitForResult } from './run.js'
 
 const KIND_NAMES = ['AtMostLeaves', 'AtLeastArrives', 'ExactlyTo']
@@ -35,6 +36,12 @@ function readAmount(text, decimals) {
   const amount = parseUnits(trimmed, decimals)
   if (amount === 0n) return { error: 'The amount must be more than 0' }
   return { amount }
+}
+
+function swapAskFor(vault, form) {
+  if (form.mode !== 'swap' || !vault.fairPrice || !canSwap(vault, form.from, form.swapTo)) return null
+  const { amount } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
+  return amount ? { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount } : null
 }
 
 function buildRequest(vault, form, hacked) {
@@ -83,7 +90,34 @@ function TokenSelect({ vault, value, onChange }) {
   )
 }
 
-function ChecksList({ vault, request, mode, failure }) {
+function QuoteLine({ quote, fair, out }) {
+  if (quote.status === 'loading') return <p>Asking Uniswap for a quote…</p>
+  if (quote.status === 'error') return <p className="error">Uniswap quote: {quote.error}</p>
+  if (quote.status !== 'ready') return null
+  const { amountOut, route, blockNumber } = quote.quote
+  return (
+    <p>
+      Uniswap's quote: about {formatAbout(amountOut, out.decimals, SHOWN_DIGITS)} {out.symbol},{' '}
+      {compareToFair(amountOut, fair)}, through {describeRoute(route)}. Quoted at block{' '}
+      {blockNumber.toLocaleString('en-US')}, refreshed every {QUOTE_REFRESH_MS / 1000} seconds.
+    </p>
+  )
+}
+
+function SwapNote({ vault, request, quote }) {
+  const out = holdingOf(vault, request.checks[1].token)
+  return (
+    <div className="muted small">
+      <p>
+        At the fair price you'd get about {formatAbout(request.expected, out.decimals, SHOWN_DIGITS)} {out.symbol}.
+        The check allows {formatAmount(SWAP_SLIPPAGE_BPS, 2)}% less. Swaps can run from Build 6.
+      </p>
+      <QuoteLine quote={quote} fair={request.expected} out={out} />
+    </div>
+  )
+}
+
+function ChecksList({ vault, request, mode, failure, quote }) {
   const rules = rulesFor(vault, request.checks)
   return (
     <section className="card">
@@ -117,13 +151,7 @@ function ChecksList({ vault, request, mode, failure }) {
           {rules.map((line) => <li key={line}>{line}</li>)}
         </ul>
       </details>
-      {mode === 'swap' && (
-        <p className="muted small">
-          At the fair price you'd get about {formatAmount(request.expected, holdingOf(vault, request.checks[1].token).decimals)}{' '}
-          {holdingOf(vault, request.checks[1].token).symbol}. The check allows {formatAmount(SWAP_SLIPPAGE_BPS, 2)}% less.
-          Swaps can run from Build 6.
-        </p>
-      )}
+      {mode === 'swap' && <SwapNote vault={vault} request={request} quote={quote} />}
       <details className="fold raw">
         <summary>What the vault receives</summary>
         <ol>
@@ -193,6 +221,9 @@ export default function Request({ vault, role, blocked, onDone }) {
 
   const set = (field) => (value) => setForm((f) => ({ ...f, [field]: value }))
   const toggle = (field) => (e) => setDemo((d) => ({ ...d, [field]: e.target.checked }))
+  const busy = result.status === 'signing' || result.status === 'pending'
+  const finished = result.status === 'done'
+  const quote = useQuote(swapAskFor(vault, form), busy || finished)
   const request = useMemo(() => buildRequest(vault, form, demo.hacked), [vault, form, demo.hacked])
   const requestKey = useMemo(() => keyOf(request), [request])
   const latest = useRef({ vault, request })
@@ -221,8 +252,6 @@ export default function Request({ vault, role, blocked, onDone }) {
     }
   }, [wallet, requestKey, practiceRound])
 
-  const busy = result.status === 'signing' || result.status === 'pending'
-  const finished = result.status === 'done'
   const isEveryday = role === 'Everyday key'
   const practiceDone = practice.status === 'pass' || practice.status === 'fail'
   const allowed = practice.status === 'pass' || (practice.status === 'fail' && demo.forced)
@@ -317,6 +346,7 @@ export default function Request({ vault, role, blocked, onDone }) {
           request={request}
           mode={form.mode}
           failure={practice.status === 'fail' ? practice.failure : null}
+          quote={quote}
         />
       )}
 

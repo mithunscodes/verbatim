@@ -1,6 +1,6 @@
 import { zeroAddress } from 'viem'
 import { SHOWN_DIGITS, SWAP_SLIPPAGE_BPS } from './config.js'
-import { formatAmount, formatDuration, shortAddress } from './format.js'
+import { formatAmount, formatDuration, roundDown, shortAddress } from './format.js'
 
 export const CheckKind = {
   AtMostLeaves: 0,
@@ -32,13 +32,6 @@ export function nameOf(vault, address) {
 function show(vault, token, amount) {
   const holding = holdingOf(vault, token)
   return `${formatAmount(amount, holding.decimals, holding.decimals)} ${holding.symbol}`
-}
-
-function roundDown(amount, digits) {
-  const extra = amount.toString().length - digits
-  if (extra <= 0) return amount
-  const step = 10n ** BigInt(extra)
-  return (amount / step) * step
 }
 
 export function sendChecks({ token, amount, to }) {

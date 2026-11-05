@@ -7,6 +7,17 @@ export function formatAmount(amount, decimals, maxFraction = 6) {
   return shown ? `${grouped}.${shown}` : grouped
 }
 
+export function roundDown(amount, digits) {
+  const extra = amount.toString().length - digits
+  if (extra <= 0) return amount
+  const step = 10n ** BigInt(extra)
+  return (amount / step) * step
+}
+
+export function formatAbout(amount, decimals, digits) {
+  return formatAmount(roundDown(amount, digits), decimals, decimals)
+}
+
 export function shortAddress(address) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
 }
