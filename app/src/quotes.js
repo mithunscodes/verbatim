@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { zeroAddress } from 'viem'
 import { QUOTE_DELAY_MS, QUOTE_REFRESH_MS } from './config.js'
 import { formatAmount } from './format.js'
-import { badRouteTransaction, drainTransaction, feeTransaction } from './run.js'
+import { badRouteTransaction, drainTransaction } from './run.js'
 
 export const SERVER_DOWN = "The quote server isn't running. In Terminal, open the server folder and run npm start."
 
@@ -41,7 +41,6 @@ async function quoteFor(ask, signal) {
   if (scenario === 'badRoute') return { badRoute: true, transaction: badRouteTransaction({ from: tokenIn, amount }) }
   const quote = await fetchQuote(ask, signal)
   if (scenario === 'drain') return { ...quote, transaction: drainTransaction({ from: tokenIn, amount, balance: ask.balance }) }
-  if (scenario === 'fee') return { ...quote, transaction: feeTransaction({ from: tokenIn, amount }), note: 'a 0.25% app fee' }
   return quote
 }
 

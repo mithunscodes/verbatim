@@ -5,11 +5,8 @@ import { getWallet } from './chain.js'
 import {
   ALWAYS_ON,
   canSwap,
-  CheckKind,
-  classifyFailure,
   describeAction,
   describeCheck,
-  describeExtra,
   describeFailure,
   describeOutcome,
   holdingOf,
@@ -21,7 +18,6 @@ import {
 import { amountPattern, formatAbout, formatAmount, shortAddress } from './format.js'
 import { compareToFair, describeRoute, useQuote } from './quotes.js'
 import {
-  extraActions,
   hackedExtra,
   newDeadline,
   practiceRun,
@@ -63,9 +59,6 @@ const SWAP_SCENARIOS = [
   ['honest', 'Nothing hidden (an honest app)'],
   ['badRoute', 'Bad route: a thin pool with a worse price'],
   ['drain', 'Hacked app: hides a drain of your other USDC inside the swap'],
-  ['fee', 'Small extra: a 0.25% app fee'],
-  ['tip', "Risky extra: a 0.1 USDC tip to an address you haven't saved"],
-  ['borrowed', 'Never allowed: runs borrowed code in your vault'],
 ]
 
 function scenarioProblem(vault, form, demo, amount) {
@@ -85,18 +78,7 @@ function swapAskFor(vault, form, demo) {
   return { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount, scenario: demo.scenario, balance }
 }
 
-function withAdded(request, added) {
-  const check = added && request.checks?.[added.index]
-  if (!check || check.kind !== CheckKind.AtMostLeaves || check.token !== added.token) return request
-  const checks = request.checks.map((c, i) => (i === added.index ? { ...c, amount: added.total } : c))
-  return { ...request, checks, added }
-}
-
-function buildRequest(vault, form, demo, quote, added) {
-  return withAdded(baseRequest(vault, form, demo, quote), added)
-}
-
-function baseRequest(vault, form, demo, quote) {
+function buildRequest(vault, form, demo, quote) {
   if (form.mode === 'send') {
     if (!vault.contacts.length) return { error: 'No saved contacts yet. Your phone saves them.' }
     const { decimals } = holdingOf(vault, form.token)
@@ -117,12 +99,7 @@ function baseRequest(vault, form, demo, quote) {
   if (problem) return { error: problem }
   const swap = swapChecks(vault, { from: form.from, to: form.swapTo, amount })
   if (!quote) return swap
-  const extras = extraActions(demo.scenario, { from: form.from, decimals: holdingOf(vault, form.from).decimals })
-  return {
-    ...swap,
-    note: quote.note ?? null,
-    actions: [...swapActions({ from: form.from, amount, transaction: quote.transaction }), ...extras],
-  }
+  return { ...swap, actions: swapActions({ from: form.from, amount, transaction: quote.transaction }) }
 }
 
 function explain(failure, vault, checks) {
@@ -207,7 +184,6 @@ function ChecksList({ vault, request, mode, failure, quote }) {
           )
         })}
       </ul>
-      {request.added && <AddedNote vault={vault} added={request.added} />}
       <details className="fold">
         <summary>
           <span className="icon">✓</span>
@@ -255,38 +231,6 @@ function Practice({ practice }) {
   if (practice.status === 'pass') return <p className="practice pass">✓ Practice run: every check passes</p>
   if (practice.status === 'fail') return <p className="practice fail">✗ Practice run: {explain(practice.failure)}</p>
   return null
-}
-
-function ExtraOffer({ vault, request, failure, busy, onAdd, onCancel }) {
-  const extra = classifyFailure(vault, request, failure)
-  if (!extra) return null
-  const { icon, title, text, question } = describeExtra(vault, extra, request.note)
-  return (
-    <div className={`extra ${extra.level}`}>
-      <p><strong>{icon} {title}</strong></p>
-      <p>{text}</p>
-      {question && (
-        <>
-          <p>{question}</p>
-          <div className="row">
-            <button onClick={onCancel} disabled={busy}>Cancel</button>
-            <button className="secondary" onClick={() => onAdd(extra)} disabled={busy}>Add to my request</button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function AddedNote({ vault, added }) {
-  const holding = holdingOf(vault, added.token)
-  const amount = `${formatAmount(added.extra, holding.decimals, holding.decimals)} ${holding.symbol}`
-  return (
-    <p className="muted small">
-      You added {amount}{added.note ? ` (${added.note})` : ''} to check {added.index + 1}. If the app takes more, your
-      vault refuses it.
-    </p>
-  )
 }
 
 function Result({ result, vault, onReset }) {
@@ -344,7 +288,6 @@ export default function Request({ vault, role, blocked, onDone }) {
   const [practice, setPractice] = useState({ status: 'idle' })
   const [result, setResult] = useState({ status: 'idle' })
   const [practiceRound, setPracticeRound] = useState(0)
-  const [added, setAdded] = useState(null)
 
   const set = (field) => (value) => setForm((f) => ({ ...f, [field]: value }))
   const toggle = (field) => (e) => setDemo((d) => ({ ...d, [field]: e.target.checked }))
@@ -352,17 +295,13 @@ export default function Request({ vault, role, blocked, onDone }) {
   const finished = result.status === 'done'
   const quote = useQuote(swapAskFor(vault, form, demo), busy || finished)
   const readyQuote = quote.status === 'ready' ? quote.quote : null
-  const request = useMemo(
-    () => buildRequest(vault, form, demo, readyQuote, added),
-    [vault, form, demo, readyQuote, added],
-  )
+  const request = useMemo(() => buildRequest(vault, form, demo, readyQuote), [vault, form, demo, readyQuote])
   const requestKey = useMemo(() => keyOf(request), [request])
   const latest = useRef({ vault, request })
   latest.current = { vault, request }
 
   useEffect(() => {
     setResult({ status: 'idle' })
-    setAdded(null)
   }, [form, demo])
 
   useEffect(() => {
@@ -485,16 +424,6 @@ export default function Request({ vault, role, blocked, onDone }) {
       {request.actions && (
         <section className="card">
           <Practice practice={practice} />
-          {practice.status === 'fail' && !finished && (
-            <ExtraOffer
-              vault={vault}
-              request={request}
-              failure={practice.failure}
-              busy={busy}
-              onAdd={(extra) => setAdded({ ...extra, note: request.note })}
-              onCancel={() => set('amount')('')}
-            />
-          )}
           {!isEveryday && practiceDone && (
             <p className="muted">Switch MetaMask to the Everyday key to send.</p>
           )}

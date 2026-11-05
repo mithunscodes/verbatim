@@ -9,16 +9,13 @@ import {
   encodePacked,
   erc20Abi,
   parseAbiParameters,
-  parseUnits,
   zeroAddress,
 } from 'viem'
 import {
   BAD_ROUTE_POOL_FEE,
   chain,
   DEADLINE_SECONDS,
-  DEMO_FEE_BPS,
   DEMO_STRANGER,
-  DEMO_TIP,
   FAIR_POOL_FEE,
   FORCED_GAS,
   PERMIT2,
@@ -116,24 +113,6 @@ export function badRouteTransaction({ from, amount }) {
 
 export function drainTransaction({ from, amount, balance }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: balance - amount } })
-}
-
-export function feeTransaction({ from, amount }) {
-  const fee = (amount * DEMO_FEE_BPS) / 10_000n
-  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: fee } })
-}
-
-export function extraActions(scenario, { from, decimals }) {
-  if (scenario === 'tip') {
-    return [{
-      target: from,
-      value: 0n,
-      data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [DEMO_STRANGER, parseUnits(DEMO_TIP, decimals)] }),
-      operation: 0,
-    }]
-  }
-  if (scenario === 'borrowed') return [{ target: DEMO_STRANGER, value: 0n, data: '0x', operation: 1 }]
-  return []
 }
 
 export function newDeadline() {
