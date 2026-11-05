@@ -13,12 +13,28 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 import { REPLAY_BUILDER_FLOOR, REPLAY_KEEP_MS, REPLAY_MAX_WAITING, REPLAY_POLL_MS, SEPOLIA_EXPLORER } from './config.js'
 import { AAVE, BYBIT } from './replays.js'
-import { prepareBybit, replayAccounts, resetAave, runAave, runBybit, topUpFees } from './sepolia-replays.js'
+import {
+  HOOK,
+  PRINT,
+  prepareBybit,
+  preparePrint,
+  printInput,
+  replayAccounts,
+  resetAave,
+  resetHook,
+  runAave,
+  runBybit,
+  runHook,
+  runPrint,
+  topUpFees,
+} from './sepolia-replays.js'
 import { RequestError } from './uniswap.js'
 
 const REPLAYS = {
   bybit: { ready: prepareBybit, run: runBybit, facts: BYBIT },
   aave: { ready: resetAave, run: runAave, facts: AAVE },
+  hook: { ready: resetHook, run: runHook, facts: HOOK },
+  print: { ready: preparePrint, run: runPrint, facts: PRINT, input: printInput },
 }
 const ACTIVE = ['waiting', 'preparing', 'running']
 const jobs = new Map()
@@ -74,7 +90,7 @@ async function work(job, replay, hide) {
     await topUpFees(ctx, accounts, step)
     await replay.ready(ctx, accounts, step)
     job.status = 'running'
-    job.result = await replay.run(ctx, accounts)
+    job.result = await replay.run(ctx, accounts, job.input)
     job.status = 'done'
     note(`done on Sepolia in ${(job.result.ms / 1000).toFixed(1)} s`)
   } catch (error) {
@@ -98,11 +114,13 @@ async function work(job, replay, hide) {
 
 export function startReplay(body, { hide = String } = {}) {
   const replay = REPLAYS[body?.name]
-  if (!replay) throw new RequestError('Choose the bybit or aave replay.')
+  if (!replay) throw new RequestError('Choose the bybit, aave, hook or print replay.')
+  const input = replay.input ? replay.input(body) : null
+  if (replay.input && !input) throw new RequestError('Make the image first: the print needs its 0G Storage root.')
   prune()
   const waiting = [...jobs.values()].filter((job) => job.status === 'waiting').length
   if (waiting >= REPLAY_MAX_WAITING) throw new RequestError('Sepolia replays are busy right now. Try again in a minute.', 429)
-  const job = { id: randomUUID(), name: body.name, order: order++, status: 'waiting', facts: replay.facts }
+  const job = { id: randomUUID(), name: body.name, order: order++, status: 'waiting', facts: replay.facts, input }
   jobs.set(job.id, job)
   line = line.then(() => work(job, replay, hide))
   return view(job)

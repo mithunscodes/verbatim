@@ -72,10 +72,6 @@ body {
   font-size: 0.875rem;
 }
 
-.vb .credits {
-  font-size: 1.5rem;
-}
-
 .vb .error {
   color: #b3330e;
   font-weight: 600;
@@ -859,6 +855,7 @@ body {
 .vb .panel,
 .vb .left-out,
 .vb .questions,
+.vb .recorded,
 .vb .mismatch,
 .vb .extra {
   margin: 12px 0;
@@ -883,6 +880,7 @@ body {
 .vb .panel.warn,
 .vb .left-out,
 .vb .questions,
+.vb .recorded,
 .vb .mismatch,
 .vb .extra.risky,
 .vb .extra.never {
@@ -2296,8 +2294,6 @@ body {
 }
 
 .vb .contact-tiles .tile {
-  display: block;
-  overflow-wrap: anywhere;
   font-size: 19px;
   padding: 7px 12px 9px;
   border-radius: 10px;
@@ -2533,22 +2529,6 @@ body {
 
 .vb .print-file {
   margin: 4px 0 8px;
-}
-
-.vb .names-search {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin: 0 0 18px;
-}
-
-.vb .names-search input {
-  flex: 1;
-  min-width: 0;
-}
-
-.vb .name-demo {
-  margin-left: auto;
 }
 
 .vb .print-checks {

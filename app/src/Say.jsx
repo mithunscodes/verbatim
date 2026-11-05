@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { planFor, understandSentence } from './ai.js'
 import { nameOf } from './checks.js'
 import { Dots, Words } from './Motion.jsx'
-import Proof, { Recorded } from './Proof.jsx'
+import Proof from './Proof.jsx'
 import WordTiles from './Tiles.jsx'
 import { LeftOut, StepList } from './Words.jsx'
 import { untraced } from './words.js'
@@ -12,6 +12,8 @@ const MAX_ANSWERS = 3
 const SAMPLE_MS = 3000
 
 const SAMPLE_OUT_MS = 400
+
+const MINT_WORDS = /\b(draw|mint|nft|picture|image|paint)\w*/i
 
 function samplesFor(vault) {
   const names = vault.contacts
@@ -62,6 +64,15 @@ export default function Say({ vault, onUse, busy }) {
 
   const start = () => {
     setReply('')
+    const lower = text.toLowerCase()
+    const moved = vault.contacts
+      .filter((contact) => contact.moved)
+      .map((contact) => nameOf(vault, contact.address))
+      .find((name) => !name.startsWith('0x') && lower.includes(name.toLowerCase()))
+    if (moved) {
+      setState({ status: 'error', turns: [], error: `⚠ ${moved} now points to a new address, so sends to it are stopped. Approve the new address first, or put the name back.` })
+      return
+    }
     ask([])
   }
 
@@ -90,7 +101,7 @@ export default function Say({ vault, onUse, busy }) {
         {thinking && <div className="scan" aria-hidden="true"><span /></div>}
         <div className="say-head">
           <span className="eyebrow">In your own words</span>
-          {done && !answer.recorded && (
+          {done && (
             <span className="muted small">
               Read in {(answer.latencyMs / 1000).toFixed(1)} s{answer.paidBy === 'your 0G account' && ', paid by your 0G account'}
             </span>
@@ -129,7 +140,11 @@ export default function Say({ vault, onUse, busy }) {
             )}
           </div>
         )}
-        {done && <Recorded recorded={answer.recorded} />}
+        {!done && MINT_WORDS.test(text) && (
+          <p className="panel small">
+            Want to draw a picture and mint it as an NFT? <a href="#mint">Open the Mint page</a>
+          </p>
+        )}
         {state.status === 'error' && <p className="panel warn">{state.error}</p>}
       </section>
 

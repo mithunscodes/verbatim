@@ -277,7 +277,6 @@ export default function Replays() {
             <a href="#phone">Phone</a>
             <a href="#replays" className="active">Replays</a>
             <a href="#mint">Mint</a>
-            <a href="#names">Names</a>
           </nav>
         </div>
       </header>

@@ -1,9 +1,11 @@
 import { networkInterfaces } from 'node:os'
-import { LAPTOP_LIMITS, LOOPBACK, OUTSIDE_LIMITS, PROXY_HEADERS, PUBLIC_ROUTES } from './config.js'
+import { LAPTOP_LIMITS, LAPTOP_ONLY_ROUTES, LOOPBACK, OUTSIDE_LIMITS, PROXY_HEADERS, PUBLIC_ROUTES } from './config.js'
 import { methodsOf } from './rpc.js'
 import { RequestError } from './uniswap.js'
 
 export const isPublic = process.env.VERBATIM_PUBLIC === 'on'
+
+export const isOpen = process.env.VERBATIM_PUBLIC === 'open'
 
 const windows = new Map()
 
@@ -45,8 +47,15 @@ export function take(name, rule, amount = 1, now = Date.now()) {
 }
 
 export function admit(request) {
-  if (!isPublic) return false
   const name = routeName(request)
+  if ((isOpen || isPublic) && LAPTOP_ONLY_ROUTES.includes(name) && !fromLaptop(request)) {
+    throw new RequestError("Minting your own picture works only on the team's laptop.", 403)
+  }
+  if (isOpen) {
+    if (LAPTOP_LIMITS[name]) take(`open ${name}`, LAPTOP_LIMITS[name])
+    return false
+  }
+  if (!isPublic) return false
   const outside = !fromLaptop(request)
   if (outside && !PUBLIC_ROUTES.includes(name)) throw new RequestError("This part of Verbatim runs only on the team's laptop.", 403)
   const limits = outside ? OUTSIDE_LIMITS : LAPTOP_LIMITS

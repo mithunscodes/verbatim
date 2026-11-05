@@ -30,15 +30,18 @@ function readSealed(body) {
 }
 
 export async function saveReceipt(body) {
-  const bytes = readSealed(body)
+  return saveBytes(readSealed(body))
+}
+
+export async function saveBytes(bytes) {
   const file = new MemData(bytes)
   const [, treeError] = await file.merkleTree()
-  if (treeError) throw new Error(`Couldn't prepare the receipt: ${treeError.message ?? treeError}`)
+  if (treeError) throw new Error(`Couldn't prepare the file: ${treeError.message ?? treeError}`)
   const [result, error] = await indexer.upload(file, GALILEO_RPC, signer())
   if (error) throw new Error(`0G Storage upload failed: ${error.message ?? error}`)
   const root = result.rootHash ?? result.rootHashes?.[0]
   const txHash = result.txHash ?? result.txHashes?.[0]
-  return { root, txHash, explorer: `${GALILEO_EXPLORER}/tx/${txHash}` }
+  return { root, txHash: txHash || null, explorer: txHash ? `${GALILEO_EXPLORER}/tx/${txHash}` : null }
 }
 
 export async function loadReceipt(root) {

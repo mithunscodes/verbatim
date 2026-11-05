@@ -254,6 +254,12 @@ function MintIt({ picture }) {
         <li>Nothing else leaves (always on)</li>
       </ul>
       {!picture && <p className="muted small">Draw a picture or bring your own first.</p>}
+      <p className="small">
+        <strong>
+          Free for you: a shared demo vault on Sepolia pays the {eth(PRICE)} test ETH and the network fee, with Verbatim's test keys. No wallet
+          approval is needed, and the print stays in that demo vault.
+        </strong>
+      </p>
       <div className="actions">
         <button className="big" onClick={() => start(false)} disabled={!picture || busy}>
           {results.honest ? 'Mint another' : 'Mint it through my vault'}

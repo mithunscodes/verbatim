@@ -8,11 +8,13 @@ import {
   formatUnits,
   http,
   keccak256,
+  maxUint160,
   maxUint256,
   parseAbi,
   parseEther,
   parseEventLogs,
   size,
+  toHex,
   zeroAddress,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
@@ -23,6 +25,10 @@ import {
   BYBIT_REASON,
   DEPLOYER,
   HELD,
+  HOOK,
+  HOOK_REASON,
+  PRINT,
+  PRINT_REASON,
   REPLAY_CONTRACTS,
   REPLAY_KEYS,
   SAFE,
@@ -32,14 +38,24 @@ import {
   bybitScene,
   codeOf,
   copies,
+  hookReady,
+  hookScene,
+  permit2Abi,
   prepareBybit,
+  preparePrint,
+  printScene,
+  quoteHook,
   replayAccounts,
   resetAave,
+  resetHook,
   runAave,
   runBybit,
+  runHook,
+  runPrint,
   safeAbi,
   sendSteps,
   topUpFees,
+  UNISWAP,
   vaultFactory,
 } from '../src/sepolia-replays.js'
 import { connect, isMain, live, option, redact, startLocalCopy } from './ens.js'
@@ -48,7 +64,8 @@ const ENV_FILE = new URL('../../.env', import.meta.url)
 const CODE_FILE = new URL('../src/bybit-code.json', import.meta.url)
 const POOLS_FILE = new URL('../src/aave-pools.json', import.meta.url)
 const CONTRACTS_FILE = new URL('../src/replay-contracts.json', import.meta.url)
-const REPLAYS = ['bybit', 'aave']
+const HOOK_FILE = new URL('../src/hook-pool.json', import.meta.url)
+const REPLAYS = ['bybit', 'aave', 'hook', 'print']
 const TARGET_MS = 60_000
 const REHEARSAL_RUNS = 2
 const REHEARSAL_ETH = parseEther('10')
@@ -56,6 +73,8 @@ const BATCH = 12
 const REAL_POOL = '0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36'
 const REAL_PAIR = '0xD75EA151a61d06868E31F8988D28DFE5E9df57B4'
 const PRICE_DECIMALS = 8
+const STATE_VIEW = '0xE1Dd9c3fA50EDB962E442f60DfBc432e24537E4C'
+const MAX_UINT48 = 2 ** 48 - 1
 
 const realPoolAbi = parseAbi([
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16, uint16, uint16, uint8, bool)',
@@ -67,6 +86,9 @@ const realPoolAbi = parseAbi([
   'function positions(bytes32 key) view returns (uint128 liquidity, uint256, uint256, uint128, uint128)',
 ])
 const pairAbi = parseAbi(['function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32)'])
+const stateViewAbi = parseAbi([
+  'function getSlot0(bytes32 poolId) view returns (uint160 sqrtPriceX96, int24 tick, uint24 protocolFee, uint24 lpFee)',
+])
 const feedAbi = parseAbi([
   'function latestRoundData() view returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80)',
   'function decimals() view returns (uint8)',
@@ -191,6 +213,28 @@ async function savePools() {
   }
 }
 
+async function saveHookPrice() {
+  const client = mainnet()
+  const read = (address, functionName) => client.readContract({ address, abi: feedAbi, functionName })
+  const [[, ethUsd, , updatedAt], [, usdcUsd], ethDecimals, usdcDecimals] = await Promise.all([
+    read(HOOK.feeds.ethUsd, 'latestRoundData'),
+    read(HOOK.feeds.usdcUsd, 'latestRoundData'),
+    read(HOOK.feeds.ethUsd, 'decimals'),
+    read(HOOK.feeds.usdcUsd, 'decimals'),
+  ])
+  if (ethDecimals !== PRICE_DECIMALS || usdcDecimals !== PRICE_DECIMALS) throw new Error('Chainlink feeds with unexpected decimals')
+  const data = {
+    from: "Chainlink's ETH/USD and USDC/USD on Ethereum mainnet. The hook replay's pool starts at this price, and its price source uses it, so refresh it only before a fresh setup",
+    decimals: PRICE_DECIMALS,
+    ethUsd: String(ethUsd),
+    usdcUsd: String(usdcUsd),
+    readAt: new Date(Number(updatedAt) * 1000).toISOString(),
+    feeds: HOOK.feeds,
+  }
+  writeFileSync(HOOK_FILE, `${JSON.stringify(data, null, 2)}\n`)
+  console.log(`Saved Chainlink's prices for the hook replay: ETH $${units(ethUsd, PRICE_DECIMALS, 2)}, USDC $${units(usdcUsd, PRICE_DECIMALS, 5)}`)
+}
+
 async function deployMissing(ctx, contracts) {
   const steps = []
   for (const [label, contract] of contracts) {
@@ -293,6 +337,79 @@ async function setupAave(ctx, accounts) {
   }
 }
 
+async function setupHook(ctx, accounts) {
+  console.log(`\nSetting up the Uniswap v4 hook replay on ${where()}`)
+  await topUpFees(ctx, accounts, log)
+  const scene = hookScene(ctx.builder.address, accounts)
+  const { tokens, data } = scene
+  await deployMissing(ctx, [
+    ['the pool helper', scene.helper],
+    ['tUSDC', tokens.usdc],
+    ['tWETH', tokens.weth],
+    [`the bad hook (it takes ${Number(HOOK.cutBps) / 100}% of every swap, except when Uniswap's quoter asks)`, scene.hook],
+  ])
+  const made = await ctx.publicClient.readContract({ address: scene.helper.address, abi: abiOf('HookPools'), functionName: 'hook' })
+  if (made === zeroAddress) {
+    await sendSteps(ctx, ctx.builder, [{
+      label: `Make the Uniswap v4 tUSDC/tWETH pool with the bad hook, at Chainlink's price ($${units(BigInt(data.ethUsd), data.decimals, 2)}), with about ${units(HOOK.poolWeth, 18)} tWETH in it`,
+      request: call(scene.helper.address, abiOf('HookPools'), 'init', [tokens.usdc.address, tokens.weth.address, scene.hook.address, scene.startPrice, scene.liquidity, HOOK.amount]),
+    }], log)
+  }
+  await deployMissing(ctx, [
+    ["the fixed price source (Chainlink's prices)", scene.source],
+    ["the trusted list (only Uniswap's Universal Router)", scene.directory],
+    ['the hook replay vault', scene.vault],
+  ])
+  const vault = scene.vault.address
+  if (!(await ctx.publicClient.readContract({ address: vault, abi: vaultAbi, functionName: 'setupFinished' }))) {
+    const limit = HOOK.amount * 2n
+    await sendSteps(ctx, accounts.rules, [
+      { label: `Daily limit: ${units(limit, 6)} tUSDC (twice the swap)`, request: call(vault, vaultAbi, 'setDailyLimit', [tokens.usdc.address, limit]) },
+      { label: "Price source: Chainlink's prices", request: call(vault, vaultAbi, 'setPriceSource', [scene.source.address]) },
+      { label: 'Finish setup', request: call(vault, vaultAbi, 'finishSetup') },
+    ], log)
+  }
+  await resetHook(ctx, accounts, log)
+  const owner = accounts.everyday.address
+  const [allowance, [permitted]] = await Promise.all([
+    ctx.publicClient.readContract({ address: tokens.usdc.address, abi: erc20Abi, functionName: 'allowance', args: [owner, UNISWAP.permit2] }),
+    ctx.publicClient.readContract({ address: UNISWAP.permit2, abi: permit2Abi, functionName: 'allowance', args: [owner, tokens.usdc.address, UNISWAP.universalRouter] }),
+  ])
+  const steps = []
+  if (allowance < HOOK.amount) {
+    steps.push({ label: "The normal wallet lets Uniswap's Permit2 move its tUSDC, once", request: call(tokens.usdc.address, erc20Abi, 'approve', [UNISWAP.permit2, maxUint256]) })
+  }
+  if (permitted < HOOK.amount) {
+    steps.push({
+      label: "The normal wallet lets Uniswap's Universal Router use that, once",
+      request: call(UNISWAP.permit2, permit2Abi, 'approve', [tokens.usdc.address, UNISWAP.universalRouter, maxUint160, MAX_UINT48]),
+    })
+  }
+  await sendSteps(ctx, accounts.everyday, steps, log)
+}
+
+async function setupPrint(ctx, accounts) {
+  console.log(`\nSetting up the AI print mint on ${where()}`)
+  await topUpFees(ctx, accounts, log)
+  const scene = printScene(ctx.builder.address, accounts)
+  await deployMissing(ctx, [
+    [`the Verbatim Prints NFT contract (${eth(PRINT.price)} a print, paid to the Builder key)`, scene.prints],
+    ["the fixed price source (Chainlink's ETH price)", scene.source],
+    ['the trusted list (only the Verbatim Prints contract)', scene.directory],
+    ['the print vault', scene.vault],
+  ])
+  const vault = scene.vault.address
+  if (!(await ctx.publicClient.readContract({ address: vault, abi: vaultAbi, functionName: 'setupFinished' }))) {
+    await sendSteps(ctx, accounts.rules, [
+      { label: `Daily limit: ${eth(PRINT.dailyLimit)}`, request: call(vault, vaultAbi, 'setDailyLimit', [zeroAddress, PRINT.dailyLimit]) },
+      { label: "Price source: Chainlink's ETH price", request: call(vault, vaultAbi, 'setPriceSource', [scene.source.address]) },
+      { label: 'Fair-price rule off (100%): a picture has no market price, so your words do the work', request: call(vault, abiOf('VerbatimVault'), 'setTradeTolerance', [PRINT.noFairPrice]) },
+      { label: 'Finish setup', request: call(vault, vaultAbi, 'finishSetup') },
+    ], log)
+  }
+  await preparePrint(ctx, accounts, log)
+}
+
 async function checkCopies(ctx, accounts, report) {
   const client = mainnet()
   const made = copies(accounts.thief.address)
@@ -340,6 +457,41 @@ async function checkPools(ctx, accounts, report) {
     String(aaveReserve) === data.v2.aave && String(wethReserve) === data.v2.weth,
     `The Uniswap v2 pool ${scene.pair} holds what SushiSwap's ${short(data.v2.pair)} held: ${units(aaveReserve, 18)} tAAVE and ${units(wethReserve, 18)} tWETH`,
   )
+}
+
+async function checkHook(ctx, accounts, report) {
+  const scene = hookScene(ctx.builder.address, accounts)
+  const [[sqrtPriceX96], helperPrice, quoted] = await Promise.all([
+    ctx.publicClient.readContract({ address: STATE_VIEW, abi: stateViewAbi, functionName: 'getSlot0', args: [scene.poolId] }),
+    ctx.publicClient.readContract({ address: scene.helper.address, abi: abiOf('HookPools'), functionName: 'price' }),
+    quoteHook(ctx.publicClient, scene, accounts.everyday),
+  ])
+  const fair = (HOOK.amount * BigInt(scene.data.usdcUsd) * 10n ** 12n) / BigInt(scene.data.ethUsd)
+  report(
+    (BigInt(scene.hook.address) & 0x3fffn) === 0x44n,
+    `The hook ${scene.hook.address} has the address Uniswap v4 needs for "after swap" and "takes from the swap"`,
+  )
+  report(
+    sqrtPriceX96 === scene.startPrice && helperPrice === scene.startPrice,
+    `The Uniswap v4 pool ${scene.poolId.slice(0, 10)}… starts at Chainlink's price, $${units(BigInt(scene.data.ethUsd), scene.data.decimals, 2)} per tWETH (read through Uniswap's StateView)`,
+  )
+  report(
+    quoted < fair && (fair - quoted) * 100n < fair,
+    `Uniswap's quoter: ${units(HOOK.amount, 6)} tUSDC → ${units(quoted, 18)} tWETH, within 1% of the fair ${units(fair, 18)} (the pool's fee and price impact). The hook doesn't cut quotes`,
+  )
+}
+
+async function checkPrint(ctx, accounts, report) {
+  const scene = printScene(ctx.builder.address, accounts)
+  const read = (address, abi, functionName, args = []) => ctx.publicClient.readContract({ address, abi, functionName, args })
+  const [price, finished, tolerance, held] = await Promise.all([
+    read(scene.prints.address, abiOf('VerbatimPrints'), 'price'),
+    read(scene.vault.address, vaultAbi, 'setupFinished'),
+    read(scene.vault.address, abiOf('VerbatimVault'), 'tradeTolerance'),
+    ctx.publicClient.getBalance({ address: scene.vault.address }),
+  ])
+  report(price === PRINT.price, `Verbatim Prints ${scene.prints.address}: ${eth(price)} a print`)
+  report(finished && tolerance === PRINT.noFairPrice && held >= PRINT.vaultHolds / 2n, `The print vault ${scene.vault.address} is set up, trusts only Verbatim Prints, and holds ${eth(held)}`)
 }
 
 async function runBybitOnce(ctx, accounts, number, report) {
@@ -390,6 +542,41 @@ async function runAaveOnce(ctx, accounts, number, report) {
   report(await aaveReady(ctx.publicClient, scene), 'Both pools and the tUSDT are back exactly, ready for the next run')
 }
 
+async function runHookOnce(ctx, accounts, number, report) {
+  console.log(`\nHook run ${number} on ${where()}`)
+  const result = await runHook(ctx, accounts)
+  report(
+    result.trade.status === 'success' && result.lessBps >= 1990n && result.lessBps <= 2010n,
+    `A normal wallet: Uniswap's quoter said ${units(result.quoted, 18)} tWETH for ${units(result.amount, 6)} tUSDC. The swap paid ${units(result.got, 18)}, ${formatUnits(result.lessBps, 2)}% less, and the hook sent ${units(result.cut, 18)} tWETH to its owner: ${link(result.trade.hash)}`,
+  )
+  report(
+    result.attempt.status === 'reverted' && result.attempt.reason === HOOK_REASON && result.vault.usdcAfter === result.vault.usdcBefore,
+    `A Verbatim vault, same swap, with the user's words "at least ${units(result.atLeast, 18)} tWETH": refused, "${result.attempt.reason}" (only ${units(result.attempt.actual ?? 0n, 18)} would arrive). Still ${units(result.vault.usdcAfter, 6, 2)} tUSDC: ${link(result.attempt.hash)}`,
+  )
+  report(result.withoutWords === AAVE_REASON, `Without the user's words, the vault's fair-price rule refuses it too: "${result.withoutWords}"`)
+  report(result.ms < TARGET_MS, `Took ${seconds(result.ms)} s, from the first read to the last result`)
+  const scene = await resetHook(ctx, accounts, log)
+  report(await hookReady(ctx.publicClient, scene), 'The v4 pool and the tUSDC are back exactly, ready for the next run')
+}
+
+async function runPrintOnce(ctx, accounts, number, report) {
+  const root = option('root') ?? keccak256(toHex('Verbatim print rehearsal'))
+  console.log(`\nPrint run ${number} on ${where()}, image root ${root.slice(0, 10)}…`)
+  const honest = await runPrint(ctx, accounts, { root, hacked: false })
+  report(
+    honest.attempt.status === 'success' && honest.paid === PRINT.price && honest.printsHeld.after === honest.printsHeld.before + 1n,
+    `The user's words "at most ${eth(PRINT.price)}, and 1 print arrives": minted Verbatim Print #${honest.tokenId} into the vault for ${eth(honest.paid)}: ${link(honest.attempt.hash)}`,
+  )
+  await preparePrint(ctx, accounts, log)
+  const hacked = await runPrint(ctx, accounts, { root, hacked: true })
+  report(
+    hacked.attempt.status === 'reverted' && hacked.attempt.reason === PRINT_REASON && hacked.paid === 0n,
+    `A hacked mint site asks ${eth(hacked.asked)} and sends the print to the thief: refused, "${hacked.attempt.reason}". Nothing paid: ${link(hacked.attempt.hash)}`,
+  )
+  report(honest.ms + hacked.ms < TARGET_MS, `Took ${seconds(honest.ms)} s and ${seconds(hacked.ms)} s`)
+  await preparePrint(ctx, accounts, log)
+}
+
 async function statusBybit(ctx, accounts) {
   const scene = await bybitScene(ctx.publicClient, accounts)
   const balance = (address) => ctx.publicClient.getBalance({ address })
@@ -415,25 +602,42 @@ async function statusAave(ctx, accounts) {
   console.log(`  Ready for a run: ${(await aaveReady(ctx.publicClient, scene)) ? 'yes' : 'no (run setup)'}`)
 }
 
-const SETUP = { bybit: setupBybit, aave: setupAave }
-const STATUS = { bybit: statusBybit, aave: statusAave }
-const CHECK = { bybit: checkCopies, aave: checkPools }
-const RUN = { bybit: runBybitOnce, aave: runAaveOnce }
+async function statusHook(ctx, accounts) {
+  const scene = hookScene(ctx.builder.address, accounts)
+  console.log(`\nUniswap v4 hook replay on ${where()}`)
+  console.log(`  Pool helper: ${place(scene.helper.address)}. Bad hook: ${place(scene.hook.address)}`)
+  console.log(`  Tokens: ${['usdc', 'weth'].map((name) => `${scene.tokens[name].symbol} ${place(scene.tokens[name].address)}`).join(', ')}`)
+  console.log(`  Pool: ${scene.poolId}, in Uniswap's PoolManager ${place(UNISWAP.v4PoolManager)}`)
+  console.log(`  Vault: ${place(scene.vault.address)}. Normal wallet: ${accounts.everyday.address}`)
+  console.log(`  Ready for a run: ${(await hookReady(ctx.publicClient, scene)) ? 'yes' : 'no (run setup)'}`)
+}
 
-async function rehearse() {
+async function statusPrint(ctx, accounts) {
+  const scene = printScene(ctx.builder.address, accounts)
+  console.log(`\nAI print mint on ${where()}`)
+  console.log(`  Verbatim Prints: ${place(scene.prints.address)}`)
+  console.log(`  Print vault: ${place(scene.vault.address)}, ${eth(await ctx.publicClient.getBalance({ address: scene.vault.address }))}`)
+}
+
+const SETUP = { bybit: setupBybit, aave: setupAave, hook: setupHook, print: setupPrint }
+const STATUS = { bybit: statusBybit, aave: statusAave, hook: statusHook, print: statusPrint }
+const CHECK = { bybit: checkCopies, aave: checkPools, hook: checkHook, print: checkPrint }
+const RUN = { bybit: runBybitOnce, aave: runAaveOnce, hook: runHookOnce, print: runPrintOnce }
+
+async function rehearse(chosen) {
   console.log('Rehearsal on a private local copy of Sepolia. Nothing is sent to the real network.\n')
   const copy = await startLocalCopy()
   try {
     const ctx = connect(copy.url)
     await ctx.testClient.setBalance({ address: ctx.builder.address, value: REHEARSAL_ETH })
     const accounts = replayAccounts()
-    for (const name of REPLAYS) await SETUP[name](ctx, accounts)
+    for (const name of chosen) await SETUP[name](ctx, accounts)
     const { report, finish } = reporter()
     console.log('')
-    for (const name of REPLAYS) await CHECK[name](ctx, accounts, report)
+    for (const name of chosen) await CHECK[name](ctx, accounts, report)
     const runs = Number(option('times') ?? REHEARSAL_RUNS)
     for (let i = 1; i <= runs; i++) {
-      for (const name of REPLAYS) await RUN[name](ctx, accounts, i, report)
+      for (const name of chosen) await RUN[name](ctx, accounts, i, report)
     }
     finish()
   } finally {
@@ -447,12 +651,14 @@ async function main() {
   if (command === 'code') return saveCode()
   if (command === 'pools') return savePools()
   if (command === 'contracts') return saveContracts()
+  if (command === 'hook-price') return saveHookPrice()
+  const named = process.argv[2] === command ? process.argv[3] : process.argv[2]
+  const chosen = named && !named.startsWith('--') ? [named] : REPLAYS
+  if (!chosen.every((name) => REPLAYS.includes(name))) throw new Error('Choose bybit, aave, hook or print, or leave it out for all four')
   if (!live) {
-    if (command !== 'rehearse') throw new Error('Without --live, the only commands are keys, code, pools, contracts and rehearse (the default)')
-    return rehearse()
+    if (command !== 'rehearse') throw new Error('Without --live, the only commands are keys, code, pools, contracts, hook-price and rehearse (the default)')
+    return rehearse(chosen)
   }
-  const chosen = process.argv[3] && !process.argv[3].startsWith('--') ? [process.argv[3]] : REPLAYS
-  if (!chosen.every((name) => REPLAYS.includes(name))) throw new Error('Choose bybit or aave, or leave it out for both')
   const ctx = connect(process.env.SEPOLIA_RPC_URL)
   const accounts = replayAccounts()
   if (command === 'setup') {
@@ -476,7 +682,7 @@ async function main() {
     }
     return finish()
   }
-  throw new Error('With --live, use setup, status, check or run, then bybit or aave (or nothing for both)')
+  throw new Error('With --live, use setup, status, check or run, then bybit, aave, hook or print (or nothing for all four)')
 }
 
 if (isMain(import.meta.url)) {
