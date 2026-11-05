@@ -1,6 +1,8 @@
-import { zeroAddress } from 'viem'
-import { SHOWN_DIGITS, SWAP_SLIPPAGE_BPS } from './config.js'
+import { decodeFunctionData, erc20Abi, isAddress, zeroAddress } from 'viem'
+import { PERMIT2, permit2Abi, routerAbi, SHOWN_DIGITS, SWAP_SLIPPAGE_BPS, UNIVERSAL_ROUTER } from './config.js'
 import { formatAmount, formatDuration, roundDown, shortAddress } from './format.js'
+
+const actionAbi = [...erc20Abi, ...permit2Abi, ...routerAbi]
 
 export const CheckKind = {
   AtMostLeaves: 0,
@@ -68,6 +70,32 @@ export function describeCheck(vault, check) {
   if (check.kind === CheckKind.AtMostLeaves) return { icon: '↓', text: `At most ${amount} leaves your vault` }
   if (check.kind === CheckKind.AtLeastArrives) return { icon: '↑', text: `At least ${amount} arrives in your vault` }
   return { icon: '→', text: `Exactly ${amount} goes to ${nameOf(vault, check.to)}` }
+}
+
+function labelOf(vault, address) {
+  if (address === PERMIT2) return 'Permit2'
+  if (address === UNIVERSAL_ROUTER) return 'Universal Router'
+  return holdingOf(vault, address)?.symbol ?? nameOf(vault, address)
+}
+
+function decodeAction(data) {
+  try {
+    return decodeFunctionData({ abi: actionAbi, data })
+  } catch {
+    return null
+  }
+}
+
+export function describeAction(vault, action) {
+  const target = labelOf(vault, action.target)
+  const value = action.value ? ` · value ${action.value}` : ''
+  if (action.data === '0x') return `${target} · plain payment${value}`
+  const call = decodeAction(action.data)
+  if (!call) return `${target} · call ${action.data.slice(0, 10)}${value}`
+  const args = call.functionName === 'execute'
+    ? [call.args[0], `${call.args[1].length} input${call.args[1].length === 1 ? '' : 's'}`, `deadline ${call.args[2]}`]
+    : call.args.map((arg) => (typeof arg === 'string' && isAddress(arg) ? labelOf(vault, arg) : String(arg)))
+  return `${target} · ${call.functionName}(${args.join(', ')})${value}`
 }
 
 export function describeFailure(vault, check, actual) {

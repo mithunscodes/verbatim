@@ -9,6 +9,14 @@ export const FACTORY = '0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7'
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 
+export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
+
+export const UNIVERSAL_ROUTER = '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b'
+
+export const WETH = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
+
+export const BAD_ROUTE_POOL_FEE = 100
+
 export const DEMO_TIMINGS = {
   looseningWait: 120n,
   newContactPeriod: 300n,
@@ -27,7 +35,7 @@ export const SHOWN_DIGITS = 4
 
 export const DEADLINE_SECONDS = 600
 
-export const FORCED_GAS = 600_000n
+export const FORCED_GAS = 1_000_000n
 
 export const AUTO_REFRESH_MS = 15_000
 
@@ -73,6 +81,13 @@ export const vaultAbi = parseAbi([
   'function run(Action[] actions, Check[] checks, uint256 deadline)',
   'error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual)',
 ])
+
+export const permit2Abi = parseAbi([
+  'function approve(address token, address spender, uint160 amount, uint48 expiration)',
+  'function allowance(address user, address token, address spender) view returns (uint160 amount, uint48 expiration, uint48 nonce)',
+])
+
+export const routerAbi = parseAbi(['function execute(bytes commands, bytes[] inputs, uint256 deadline) payable'])
 
 export const priceSourceAbi = parseAbi([
   'function unit() view returns (address)',

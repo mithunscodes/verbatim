@@ -1,4 +1,4 @@
-import { getAddress, isAddress } from 'viem'
+import { decodeFunctionData, getAddress, hexToBytes, isAddress, parseAbi, zeroAddress } from 'viem'
 import {
   CHAIN_ID,
   PROTOCOLS,
@@ -8,9 +8,16 @@ import {
   UNISWAP_API,
   UNISWAP_RETRIES,
   UNISWAP_TIMEOUT_MS,
+  UNIVERSAL_ROUTER,
 } from './config.js'
 
 const WHOLE_NUMBER = /^[1-9]\d{0,30}$/
+
+const routerAbi = parseAbi(['function execute(bytes commands, bytes[] inputs, uint256 deadline) payable'])
+
+const COMMAND_TYPE = 0x3f
+
+const SIGNED_PERMIT_COMMANDS = [0x03, 0x0a]
 
 export class RequestError extends Error {
   constructor(message, status = 400) {
@@ -82,6 +89,28 @@ function checkQuote(ask, { routing, quote }) {
   return quote
 }
 
+function readRouterCall(data) {
+  try {
+    return decodeFunctionData({ abi: routerAbi, data }).args
+  } catch {
+    throw new RequestError("Uniswap's swap isn't a router call the app understands.", 502)
+  }
+}
+
+function checkSwap(ask, { swap }) {
+  if (Number(swap.chainId) !== CHAIN_ID) throw new RequestError("Uniswap's swap is for another network.", 502)
+  if (getAddress(swap.to) !== UNIVERSAL_ROUTER) throw new RequestError("Uniswap's swap goes to an unexpected contract.", 502)
+  const value = BigInt(swap.value ?? 0)
+  if (value !== (ask.tokenIn === zeroAddress ? BigInt(ask.amount) : 0n)) {
+    throw new RequestError("Uniswap's swap sends the wrong amount of ETH.", 502)
+  }
+  const [commands, , deadline] = readRouterCall(swap.data)
+  if (hexToBytes(commands).some((command) => SIGNED_PERMIT_COMMANDS.includes(command & COMMAND_TYPE))) {
+    throw new RequestError("Uniswap's swap asks for a signed permit, which the vault never gives.", 502)
+  }
+  return { to: UNIVERSAL_ROUTER, value: value.toString(), data: swap.data, commands, deadline: deadline.toString() }
+}
+
 function symbolOf(token) {
   return BigInt(token.address) === 0n ? 'ETH' : token.symbol
 }
@@ -109,6 +138,7 @@ export async function quoteSwap(body) {
     protocols: PROTOCOLS,
   })
   const quote = checkQuote(ask, response)
+  const transaction = checkSwap(ask, await callUniswap('/swap', { quote }))
   return {
     swapper: ask.swapper,
     tokenIn: ask.tokenIn,
@@ -118,5 +148,6 @@ export async function quoteSwap(body) {
     minimumOut: quote.output.minimumAmount,
     blockNumber: quote.blockNumber,
     route: describeRoute(quote.route),
+    transaction,
   }
 }

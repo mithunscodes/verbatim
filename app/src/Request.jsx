@@ -5,6 +5,7 @@ import { getWallet } from './chain.js'
 import {
   ALWAYS_ON,
   canSwap,
+  describeAction,
   describeCheck,
   describeFailure,
   holdingOf,
@@ -15,12 +16,20 @@ import {
 } from './checks.js'
 import { amountPattern, formatAbout, formatAmount, shortAddress } from './format.js'
 import { compareToFair, describeRoute, useQuote } from './quotes.js'
-import { hackedExtra, newDeadline, practiceRun, sendActions, signAndSend, waitForResult } from './run.js'
+import {
+  hackedExtra,
+  newDeadline,
+  practiceRun,
+  sendActions,
+  signAndSend,
+  swapActions,
+  waitForResult,
+} from './run.js'
 
 const KIND_NAMES = ['AtMostLeaves', 'AtLeastArrives', 'ExactlyTo']
 
 const HINTS = {
-  'An action failed': 'For example, the vault may not hold enough.',
+  'An action failed': 'For example, the vault may not hold enough, or a swap price moved.',
 }
 
 const PRACTICE_DELAY_MS = 400
@@ -38,19 +47,25 @@ function readAmount(text, decimals) {
   return { amount }
 }
 
-function swapAskFor(vault, form) {
-  if (form.mode !== 'swap' || !vault.fairPrice || !canSwap(vault, form.from, form.swapTo)) return null
-  const { amount } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
-  return amount ? { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount } : null
+function badRouteAllowed(form) {
+  return form.from !== zeroAddress
 }
 
-function buildRequest(vault, form, hacked) {
+function swapAskFor(vault, form, demo) {
+  if (form.mode !== 'swap' || !vault.fairPrice || !canSwap(vault, form.from, form.swapTo)) return null
+  if (demo.badRoute && !badRouteAllowed(form)) return null
+  const { amount } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
+  if (!amount) return null
+  return { swapper: vault.address, tokenIn: form.from, tokenOut: form.swapTo, amount, badRoute: demo.badRoute }
+}
+
+function buildRequest(vault, form, demo, quote) {
   if (form.mode === 'send') {
     if (!vault.contacts.length) return { error: 'No saved contacts yet. Your phone saves them.' }
     const { decimals } = holdingOf(vault, form.token)
     const { amount, error } = readAmount(form.amount, decimals)
     if (!amount) return { error }
-    const sent = hacked ? amount + hackedExtra(form.token, decimals) : amount
+    const sent = demo.hacked ? amount + hackedExtra(form.token, decimals) : amount
     return {
       checks: sendChecks({ token: form.token, amount, to: form.to }),
       actions: sendActions({ token: form.token, amount: sent, to: form.to }),
@@ -58,9 +73,12 @@ function buildRequest(vault, form, hacked) {
   }
   if (!vault.fairPrice) return { error: "There's no fair price right now, so swaps can't be checked." }
   if (!canSwap(vault, form.from, form.swapTo)) return { error: 'Swaps work between ETH and USDC only, for now.' }
+  if (demo.badRoute && !badRouteAllowed(form)) return { error: 'The bad route works for USDC → ETH only.' }
   const { amount, error } = readAmount(form.amount, holdingOf(vault, form.from).decimals)
   if (!amount) return { error }
-  return swapChecks(vault, { from: form.from, to: form.swapTo, amount })
+  const swap = swapChecks(vault, { from: form.from, to: form.swapTo, amount })
+  if (!quote) return swap
+  return { ...swap, actions: swapActions({ from: form.from, amount, transaction: quote.transaction }) }
 }
 
 function explain(failure, vault, checks) {
@@ -94,11 +112,19 @@ function QuoteLine({ quote, fair, out }) {
   if (quote.status === 'loading') return <p>Asking Uniswap for a quote…</p>
   if (quote.status === 'error') return <p className="error">Uniswap quote: {quote.error}</p>
   if (quote.status !== 'ready') return null
-  const { amountOut, route, blockNumber } = quote.quote
+  if (quote.quote.badRoute) {
+    return (
+      <p className="error">
+        Bad route (demo): the app ignores Uniswap's quote and swaps through a thin Uniswap v3 pool
+        (USDC → ETH, 0.01% fee) whose price is worse.
+      </p>
+    )
+  }
+  const { amountOut, blockNumber } = quote.quote
   return (
     <p>
       Uniswap's quote: about {formatAbout(amountOut, out.decimals, SHOWN_DIGITS)} {out.symbol},{' '}
-      {compareToFair(amountOut, fair)}, through {describeRoute(route)}. Quoted at block{' '}
+      {compareToFair(amountOut, fair)}, through {describeRoute(quote.quote)}. Quoted at block{' '}
       {blockNumber.toLocaleString('en-US')}, refreshed every {QUOTE_REFRESH_MS / 1000} seconds.
     </p>
   )
@@ -110,7 +136,7 @@ function SwapNote({ vault, request, quote }) {
     <div className="muted small">
       <p>
         At the fair price you'd get about {formatAbout(request.expected, out.decimals, SHOWN_DIGITS)} {out.symbol}.
-        The check allows {formatAmount(SWAP_SLIPPAGE_BPS, 2)}% less. Swaps can run from Build 6.
+        The check allows {formatAmount(SWAP_SLIPPAGE_BPS, 2)}% less.
       </p>
       <QuoteLine quote={quote} fair={request.expected} out={out} />
     </div>
@@ -154,6 +180,7 @@ function ChecksList({ vault, request, mode, failure, quote }) {
       {mode === 'swap' && <SwapNote vault={vault} request={request} quote={quote} />}
       <details className="fold raw">
         <summary>What the vault receives</summary>
+        <h3>Checks</h3>
         <ol>
           {request.checks.map((check, i) => (
             <li key={i}>
@@ -163,6 +190,16 @@ function ChecksList({ vault, request, mode, failure, quote }) {
             </li>
           ))}
         </ol>
+        {request.actions && (
+          <>
+            <h3>Actions</h3>
+            <ol>
+              {request.actions.map((action, i) => (
+                <li key={i}><code>{describeAction(vault, action)}</code></li>
+              ))}
+            </ol>
+          </>
+        )}
       </details>
     </section>
   )
@@ -214,7 +251,7 @@ export default function Request({ vault, role, blocked, onDone }) {
     from: usdc,
     swapTo: zeroAddress,
   })
-  const [demo, setDemo] = useState({ hacked: false, forced: false })
+  const [demo, setDemo] = useState({ hacked: false, badRoute: false, forced: false })
   const [practice, setPractice] = useState({ status: 'idle' })
   const [result, setResult] = useState({ status: 'idle' })
   const [practiceRound, setPracticeRound] = useState(0)
@@ -223,8 +260,9 @@ export default function Request({ vault, role, blocked, onDone }) {
   const toggle = (field) => (e) => setDemo((d) => ({ ...d, [field]: e.target.checked }))
   const busy = result.status === 'signing' || result.status === 'pending'
   const finished = result.status === 'done'
-  const quote = useQuote(swapAskFor(vault, form), busy || finished)
-  const request = useMemo(() => buildRequest(vault, form, demo.hacked), [vault, form, demo.hacked])
+  const quote = useQuote(swapAskFor(vault, form, demo), busy || finished)
+  const readyQuote = quote.status === 'ready' ? quote.quote : null
+  const request = useMemo(() => buildRequest(vault, form, demo, readyQuote), [vault, form, demo, readyQuote])
   const requestKey = useMemo(() => keyOf(request), [request])
   const latest = useRef({ vault, request })
   latest.current = { vault, request }
@@ -372,19 +410,24 @@ export default function Request({ vault, role, blocked, onDone }) {
         </section>
       )}
 
-      {form.mode === 'send' && (
-        <details className="card demo">
-          <summary>Demo switches</summary>
+      <details className="card demo">
+        <summary>Demo switches</summary>
+        {form.mode === 'send' ? (
           <label className="switch">
             <input type="checkbox" checked={demo.hacked} onChange={toggle('hacked')} disabled={busy} />
             <span>Hacked app: secretly sends extra (1 USDC more, or 0.001 ETH more)</span>
           </label>
+        ) : (
           <label className="switch">
-            <input type="checkbox" checked={demo.forced} onChange={toggle('forced')} disabled={busy} />
-            <span>Send even if the practice run fails</span>
+            <input type="checkbox" checked={demo.badRoute} onChange={toggle('badRoute')} disabled={busy} />
+            <span>Bad route: swap through a thin pool with a worse price (USDC → ETH only)</span>
           </label>
-        </details>
-      )}
+        )}
+        <label className="switch">
+          <input type="checkbox" checked={demo.forced} onChange={toggle('forced')} disabled={busy} />
+          <span>Send even if the practice run fails</span>
+        </label>
+      </details>
     </>
   )
 }

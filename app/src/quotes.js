@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { zeroAddress } from 'viem'
 import { QUOTE_DELAY_MS, QUOTE_REFRESH_MS } from './config.js'
 import { formatAmount } from './format.js'
+import { badRouteTransaction } from './run.js'
 
 export const SERVER_DOWN = "The quote server isn't running. In Terminal, open the server folder and run npm start."
 
@@ -11,16 +13,17 @@ export function parseQuote(json) {
     amountOut: BigInt(json.amountOut),
     minimumOut: BigInt(json.minimumOut),
     blockNumber: BigInt(json.blockNumber),
+    transaction: { ...json.transaction, value: BigInt(json.transaction.value) },
   }
 }
 
-export async function fetchQuote(ask, signal) {
+export async function fetchQuote({ swapper, tokenIn, tokenOut, amount }, signal) {
   let response
   try {
     response = await fetch('/api/quote', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...ask, amount: ask.amount.toString() }),
+      body: JSON.stringify({ swapper, tokenIn, tokenOut, amount: amount.toString() }),
       signal,
     })
   } catch (error) {
@@ -33,8 +36,12 @@ export async function fetchQuote(ask, signal) {
   return parseQuote(json)
 }
 
+function badRouteQuote({ tokenIn, amount }) {
+  return { badRoute: true, transaction: badRouteTransaction({ from: tokenIn, amount }) }
+}
+
 function keyOf(ask) {
-  return ask ? [ask.swapper, ask.tokenIn, ask.tokenOut, ask.amount].join('|') : null
+  return ask ? [ask.swapper, ask.tokenIn, ask.tokenOut, ask.amount, ask.badRoute].join('|') : null
 }
 
 export function useQuote(ask, paused) {
@@ -51,14 +58,15 @@ export function useQuote(ask, paused) {
       const now = latest.current
       if (!now.paused && document.visibilityState === 'visible') {
         try {
-          const quote = await fetchQuote(now.ask, controller.signal)
+          const quote = now.ask.badRoute ? badRouteQuote(now.ask) : await fetchQuote(now.ask, controller.signal)
+          if (controller.signal.aborted) return
           setState({ key, status: 'ready', quote })
         } catch (error) {
           if (controller.signal.aborted) return
           setState({ key, status: 'error', error: error.message })
         }
       }
-      timer = setTimeout(load, QUOTE_REFRESH_MS)
+      if (!controller.signal.aborted) timer = setTimeout(load, QUOTE_REFRESH_MS)
     }
     timer = setTimeout(load, QUOTE_DELAY_MS)
     return () => {
@@ -71,15 +79,17 @@ export function useQuote(ask, paused) {
   return state.key === key ? state : { status: 'loading' }
 }
 
-function describeLeg(leg) {
+function describeLeg(leg, payingEth, gettingEth) {
   const protocols = [...new Set(leg.map((pool) => pool.protocol))].join(' and ')
-  const tokens = [leg[0].tokenIn, ...leg.map((pool) => pool.tokenOut)].join(' → ')
-  return `Uniswap ${protocols} pools, ${tokens}`
+  const tokens = [leg[0].tokenIn, ...leg.map((pool) => pool.tokenOut)]
+  if (payingEth && tokens[0] === 'WETH') tokens.unshift('ETH')
+  if (gettingEth && tokens.at(-1) === 'WETH') tokens.push('ETH')
+  return `Uniswap ${protocols} pools, ${tokens.join(' → ')}`
 }
 
-export function describeRoute(route) {
-  if (route.length === 1) return describeLeg(route[0])
-  return `${route.length} routes: ${route.map(describeLeg).join('; ')}`
+export function describeRoute({ route, tokenIn, tokenOut }) {
+  const legs = route.map((leg) => describeLeg(leg, tokenIn === zeroAddress, tokenOut === zeroAddress))
+  return legs.length === 1 ? legs[0] : `${legs.length} routes: ${legs.join('; ')}`
 }
 
 export function compareToFair(amount, fair) {
