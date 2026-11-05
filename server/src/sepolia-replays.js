@@ -3,7 +3,6 @@ import {
   BaseError,
   ContractFunctionRevertedError,
   concat,
-  encodeAbiParameters,
   encodeDeployData,
   encodeFunctionData,
   encodePacked,
@@ -14,17 +13,15 @@ import {
   keccak256,
   pad,
   parseAbi,
-  parseAbiParameters,
   parseEther,
   parseEventLogs,
-  parseUnits,
   size,
   toHex,
   zeroAddress,
   zeroHash,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { PERMIT2, REPLAY_ATTEMPT_GAS, REPLAY_PRIORITY_FEE, UNISWAP_POOL_MANAGER, UNIVERSAL_ROUTER, V4_QUOTER } from './config.js'
+import { REPLAY_ATTEMPT_GAS, REPLAY_PRIORITY_FEE } from './config.js'
 import { AAVE, BYBIT } from './replays.js'
 
 export const SAFE = {
@@ -49,37 +46,7 @@ export const AAVE_REASON = 'Unfair trade'
 export const UNISWAP = {
   v3Factory: getAddress('0x0227628f3F023bb0B980b67D528571c95c6DaC1c'),
   v2Factory: getAddress('0xF62c03E08ada871A0bEb309762E260a7a6a880E6'),
-  v4PoolManager: getAddress(UNISWAP_POOL_MANAGER),
-  v4Quoter: getAddress(V4_QUOTER),
-  universalRouter: getAddress(UNIVERSAL_ROUTER),
-  permit2: getAddress(PERMIT2),
 }
-
-export const HOOK = {
-  warned: '14 Sep 2026',
-  cutBps: 2000n,
-  amount: parseUnits('10000', 6),
-  slippageBps: 50n,
-  poolWeth: parseEther('1000'),
-  fee: 3000,
-  tickSpacing: 60,
-  feeds: {
-    ethUsd: getAddress('0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419'),
-    usdcUsd: getAddress('0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6'),
-  },
-}
-
-export const HOOK_REASON = 'At least Y arrives'
-
-export const PRINT = {
-  price: parseEther('0.0001'),
-  hackedPrice: parseEther('0.001'),
-  dailyLimit: parseEther('0.01'),
-  vaultHolds: parseEther('0.002'),
-  noFairPrice: 10_000n,
-}
-
-export const PRINT_REASON = 'At most X leaves'
 
 const AAVE_TOKENS = [
   ['aave', 'Test AAVE (Verbatim replay)', 'tAAVE', 18],
@@ -92,18 +59,7 @@ const ATTEMPT_GAS_EXTRA = 1_000_000n
 const SELL_BACK_GAS = 200_000n
 const CheckKind = { AtMostLeaves: 0, AtLeastArrives: 1 }
 
-const HOOK_TOKENS = [
-  ['usdc', 'Test USDC (Verbatim replay)', 'tUSDC', 6],
-  ['weth', 'Test WETH (Verbatim replay)', 'tWETH', 18],
-]
-const HOOK_FLAGS = 0x44n
-const HOOK_MASK = 0x3fffn
-const MAX_HOOK_SALTS = 5_000_000n
-const V4_SWAP = '0x10'
-const V4_ACTIONS = encodePacked(['uint8', 'uint8', 'uint8'], [0x06, 0x0c, 0x0f])
-const Q96 = 2n ** 96n
-
-export const REPLAY_CONTRACTS = ['VerbatimVault', 'ReplayDirectory', 'ReplayPools', 'ReplayToken', 'ReplayRoute', 'FixedPriceSource', 'BadHook', 'HookPools', 'VerbatimPrints']
+export const REPLAY_CONTRACTS = ['VerbatimVault', 'ReplayDirectory', 'ReplayPools', 'ReplayToken', 'ReplayRoute', 'FixedPriceSource']
 
 export const REPLAY_KEYS = {
   REPLAY_EVERYDAY_PRIVATE_KEY: "Replay vaults' everyday key",
@@ -119,8 +75,6 @@ const SAVE_CONTRACTS = 'scripts/sepolia-replays.js contracts'
 const CODE = new URL('./bybit-code.json', import.meta.url)
 const CONTRACTS = new URL('./replay-contracts.json', import.meta.url)
 const POOLS = new URL('./aave-pools.json', import.meta.url)
-const HOOK_POOL = new URL('./hook-pool.json', import.meta.url)
-const SAVE_HOOK_PRICE = 'scripts/sepolia-replays.js hook-price'
 const SWEEP_GAS = 200_000n
 const DEADLINE_SECONDS = 600n
 const RECEIPT_TIMEOUT_MS = 540_000
@@ -144,18 +98,6 @@ const pairAbi = parseAbi([
   'function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32)',
   'function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes data)',
 ])
-const poolKeyType = '(address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks)'
-const quoterAbi = parseAbi([
-  `function quoteExactInputSingle((${poolKeyType} poolKey, bool zeroForOne, uint128 exactAmount, bytes hookData) params) returns (uint256 amountOut, uint256 gasEstimate)`,
-])
-export const routerAbi = parseAbi(['function execute(bytes commands, bytes[] inputs, uint256 deadline) payable'])
-export const permit2Abi = parseAbi([
-  'function approve(address token, address spender, uint160 amount, uint48 expiration)',
-  'function allowance(address user, address token, address spender) view returns (uint160 amount, uint48 expiration, uint48 nonce)',
-])
-const swapParamsType = parseAbiParameters(
-  `(${poolKeyType} poolKey, bool zeroForOne, uint128 amountIn, uint128 amountOutMinimum, bytes hookData)`,
-)
 const trojanAbi = parseAbi(['function transfer(address to, uint256 value)'])
 const backdoorAbi = parseAbi(['function sweepETH(address receiver)'])
 
@@ -553,305 +495,6 @@ export async function runAave({ publicClient, wallet, builder }, accounts) {
     quoted: AAVE.quoted,
     fair,
     lessBps: fair > 0n ? ((fair - aaveOut) * 10_000n + fair / 2n) / fair : 0n,
-    ms: Date.now() - started,
-  }
-}
-
-export function hookPool() {
-  if (!existsSync(HOOK_POOL)) throw new Error(`server/src/hook-pool.json is missing. Run: node --env-file=../.env ${SAVE_HOOK_PRICE}`)
-  return JSON.parse(readFileSync(HOOK_POOL, 'utf8'))
-}
-
-function squareRoot(value) {
-  if (value < 2n) return value
-  let root = value
-  let next = (value + 1n) / 2n
-  while (next < root) {
-    root = next
-    next = (root + value / root) / 2n
-  }
-  return root
-}
-
-const minedHooks = new Map()
-
-function hookFor(owner) {
-  const bytecode = built('BadHook', [UNISWAP.v4PoolManager, UNISWAP.v4Quoter, owner, HOOK.cutBps])
-  if (!minedHooks.has(bytecode)) {
-    const bytecodeHash = keccak256(bytecode)
-    for (let salt = 0n; !minedHooks.has(bytecode); salt++) {
-      if (salt === MAX_HOOK_SALTS) throw new Error('No salt gives the hook the address Uniswap v4 needs')
-      const padded = pad(toHex(salt))
-      const address = getContractAddress({ opcode: 'CREATE2', from: DEPLOYER, salt: padded, bytecodeHash })
-      if ((BigInt(address) & HOOK_MASK) === HOOK_FLAGS) minedHooks.set(bytecode, { deploy: concat([padded, bytecode]), address })
-    }
-  }
-  return minedHooks.get(bytecode)
-}
-
-export function hookScene(owner, accounts) {
-  const data = hookPool()
-  const helper = viaDeployer(built('HookPools', [owner, UNISWAP.v4PoolManager]))
-  const tokens = Object.fromEntries(
-    HOOK_TOKENS.map(([key, name, symbol, decimals]) => [key, { ...viaDeployer(built('ReplayToken', [name, symbol, decimals, helper.address])), symbol, decimals }]),
-  )
-  const hook = hookFor(accounts.thief.address)
-  const usdcFirst = BigInt(tokens.usdc.address) < BigInt(tokens.weth.address)
-  const [currency0, currency1] = usdcFirst ? [tokens.usdc.address, tokens.weth.address] : [tokens.weth.address, tokens.usdc.address]
-  const key = { currency0, currency1, fee: HOOK.fee, tickSpacing: HOOK.tickSpacing, hooks: hook.address }
-  const ethUsd = BigInt(data.ethUsd)
-  const usdcUsd = BigInt(data.usdcUsd)
-  const startPrice = usdcFirst
-    ? squareRoot((10n ** 12n * usdcUsd * Q96 * Q96) / ethUsd)
-    : squareRoot((ethUsd * Q96 * Q96) / (usdcUsd * 10n ** 12n))
-  const liquidity = usdcFirst ? (HOOK.poolWeth * Q96) / startPrice : (HOOK.poolWeth * startPrice) / Q96
-  const coins = [tokens.usdc, tokens.weth]
-  const source = viaDeployer(
-    built('FixedPriceSource', [coins.map((token) => token.address), [usdcUsd, ethUsd], coins.map((token) => token.decimals), data.decimals]),
-  )
-  const directory = viaDeployer(built('ReplayDirectory', [[UNISWAP.universalRouter]]))
-  const vault = viaDeployer(
-    built('VerbatimVault', [accounts.everyday.address, accounts.rules.address, coins.map((token) => token.address), directory.address]),
-  )
-  const poolId = keccak256(encodeAbiParameters(parseAbiParameters('address, address, uint24, int24, address'), Object.values(key)))
-  return {
-    data,
-    helper,
-    tokens,
-    hook,
-    key,
-    poolId,
-    zeroForOne: usdcFirst,
-    startPrice,
-    liquidity,
-    source,
-    directory,
-    vault,
-    holders: [accounts.everyday.address, vault.address],
-  }
-}
-
-export async function hookReady(publicClient, scene) {
-  return publicClient
-    .readContract({ address: scene.helper.address, abi: abiOf('HookPools'), functionName: 'isReset', args: [scene.holders] })
-    .catch(() => false)
-}
-
-export async function resetHook(ctx, accounts, log) {
-  const scene = hookScene(ctx.builder.address, accounts)
-  if (await hookReady(ctx.publicClient, scene)) return scene
-  const data = encodeFunctionData({ abi: abiOf('HookPools'), functionName: 'reset', args: [scene.holders] })
-  await sendSteps(ctx, ctx.builder, [{ label: 'Put the v4 pool and the tUSDC back exactly', request: { to: scene.helper.address, data } }], log)
-  return scene
-}
-
-function hookSwap(scene, amount, deadline) {
-  const pair = parseAbiParameters('address, uint256')
-  const swap = encodeAbiParameters(swapParamsType, [
-    { poolKey: scene.key, zeroForOne: scene.zeroForOne, amountIn: amount, amountOutMinimum: 0n, hookData: '0x' },
-  ])
-  const settle = encodeAbiParameters(pair, [scene.tokens.usdc.address, amount])
-  const take = encodeAbiParameters(pair, [scene.tokens.weth.address, 0n])
-  const input = encodeAbiParameters(parseAbiParameters('bytes, bytes[]'), [V4_ACTIONS, [swap, settle, take]])
-  return { address: UNISWAP.universalRouter, abi: routerAbi, functionName: 'execute', args: [V4_SWAP, [input], deadline] }
-}
-
-async function refusalOf(publicClient, request) {
-  try {
-    await publicClient.simulateContract(request)
-    return { reason: null }
-  } catch (error) {
-    const reverted = error instanceof BaseError ? error.walk((cause) => cause instanceof ContractFunctionRevertedError) : null
-    if (reverted?.data?.errorName === 'CheckFailed') {
-      const [, check, expected, actual] = reverted.data.args
-      return { reason: check, expected, actual }
-    }
-    return { reason: reverted?.reason ?? reverted?.data?.errorName ?? error.shortMessage ?? 'refused' }
-  }
-}
-
-export async function quoteHook(publicClient, scene, account) {
-  const { result } = await publicClient.simulateContract({
-    address: UNISWAP.v4Quoter,
-    abi: quoterAbi,
-    functionName: 'quoteExactInputSingle',
-    args: [{ poolKey: scene.key, zeroForOne: scene.zeroForOne, exactAmount: HOOK.amount, hookData: '0x' }],
-    account,
-  })
-  return result[0]
-}
-
-export async function runHook({ publicClient, wallet, builder }, accounts) {
-  const started = Date.now()
-  const scene = hookScene(builder.address, accounts)
-  const { usdc, weth } = scene.tokens
-  const owner = accounts.everyday
-  const vault = scene.vault.address
-  const holdings = () =>
-    publicClient.multicall({
-      allowFailure: false,
-      contracts: [
-        [usdc, owner.address],
-        [weth, owner.address],
-        [usdc, vault],
-        [weth, vault],
-      ].map(([token, holder]) => ({ address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [holder] })),
-    })
-  const [ready, nonce, fees, block, before, quoted] = await Promise.all([
-    hookReady(publicClient, scene),
-    publicClient.getTransactionCount({ address: owner.address, blockTag: 'pending' }),
-    demoFees(publicClient),
-    publicClient.getBlock(),
-    holdings(),
-    quoteHook(publicClient, scene, owner),
-  ])
-  if (!ready) throw new Error("The hook replay's pool is still being put back. Try again in a few seconds, or run setup.")
-  const amount = HOOK.amount
-  const atLeast = (quoted * (10_000n - HOOK.slippageBps)) / 10_000n
-  const deadline = block.timestamp + DEADLINE_SECONDS
-  const trade = hookSwap(scene, amount, deadline)
-  const actions = [
-    { target: usdc.address, value: 0n, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP.permit2, amount] }), operation: 0 },
-    {
-      target: UNISWAP.permit2,
-      value: 0n,
-      data: encodeFunctionData({ abi: permit2Abi, functionName: 'approve', args: [usdc.address, UNISWAP.universalRouter, amount, Number(deadline)] }),
-      operation: 0,
-    },
-    { target: UNISWAP.universalRouter, value: 0n, data: encodeFunctionData(trade), operation: 0 },
-  ]
-  const attemptWith = (minimum) => ({
-    address: vault,
-    abi: abiOf('VerbatimVault'),
-    functionName: 'run',
-    args: [
-      actions,
-      [
-        { kind: CheckKind.AtMostLeaves, token: usdc.address, to: zeroAddress, amount },
-        { kind: CheckKind.AtLeastArrives, token: weth.address, to: zeroAddress, amount: minimum },
-      ],
-      deadline,
-    ],
-  })
-  const attempt = attemptWith(atLeast)
-  const [refusal, withoutWords, tradeGas] = await Promise.all([
-    refusalOf(publicClient, { ...attempt, account: owner }),
-    refusalOf(publicClient, { ...attemptWith(0n), account: owner }),
-    publicClient.estimateContractGas({ ...trade, account: owner }),
-  ])
-  const attemptHash = await wallet(owner).writeContract({ ...attempt, ...fees, gas: REPLAY_ATTEMPT_GAS, nonce })
-  const tradeHash = await wallet(owner).writeContract({ ...trade, ...fees, gas: (tradeGas * BUFFER) / 10n, nonce: nonce + 1 })
-  const [attemptReceipt, tradeReceipt] = await Promise.all(
-    [attemptHash, tradeHash].map((hash) => publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS })),
-  )
-  const moved = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: tradeReceipt.logs }).filter(
-    (log) => log.address.toLowerCase() === weth.address.toLowerCase(),
-  )
-  const sentTo = (to) => moved.filter((log) => log.args.to.toLowerCase() === to.toLowerCase()).reduce((total, log) => total + log.args.value, 0n)
-  const got = sentTo(owner.address)
-  const cut = sentTo(accounts.thief.address)
-  const after = await holdings()
-  const prices = { ethUsd: BigInt(scene.data.ethUsd), usdcUsd: BigInt(scene.data.usdcUsd), decimals: scene.data.decimals, readAt: scene.data.readAt }
-  return {
-    tokens: { usdc: usdc.address, weth: weth.address },
-    pool: { manager: UNISWAP.v4PoolManager, id: scene.poolId, hook: scene.hook.address, router: UNISWAP.universalRouter, quoter: UNISWAP.v4Quoter },
-    owner: owner.address,
-    thief: accounts.thief.address,
-    amount,
-    quoted,
-    atLeast,
-    got,
-    cut,
-    fair: (amount * prices.usdcUsd * 10n ** 12n) / prices.ethUsd,
-    lessBps: quoted > 0n ? ((quoted - got) * 10_000n + quoted / 2n) / quoted : 0n,
-    trade: sent(tradeReceipt),
-    attempt: { ...sent(attemptReceipt), reason: refusal.reason, expected: refusal.expected, actual: refusal.actual },
-    withoutWords: withoutWords.reason,
-    wallet: { usdcBefore: before[0], usdcAfter: after[0], wethBefore: before[1], wethAfter: after[1] },
-    vault: { address: vault, usdcBefore: before[2], usdcAfter: after[2], wethBefore: before[3], wethAfter: after[3] },
-    prices,
-    ms: Date.now() - started,
-  }
-}
-
-export function printScene(owner, accounts) {
-  const { ethUsd, decimals } = hookPool()
-  const prints = viaDeployer(built('VerbatimPrints', [PRINT.price, owner]))
-  const source = viaDeployer(built('FixedPriceSource', [[zeroAddress], [BigInt(ethUsd)], [18], decimals]))
-  const directory = viaDeployer(built('ReplayDirectory', [[prints.address]]))
-  const vault = viaDeployer(built('VerbatimVault', [accounts.everyday.address, accounts.rules.address, [], directory.address]))
-  return { prints, source, directory, vault }
-}
-
-export async function preparePrint(ctx, accounts, log) {
-  const scene = printScene(ctx.builder.address, accounts)
-  const held = await ctx.publicClient.getBalance({ address: scene.vault.address })
-  if (held < PRINT.vaultHolds / 2n) {
-    await sendSteps(ctx, ctx.builder, [{ label: `Put ${formatEther(PRINT.vaultHolds - held)} test ETH in the print vault`, request: { to: scene.vault.address, value: PRINT.vaultHolds - held } }], log)
-  }
-  return scene
-}
-
-export function printInput(body) {
-  const root = typeof body?.root === 'string' && /^0x[0-9a-fA-F]{64}$/.test(body.root) ? body.root : null
-  if (!root) return null
-  return { root, hacked: body.hacked === true }
-}
-
-export async function runPrint({ publicClient, wallet, builder }, accounts, { root, hacked }) {
-  const started = Date.now()
-  const scene = printScene(builder.address, accounts)
-  const owner = accounts.everyday
-  const vault = scene.vault.address
-  const prints = scene.prints.address
-  const printsAbi = abiOf('VerbatimPrints')
-  const to = hacked ? accounts.thief.address : vault
-  const value = hacked ? PRINT.hackedPrice : PRINT.price
-  const [nonce, fees, block, before, printsBefore] = await Promise.all([
-    publicClient.getTransactionCount({ address: owner.address, blockTag: 'pending' }),
-    demoFees(publicClient),
-    publicClient.getBlock(),
-    publicClient.getBalance({ address: vault }),
-    publicClient.readContract({ address: prints, abi: printsAbi, functionName: 'balanceOf', args: [vault] }),
-  ])
-  const attempt = {
-    address: vault,
-    abi: abiOf('VerbatimVault'),
-    functionName: 'run',
-    args: [
-      [{ target: prints, value, data: encodeFunctionData({ abi: printsAbi, functionName: 'mint', args: [to, root] }), operation: 0 }],
-      [
-        { kind: CheckKind.AtMostLeaves, token: zeroAddress, to: zeroAddress, amount: PRINT.price },
-        { kind: CheckKind.AtLeastArrives, token: prints, to: zeroAddress, amount: 1n },
-      ],
-      block.timestamp + DEADLINE_SECONDS,
-    ],
-    account: owner,
-  }
-  const refusal = await refusalOf(publicClient, attempt)
-  if (!hacked && refusal.reason) throw new Error(`The print vault refused an honest mint: "${refusal.reason}". Run the setup again.`)
-  const gas = hacked ? REPLAY_ATTEMPT_GAS : ((await publicClient.estimateContractGas(attempt)) * BUFFER) / 10n
-  const hash = await wallet(owner).writeContract({ ...attempt, ...fees, gas, nonce })
-  const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS })
-  const [minted] = parseEventLogs({ abi: printsAbi, eventName: 'Minted', logs: receipt.logs })
-  const [after, printsAfter] = await Promise.all([
-    publicClient.getBalance({ address: vault }),
-    publicClient.readContract({ address: prints, abi: printsAbi, functionName: 'balanceOf', args: [vault] }),
-  ])
-  return {
-    hacked,
-    root,
-    prints,
-    vault,
-    owner: owner.address,
-    to,
-    asked: value,
-    price: PRINT.price,
-    tokenId: minted?.args.tokenId ?? null,
-    paid: before - after,
-    held: { before, after },
-    printsHeld: { before: printsBefore, after: printsAfter },
-    attempt: { ...sent(receipt), reason: refusal.reason, expected: refusal.expected, actual: refusal.actual },
     ms: Date.now() - started,
   }
 }

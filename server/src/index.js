@@ -8,7 +8,6 @@ import { preview } from './preview.js'
 import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
 import { methodsOf, relay } from './rpc.js'
 import { replayStatus, startReplay } from './replay-jobs.js'
-import { imageStatus, startImage, startUpload } from './images.js'
 import { admit, chargeRelay, isOpen, isPublic } from './gate.js'
 
 try {
@@ -88,7 +87,7 @@ const routes = {
     limit: 120_000,
     run: preview,
     describe: (body, result) => result
-      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}`
+      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}${result.cached ? ' (cached)' : ''}`
       : 'preview',
   },
   'POST /api/receipt': {
@@ -101,16 +100,6 @@ const routes = {
     run: relay,
     quiet: (body) => !methodsOf(body).includes('eth_sendRawTransaction'),
     describe: (body) => `demo relay: ${methodsOf(body).join(', ')}`,
-  },
-  'POST /api/image': {
-    limit: 2_000,
-    run: startImage,
-    describe: (body, result) => (result ? 'image: started on 0G' : 'image'),
-  },
-  'POST /api/upload': {
-    limit: 1_500_000,
-    run: startUpload,
-    describe: (body, result) => (result ? 'upload: your picture, to 0G Storage' : 'upload'),
   },
   'POST /api/replay': {
     limit: 1_000,
@@ -131,8 +120,6 @@ function routeOf(request) {
   if (match) return { get: true, run: () => loadReceipt(match[1]), describe: () => `receipt read: ${match[1].slice(0, 10)}…` }
   const replay = request.method === 'GET' && request.url.match(/^\/api\/replay\/([0-9a-f-]{36})$/)
   if (replay) return { get: true, quiet: () => true, run: () => replayStatus(replay[1]), describe: () => 'replay status' }
-  const image = request.method === 'GET' && request.url.match(/^\/api\/image\/([0-9a-f-]{36})$/)
-  if (image) return { get: true, quiet: () => true, run: () => imageStatus(image[1]), describe: () => 'image status' }
   return null
 }
 
