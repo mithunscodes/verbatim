@@ -5,9 +5,7 @@ import { CopyButton } from './Copy.jsx'
 import CreateVault from './CreateVault.jsx'
 import Evidence from './Evidence.jsx'
 import { formatAmount, shortAddress } from './format.js'
-import Mint from './Mint.jsx'
 import { Rolling, Words } from './Motion.jsx'
-import Names from './Names.jsx'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
@@ -153,20 +151,6 @@ export default function App() {
       </div>
     )
   }
-  if (page === 'mint') {
-    return (
-      <div className="vb">
-        <Mint />
-      </div>
-    )
-  }
-  if (page.startsWith('names:')) {
-    return (
-      <div className="vb">
-        <Names name={page.slice('names:'.length)} />
-      </div>
-    )
-  }
   return (
     <div className="vb">
       <WalletApp page={page} />
@@ -188,8 +172,6 @@ function WalletApp({ page }) {
             <a href="#" className={page === 'app' ? 'active' : undefined}>Pay</a>
             <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone</a>
             <a href="#replays">Replays</a>
-            <a href="#mint">Mint</a>
-            <a href="#names">Names</a>
           </nav>
         </div>
         {v.account && (

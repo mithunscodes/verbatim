@@ -1,4 +1,4 @@
-import { AI_MAX_TOKENS, AI_MODEL, AI_TIMEOUT_MS, ZG_BUSY_RETRIES, ZG_BUSY_WAIT_MS, ZG_PROVIDER, ZG_ROUTER } from './config.js'
+import { AI_MAX_TOKENS, AI_MODEL, AI_TIMEOUT_MS, ZG_PROVIDER, ZG_ROUTER } from './config.js'
 import { RequestError } from './uniswap.js'
 
 export function parseJson(content) {
@@ -11,11 +11,12 @@ export function parseJson(content) {
   }
 }
 
-const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-async function send(messages, schema, name, session) {
+export async function askSealedModel(messages, schema, name, { session = null } = {}) {
+  if (!session && !process.env.ZG_ROUTER_API_KEY) throw new RequestError('The sealed AI is not set up: ZG_ROUTER_API_KEY is missing from .env.', 503)
+  const started = performance.now()
+  let response
   try {
-    return await fetch(`${ZG_ROUTER}/chat/completions`, {
+    response = await fetch(`${ZG_ROUTER}/chat/completions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -37,19 +38,7 @@ async function send(messages, schema, name, session) {
     if (error.name === 'TimeoutError') throw new RequestError("The sealed AI couldn't work that out in time, so it didn't guess. Please say it more simply, one step at a time.", 504)
     throw new RequestError("Couldn't reach 0G's Router. Try again.", 502)
   }
-}
-
-export async function askSealedModel(messages, schema, name, { session = null } = {}) {
-  if (!session && !process.env.ZG_ROUTER_API_KEY) throw new RequestError('The sealed AI is not set up: ZG_ROUTER_API_KEY is missing from .env.', 503)
-  const started = performance.now()
-  let response = await send(messages, schema, name, session)
-  for (let retry = 1; response.status === 429 && retry <= ZG_BUSY_RETRIES; retry++) {
-    await response.body?.cancel().catch(() => {})
-    await pause(ZG_BUSY_WAIT_MS)
-    response = await send(messages, schema, name, session)
-  }
   const json = await response.json().catch(() => ({}))
-  if (response.status === 429) throw new RequestError("0G's sealed AI is busy right now, even after 3 tries. Try again in a minute.", 503)
   if (session && response.status === 401) throw new RequestError('Your 0G sign-in has expired. Sign in to 0G again.', 401)
   if (session && response.status === 402) throw new RequestError('Your 0G account is out of credit. Sign out of 0G to let Verbatim pay.', 402)
   if (response.status === 402) throw new RequestError('The 0G Router account is out of credit.', 503)

@@ -7,8 +7,8 @@ import { understand } from './understand.js'
 import { preview } from './preview.js'
 import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
 import { methodsOf, relay } from './rpc.js'
-import { replayStatus, startReplay } from './replay-jobs.js'
-import { admit, chargeRelay, isOpen, isPublic } from './gate.js'
+import { replay } from './replays.js'
+import { admit, chargeRelay, isPublic } from './gate.js'
 
 try {
   process.loadEnvFile(new URL('../../.env', import.meta.url))
@@ -26,16 +26,13 @@ const OPTIONAL = {
   ZG_ROUTER_API_KEY: 'the sealed AI (sentences and the live preview)',
   SEPOLIA_RPC_URL: 'the live preview and the demo pages',
   RECEIPTS_PRIVATE_KEY: 'receipts on 0G Storage',
-  BUILDER_PRIVATE_KEY: 'the live replays (it pays for them)',
 }
 
 for (const [name, feature] of Object.entries(OPTIONAL)) {
   if (!process.env[name]) console.log(`${name} is missing from .env, so ${feature} won't work.`)
 }
 
-const privateKeys = Object.entries(process.env).filter(([name]) => name.endsWith('_PRIVATE_KEY')).map(([, value]) => value)
-
-const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), ...privateKeys].filter(Boolean)
+const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), process.env.RECEIPTS_PRIVATE_KEY, process.env.DEMO_EVERYDAY_PRIVATE_KEY, process.env.DEMO_THIEF_PRIVATE_KEY].filter(Boolean)
 
 function hide(text) {
   return secrets.reduce((result, secret) => result.split(secret).join('[hidden]'), String(text))
@@ -103,8 +100,8 @@ const routes = {
   },
   'POST /api/replay': {
     limit: 1_000,
-    run: startReplay,
-    describe: (body, result) => (result ? `replay ${body.name}: started on Sepolia${result.ahead ? `, ${result.ahead} ahead` : ''}` : `replay ${body.name ?? '?'}`),
+    run: replay,
+    describe: (body, result) => (result ? `replay ${body.name}: ${(result.totalMs / 1000).toFixed(1)} s, offline` : `replay ${body.name ?? '?'}`),
   },
 }
 
@@ -118,8 +115,6 @@ function routeOf(request) {
   if (route) return route
   const match = request.method === 'GET' && request.url.match(/^\/api\/receipt\/(0x[0-9a-fA-F]{64})$/)
   if (match) return { get: true, run: () => loadReceipt(match[1]), describe: () => `receipt read: ${match[1].slice(0, 10)}…` }
-  const replay = request.method === 'GET' && request.url.match(/^\/api\/replay\/([0-9a-f-]{36})$/)
-  if (replay) return { get: true, quiet: () => true, run: () => replayStatus(replay[1]), describe: () => 'replay status' }
   return null
 }
 
@@ -156,7 +151,7 @@ const server = createServer(async (request, response) => {
       body = await readJson(request, route.limit)
     }
     if (outside) chargeRelay(body)
-    const result = await route.run(body ?? {}, { session: sessionOf(request), hide })
+    const result = await route.run(body ?? {}, { session: sessionOf(request) })
     send(response, 200, result)
     if (!route.quiet?.(body ?? {})) console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${route.describe(body ?? {}, result)}: ok, ${Date.now() - started} ms`))
   } catch (error) {
@@ -171,7 +166,6 @@ const server = createServer(async (request, response) => {
 server.listen(PORT, HOST, () => {
   console.log(`Verbatim server ready on http://${HOST}:${PORT}`)
   if (isPublic) console.log('Public mode is on: phones and the live link reach only the short link and the relay, with limits. The laptop keeps everything, with limits on the paid parts.')
-  if (isOpen) console.log('Open mode is on: everyone reaches every part of Verbatim, with limits on the paid parts. Switch the server off when it is not needed.')
   const payer = receiptAddress()
   if (payer) console.log(`Receipts are paid for by ${payer} on 0G's Galileo test network.`)
 })

@@ -13,16 +13,6 @@ export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 
 export const ENS_UNIVERSAL_RESOLVER = '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe'
 
-export const ENS_VERIFIABLE_FACTORY = '0xDa70306C98E97eCe36F997a21368e53298572991'
-
-export const ENS_RESOLVER_IMPL = '0x115eb53F0c60696633855F90b138178Fb40b2b2C'
-
-export const ENS_ETH_REGISTRY = '0xD4eBcbBdF463C9c45784603Db0dDD499BC44A8B4'
-
-export const ETH_COIN_TYPE = 60n
-
-export const DEMO_ENS_NAME = 'verbatimalice.eth'
-
 export const DIRECTORY_NAMES = [
   'router.uniswap.verbatimdirectory.eth',
   'permit2.uniswap.verbatimdirectory.eth',
@@ -60,8 +50,6 @@ export const DEMO_RPC_PATH = '/api/rpc'
 export const DEMO_POLL_MS = 2_000
 
 export const DEMO_ATTACK_GAS = 3_000_000n
-
-export const DEMO_PRIORITY_FEE = 100_000_000n
 
 export const DEMO_PROPOSED_LIMIT = '1000'
 
@@ -143,12 +131,7 @@ export const directoryAbi = parseAbi([
 
 export const resolverAbi = parseAbi([
   'function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)',
-  'function setAddress(bytes name, uint256 coinType, bytes value)',
 ])
-
-export const ensRegistryAbi = parseAbi(['function findOwner(string label) view returns (address)'])
-
-export const verifiableFactoryAbi = parseAbi(['function verifyContract(address proxy) view returns (address implementation)'])
 
 export const permit2Abi = parseAbi([
   'function approve(address token, address spender, uint160 amount, uint48 expiration)',

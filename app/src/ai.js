@@ -2,18 +2,21 @@ import { zeroAddress } from 'viem'
 import { SHOWN_DIGITS, SWAP_SLIPPAGE_BPS, UNIVERSAL_ROUTER } from './config.js'
 import { canSwap, expectedArrival, holdingOf, nameOf } from './checks.js'
 import { planFromSteps } from './intent.js'
+import { zeroGSession, ZG_SPENT } from './credits.js'
 
 const SHORT_ADDRESS = /^0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}$/
 
 async function post(path, body) {
+  const session = zeroGSession()
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(session ? { 'x-0g-session': session } : {}) },
     body: JSON.stringify(body, (key, value) => (typeof value === 'bigint' ? value.toString() : value)),
   }).catch(() => null)
   if (!response) throw new Error("The Verbatim server isn't running. Start it from server/ with npm start.")
   const json = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(json.error ?? `The server answered ${response.status}.`)
+  if (session) window.dispatchEvent(new Event(ZG_SPENT))
   return json
 }
 

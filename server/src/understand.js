@@ -1,6 +1,8 @@
 import { askSealedModel, parseJson } from './zerog.js'
 import { proveAnswer } from './proof.js'
 import { RequestError } from './uniswap.js'
+import { RECORDED_FALLBACK_MS } from './config.js'
+import { labelled, recordAnswer, recordedAnswer, recordedMode } from './recorded.js'
 
 const ADDRESS = /0x[0-9a-fA-F]{40}/
 const SYMBOL = /^[A-Za-z0-9]{1,12}$/
@@ -8,13 +10,6 @@ const NUMBER = /^\d+(\.\d+)?$/
 const MAX_SENTENCE = 400
 const MAX_ANSWER = 300
 const MAX_TURNS = 3
-const NUMBER_WORDS = {
-  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
-  eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, fifty: 50, hundred: 100, thousand: 1000,
-}
-const SHARE_WORDS = { half: 0.5, quarter: 0.25, third: 1 / 3 }
-const ALL_WORDS = /\b(all|everything|entire|whole|full|max(imum)?)\b/i
-const SHARE_SLACK = 0.005
 const MAX_QUESTIONS = 5
 const MAX_PIECES = 4
 const MAX_LEFT_OUT = 5
@@ -70,7 +65,7 @@ export function systemPrompt({ names, tokens, protocols }) {
     '- send: token, amount, to (one of the saved names, copied exactly)',
     '- swap: token (what the user pays), to_token (what the user gets), amount (of token)',
     '- deposit: token, amount, protocol',
-    'Every step also has "words": a list with the words of the request that ask for that step, copied from the request with the same spelling and typos. One piece is usually enough; use more only when those words are split up. Include words that say how the step is done, such as "at a fair price". The words must include the amount and, for a send, who receives it. Where a piece starts or ends, capital letters and spaces don\'t matter: any sensible choice is fine, so decide quickly.',
+    'Every step also has "words": a list with the words of the request that ask for that step, copied from the request with the same spelling and typos. One piece is usually enough; use more only when those words are split up. Include words that say how the step is done, such as "at a fair price". Where a piece starts or ends, capital letters and spaces don\'t matter: any sensible choice is fine, so decide quickly.',
     'Fields a step type does not use are null.',
     'amount is {"kind":"exact","value":"<number in digits>"}, {"kind":"fraction_of_balance","value":"<number between 0 and 1>"} or {"kind":"all","value":null}. Write numbers as plain digits.',
     'Reply with one JSON object with exactly these keys: steps (a list of steps, each with words, type, token, to_token, amount, to and protocol), risk_limit_percent, risk_limit_words, nothing_else, nothing_else_words, left_out (a list) and questions (a list).',
@@ -182,39 +177,6 @@ export function findWords(piece, sources) {
   return null
 }
 
-function numbersIn(text) {
-  const plain = text.replace(/(\d),(?=\d{3}\b)/g, '$1')
-  const found = [...plain.matchAll(/\d+(?:\.\d+)?/g)].map((match) => Number(match[0]))
-  for (const word of text.toLowerCase().match(/[a-z]+/g) ?? []) if (NUMBER_WORDS[word]) found.push(NUMBER_WORDS[word])
-  return found
-}
-
-function sharesIn(text) {
-  const lower = text.toLowerCase()
-  const found = [...lower.matchAll(/(\d+(?:\.\d+)?)\s*(?:%|percent)/g)].map((match) => Number(match[1]) / 100)
-  for (const [word, share] of Object.entries(SHARE_WORDS)) if (new RegExp(`\\b${word}`).test(lower)) found.push(share)
-  return found
-}
-
-function amountSaid(amount, text) {
-  if (amount.kind === 'all') return ALL_WORDS.test(text)
-  if (amount.kind === 'fraction_of_balance') return sharesIn(text).some((share) => Math.abs(share - Number(amount.value)) < SHARE_SLACK)
-  return numbersIn(text).some((value) => value === Number(amount.value))
-}
-
-function amountText(step) {
-  if (step.amount.kind === 'all') return `all your ${step.token}`
-  if (step.amount.kind === 'fraction_of_balance') return `${Number((Number(step.amount.value) * 100).toFixed(2))}% of your ${step.token}`
-  return `${step.amount.value} ${step.token}`
-}
-
-function unsaid(step, words) {
-  const text = words.join(' ')
-  if (!amountSaid(step.amount, text)) return amountText(step)
-  if (step.type === 'send' && !text.toLowerCase().includes(step.to.toLowerCase().split('.')[0])) return step.to
-  return null
-}
-
 function traceWords(pieces, sources) {
   const list = typeof pieces === 'string' ? [pieces] : pieces
   if (!Array.isArray(list) || !list.length || list.length > MAX_PIECES) return null
@@ -236,11 +198,6 @@ export function checkAnswer(output, ask) {
     const words = traceWords(raw.words, sources)
     if (!words) {
       questions.push(`I left out a ${step.type} of ${step.token}, because I couldn't point to the exact words in your request that ask for it. Could you say it again?`)
-      continue
-    }
-    const missing = unsaid(step, words)
-    if (missing) {
-      questions.push(`I left out a ${step.type} of ${amountText(step)}, because the words it came from ("${words.join(' … ')}") don't say ${missing}. Could you say it again?`)
       continue
     }
     steps.push({ ...step, words })
@@ -297,8 +254,29 @@ export function conversation(ask) {
   return messages
 }
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 export async function understand(body, { session = null } = {}) {
   const ask = readAsk(body)
+  const mode = recordedMode()
+  const recorded = mode === 'off' || session ? null : recordedAnswer(ask)
+  if (recorded && mode === 'first') return labelled(recorded, 'Stage mode: the recorded answer comes first, because the live AI takes 6 to 35 seconds')
+  const live = understandLive(ask, session).then((answer) => {
+    recordAnswer(ask, answer)
+    return answer
+  })
+  if (!recorded) return live
+  try {
+    const answer = await Promise.race([live, wait(RECORDED_FALLBACK_MS).then(() => null)])
+    if (answer) return answer
+    live.catch(() => {})
+    return labelled(recorded, `The live sealed AI took longer than ${RECORDED_FALLBACK_MS / 1000} seconds`)
+  } catch (error) {
+    return labelled(recorded, `The live sealed AI failed: ${error.message}`)
+  }
+}
+
+async function understandLive(ask, session) {
   const answer = await askSealedModel(conversation(ask), outputSchema, 'wallet_checks', { session })
   const result = checkAnswer(parseJson(answer.content), ask)
   const proof = answer.provider ? await proveAnswer({ provider: answer.provider, chatId: answer.chatId }) : { verified: false, problem: 'No provider was named' }
