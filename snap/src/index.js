@@ -15,7 +15,6 @@ const tokenAbi = parseAbi(['function transfer(address to, uint256 amount) return
 const TOKENS = {
   [zeroAddress]: { symbol: 'ETH', decimals: 18 },
   '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238': { symbol: 'USDC', decimals: 6 },
-  '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab': { symbol: 'Verbatim Print', decimals: 0 },
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

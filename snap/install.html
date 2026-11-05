@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Verbatim checks Snap</title></head>
+<body style="font-family: system-ui; padding: 40px; background: #f5f1e8; color: #16151c">
+<h1>Verbatim checks Snap</h1>
+<p>Open this page in the Chrome profile with MetaMask.</p>
+<button id="go" style="font-size: 20px; padding: 12px 20px">Install the Snap in MetaMask</button>
+<p id="out"></p>
+<script>
+document.getElementById('go').onclick = async () => {
+  const out = document.getElementById('out')
+  if (!window.ethereum) { out.textContent = 'No MetaMask found in this browser profile.'; return }
+  try {
+    const result = await window.ethereum.request({ method: 'wallet_requestSnaps', params: { 'npm:verbatim-checks-snap': {} } })
+    out.textContent = 'Installed: ' + Object.keys(result).join(', ')
+  } catch (error) {
+    out.textContent = 'Failed: ' + (error.message || error)
+  }
+}
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { getAddress, isAddress } from 'viem'
 import { FACTORY, factoryAbi } from './config.js'
 import { useTx } from './hooks.js'
+import SnapStep from './SnapStep.jsx'
 import TxStatus from './TxStatus.jsx'
 
 export default function CreateVault({ account, blocked, loading, onDone, upgrade }) {
@@ -47,6 +48,7 @@ export default function CreateVault({ account, blocked, loading, onDone, upgrade
         Create my vault
       </button>
       <TxStatus tx={tx} />
+      <SnapStep />
     </section>
   )
 }

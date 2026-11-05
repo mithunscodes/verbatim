@@ -3,7 +3,7 @@
   "description": "Shows the checks a Verbatim vault will enforce, read from the transaction itself.",
   "proposedName": "Verbatim checks",
   "source": {
-    "shasum": "0NcIrNiNjhRGqL6qOvDjVVbXsqsrS+0fhuU2DOzyPEs=",
+    "shasum": "LfOier4xDJ3h6y3UIZ461CYjTP5DC+jUehhFDNnzo1U=",
     "location": {
       "npm": {
         "filePath": "dist/bundle.js",
