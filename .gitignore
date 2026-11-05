@@ -3,6 +3,9 @@
 !.env.example
 out/
 cache/
+dist/
 node_modules/
 contracts/fork-states/
+contracts/broadcast/
 app/.vercel/
+.DS_Store
