@@ -13,7 +13,7 @@ contract VerbatimVaultTest is Test {
     address stranger = makeAddr("stranger");
     address mom = makeAddr("mom");
 
-    event Ran(bytes32 indexed actionsHash, uint256 actionCount, uint256 deadline);
+    event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
 
     function setUp() public {
         vault = new VerbatimVault(everydayKey, rulesKey);
@@ -25,6 +25,10 @@ contract VerbatimVaultTest is Test {
     function sendUsdc(address to, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {
         actions = new VerbatimVault.Action[](1);
         actions[0] = VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.transfer, (to, amount)));
+    }
+
+    function noChecks() internal pure returns (VerbatimVault.Check[] memory) {
+        return new VerbatimVault.Check[](0);
     }
 
     function test_KnowsItsKeys() public view {
@@ -58,9 +62,9 @@ contract VerbatimVaultTest is Test {
         VerbatimVault.Action[] memory actions = sendUsdc(mom, 2e6);
         uint256 deadline = block.timestamp + 5 minutes;
         vm.expectEmit(address(vault));
-        emit Ran(keccak256(abi.encode(actions)), 1, deadline);
+        emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(noChecks())), 1, deadline);
         vm.prank(everydayKey);
-        vault.run(actions, deadline);
+        vault.run(actions, noChecks(), deadline);
         assertEq(usdc.balanceOf(mom), 2e6);
         assertEq(usdc.balanceOf(address(vault)), 98e6);
     }
@@ -69,7 +73,7 @@ contract VerbatimVaultTest is Test {
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
         actions[0] = VerbatimVault.Action(mom, 0.1 ether, "");
         vm.prank(everydayKey);
-        vault.run(actions, block.timestamp);
+        vault.run(actions, noChecks(), block.timestamp);
         assertEq(mom.balance, 0.1 ether);
         assertEq(address(vault).balance, 0.9 ether);
     }
@@ -79,10 +83,10 @@ contract VerbatimVaultTest is Test {
         uint256 deadline = block.timestamp + 5 minutes;
         vm.prank(stranger);
         vm.expectRevert("Only the everyday key can run");
-        vault.run(actions, deadline);
+        vault.run(actions, noChecks(), deadline);
         vm.prank(rulesKey);
         vm.expectRevert("Only the everyday key can run");
-        vault.run(actions, deadline);
+        vault.run(actions, noChecks(), deadline);
         assertEq(usdc.balanceOf(address(vault)), 100e6);
     }
 
@@ -92,7 +96,7 @@ contract VerbatimVaultTest is Test {
         vm.warp(deadline + 1);
         vm.prank(everydayKey);
         vm.expectRevert("Deadline passed");
-        vault.run(actions, deadline);
+        vault.run(actions, noChecks(), deadline);
         assertEq(usdc.balanceOf(mom), 0);
     }
 
@@ -103,7 +107,7 @@ contract VerbatimVaultTest is Test {
         uint256 deadline = block.timestamp + 5 minutes;
         vm.prank(everydayKey);
         vm.expectRevert("An action failed");
-        vault.run(actions, deadline);
+        vault.run(actions, noChecks(), deadline);
         assertEq(usdc.balanceOf(mom), 0);
     }
 }
