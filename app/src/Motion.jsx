@@ -6,7 +6,7 @@ const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 const tiles = new Map()
 
-function reduced() {
+export function reduced() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 

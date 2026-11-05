@@ -5,7 +5,7 @@ export const chain = sepolia
 
 export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69']
 
-export const FACTORY = '0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7'
+export const FACTORY = '0x8eF83334CE142d09e1fF47ee3DB5e434affd88E6'
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 
@@ -51,9 +51,17 @@ export const DEMO_POLL_MS = 2_000
 
 export const DEMO_ATTACK_GAS = 3_000_000n
 
+export const DEMO_PRIORITY_FEE = 100_000_000n
+
 export const DEMO_PROPOSED_LIMIT = '1000'
 
 export const EXPLORER = 'https://sepolia.etherscan.io'
+
+export const ZG_ROUTER = 'https://router-api.0g.ai/v1'
+
+export const ZG_PRIVY_APP_ID = 'cmn5w697g01xp0bl80c8dskc8'
+
+export const ZG_SIGN_IN_ORIGINS = ['http://localhost:5173', 'http://localhost:3000']
 
 export const NICKNAMES = {
   '0xc0bF91f3BD0d479D5104d975B08885A73b032ce2': 'Builder',
@@ -114,6 +122,7 @@ export const vaultAbi = parseAbi([
   'struct Action { address target; uint256 value; bytes data; uint8 operation; }',
   'struct Check { uint8 kind; address token; address to; uint256 amount; }',
   'function run(Action[] actions, Check[] checks, uint256 deadline)',
+  'event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline)',
   'error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual)',
 ])
 
