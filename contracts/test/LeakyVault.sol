@@ -17,4 +17,16 @@ contract LeakyVault is VerbatimVault {
     function addContact(address contact) external {
         contacts.push(contact);
     }
+
+    function setLimit(uint256 index, uint256 amount) external {
+        dailyLimits[index] = amount;
+    }
+
+    function giveAllowance(address contact, Allowance calldata allowance) external {
+        allowances[contact] = allowance;
+    }
+
+    function setValidity(uint256 duration) external {
+        allowanceValidity = duration;
+    }
 }

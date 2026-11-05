@@ -28,8 +28,11 @@ contract ContactsTest is Test {
         vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         vault.saveContact(mom);
+        vault.setDailyLimit(address(usdc), 100e6);
+        vault.setDailyLimit(ETH, 1 ether);
+        vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }
 

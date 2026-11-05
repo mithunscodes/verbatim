@@ -39,6 +39,9 @@ contract HackedAppTest is Test {
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.saveContact(thief);
+        vault.setDailyLimit(address(usdc), 100e6);
+        vault.setDailyLimit(address(dai), 100e18);
+        vault.setDailyLimit(ETH, 1 ether);
         vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }

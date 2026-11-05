@@ -31,6 +31,8 @@ contract ChecksTest is Test {
         vault.saveContact(address(swap));
         vault.saveContact(mom);
         vault.saveContact(thief);
+        vault.setDailyLimit(address(usdc), 100e6);
+        vault.setDailyLimit(ETH, 1 ether);
         vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }

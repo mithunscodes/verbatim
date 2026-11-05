@@ -20,8 +20,11 @@ contract VerbatimVaultTest is Test {
         vault = new VerbatimVault(everydayKey, rulesKey, watched(), noContracts());
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         vault.saveContact(mom);
+        vault.setDailyLimit(address(usdc), 100e6);
+        vault.setDailyLimit(address(0), 1 ether);
+        vm.stopPrank();
     }
 
     function sendUsdc(address to, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {

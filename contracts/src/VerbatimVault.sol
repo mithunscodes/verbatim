@@ -40,6 +40,14 @@ contract VerbatimVault {
         bool viaPermit2;
     }
 
+    struct Allowance {
+        address token;
+        uint256 amount;
+        uint256 activeFrom;
+        uint256 expiresAt;
+        bool used;
+    }
+
     address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     address public everydayKey;
@@ -47,10 +55,19 @@ contract VerbatimVault {
     address[] public watchedTokens;
     address[] public trustedContracts;
     address[] public contacts;
+    uint256[] dailyLimits;
+    uint256[] spentToday;
+    uint256[] dayStarted;
+    uint256 public allowanceValidity = 48 hours;
+    mapping(address => Allowance) public allowances;
     bool transient running;
 
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
     event ContactSaved(address indexed contact);
+    event DailyLimitSet(address indexed token, uint256 amount);
+    event AllowanceValiditySet(uint256 duration);
+    event AllowanceCreated(address indexed contact, address indexed token, uint256 amount, uint256 activeFrom, uint256 expiresAt);
+    event AllowanceUsed(address indexed contact, address indexed token, uint256 amount);
 
     error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual);
 
@@ -61,6 +78,9 @@ contract VerbatimVault {
         rulesKey = rulesKey_;
         watchedTokens = watchedTokens_;
         trustedContracts = trustedContracts_;
+        dailyLimits = new uint256[](watchedTokens_.length + 1);
+        spentToday = new uint256[](watchedTokens_.length + 1);
+        dayStarted = new uint256[](watchedTokens_.length + 1);
     }
 
     receive() external payable {}
@@ -77,6 +97,56 @@ contract VerbatimVault {
         emit ContactSaved(contact);
     }
 
+    function setDailyLimit(address token, uint256 amount) external {
+        require(msg.sender == rulesKey, "Only the rules key can set limits");
+        dailyLimits[indexOf(token)] = amount;
+        emit DailyLimitSet(token, amount);
+    }
+
+    function setAllowanceValidity(uint256 duration) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        allowanceValidity = duration;
+        emit AllowanceValiditySet(duration);
+    }
+
+    function createAllowance(address contact, address token, uint256 amount) external {
+        require(msg.sender == rulesKey, "Only the rules key can create allowances");
+        require(contains(contacts, contact), "Not a saved contact");
+        require(token == address(0) || contains(watchedTokens, token), "Not a watched token");
+        require(amount > 0, "An allowance can't be empty");
+        uint256 expiresAt = block.timestamp + allowanceValidity;
+        allowances[contact] = Allowance(token, amount, block.timestamp, expiresAt, false);
+        emit AllowanceCreated(contact, token, amount, block.timestamp, expiresAt);
+    }
+
+    function payWithAllowance(address contact, uint256 amount) external {
+        require(msg.sender == everydayKey, "Only the everyday key can pay");
+        Allowance storage allowance = allowances[contact];
+        require(allowance.amount > 0, "No allowance for this contact");
+        require(!allowance.used, "Allowance already used");
+        require(block.timestamp >= allowance.activeFrom, "Allowance not active yet");
+        require(block.timestamp <= allowance.expiresAt, "Allowance expired");
+        require(amount <= allowance.amount, "More than the allowance");
+        allowance.used = true;
+        emit AllowanceUsed(contact, allowance.token, amount);
+        if (allowance.token == address(0)) {
+            (bool ok,) = contact.call{value: amount}("");
+            require(ok, "Payment failed");
+        } else {
+            require(IERC20(allowance.token).transfer(contact, amount), "Payment failed");
+        }
+    }
+
+    function dailyLimit(address token) external view returns (uint256) {
+        return dailyLimits[indexOf(token)];
+    }
+
+    function leftToday(address token) external view returns (uint256) {
+        uint256 i = indexOf(token);
+        uint256 spent = dayOver(i) ? 0 : spentToday[i];
+        return spent >= dailyLimits[i] ? 0 : dailyLimits[i] - spent;
+    }
+
     function run(Action[] calldata actions, Check[] calldata checks, uint256 deadline) external {
         require(msg.sender == everydayKey, "Only the everyday key can run");
         require(block.timestamp <= deadline, "Deadline passed");
@@ -89,7 +159,9 @@ contract VerbatimVault {
         execute(actions);
         verify(checks, balancesBefore);
         requireNoPermissionLeft(permissions);
-        requireNothingElseLeft(checks, holdingsBefore);
+        uint256[] memory holdingsAfter = holdings();
+        requireNothingElseLeft(checks, holdingsBefore, holdingsAfter);
+        countTowardDailyLimits(holdingsBefore, holdingsAfter);
         require(fingerprint() == accountBefore, "Your account would change");
         running = false;
         emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(checks)), actions.length, deadline);
@@ -188,13 +260,39 @@ contract VerbatimVault {
         }
     }
 
-    function requireNothingElseLeft(Check[] calldata checks, uint256[] memory holdingsBefore) private view {
-        uint256[] memory holdingsAfter = holdings();
+    function requireNothingElseLeft(Check[] calldata checks, uint256[] memory holdingsBefore, uint256[] memory holdingsAfter)
+        private
+        view
+    {
         for (uint256 i = 0; i < holdingsAfter.length; i++) {
             if (holdingsAfter[i] >= holdingsBefore[i]) continue;
             address token = i == 0 ? address(0) : watchedTokens[i - 1];
             require(hasLimit(checks, token), "Something else would leave your account");
         }
+    }
+
+    function countTowardDailyLimits(uint256[] memory holdingsBefore, uint256[] memory holdingsAfter) private {
+        for (uint256 i = 0; i < holdingsAfter.length; i++) {
+            if (holdingsAfter[i] >= holdingsBefore[i]) continue;
+            if (dayOver(i)) {
+                dayStarted[i] = block.timestamp;
+                spentToday[i] = 0;
+            }
+            spentToday[i] += holdingsBefore[i] - holdingsAfter[i];
+            require(spentToday[i] <= dailyLimits[i], "Over the daily limit");
+        }
+    }
+
+    function dayOver(uint256 i) private view returns (bool) {
+        return dayStarted[i] == 0 || block.timestamp >= dayStarted[i] + 1 days;
+    }
+
+    function indexOf(address token) private view returns (uint256) {
+        if (token == address(0)) return 0;
+        for (uint256 i = 0; i < watchedTokens.length; i++) {
+            if (watchedTokens[i] == token) return i + 1;
+        }
+        revert("Not a watched token");
     }
 
     function hasLimit(Check[] calldata checks, address token) private pure returns (bool) {
@@ -208,7 +306,14 @@ contract VerbatimVault {
         address[] memory watched = watchedTokens;
         address[] memory trusted = trustedContracts;
         address[] memory saved = contacts;
-        return keccak256(abi.encode(everydayKey, rulesKey, watched, trusted, saved, address(this).codehash));
+        uint256[] memory limits = dailyLimits;
+        Allowance[] memory given = new Allowance[](saved.length);
+        for (uint256 i = 0; i < saved.length; i++) {
+            given[i] = allowances[saved[i]];
+        }
+        return keccak256(
+            abi.encode(everydayKey, rulesKey, watched, trusted, saved, limits, given, allowanceValidity, address(this).codehash)
+        );
     }
 
     function contains(address[] storage list, address item) private view returns (bool) {

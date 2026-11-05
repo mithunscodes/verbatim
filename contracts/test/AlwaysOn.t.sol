@@ -70,6 +70,9 @@ contract AlwaysOnTest is Test {
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.saveContact(thief);
+        vault.setDailyLimit(address(usdc), 100e6);
+        vault.setDailyLimit(address(dai), 100e18);
+        vault.setDailyLimit(ETH, 1 ether);
         vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }
@@ -198,8 +201,10 @@ contract AlwaysOnTest is Test {
     function test_AccountUnchanged_HonestRunPasses() public {
         LeakyVault leaky = new LeakyVault(everydayKey, rulesKey, tokens());
         vm.deal(address(leaky), 1 ether);
-        vm.prank(rulesKey);
+        vm.startPrank(rulesKey);
         leaky.saveContact(mom);
+        leaky.setDailyLimit(ETH, 1 ether);
+        vm.stopPrank();
         vm.prank(everydayKey);
         leaky.run(only(VerbatimVault.Action(mom, 0.1 ether, "", 0)), limit(ETH, 0.1 ether), deadline);
         assertEq(mom.balance, 0.1 ether);
