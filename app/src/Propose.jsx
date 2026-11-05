@@ -1,13 +1,60 @@
 import { useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
-import { holdingOf } from './checks.js'
-import { amountPattern, formatAmount, formatDuration } from './format.js'
+import { holdingOf, nameOf } from './checks.js'
+import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
 import { vaultAbi } from './config.js'
 import { useTx } from './hooks.js'
 import { ChangeKind } from './rules.js'
 import TxStatus from './TxStatus.jsx'
 
-export default function Propose({ vault, role, account, blocked, onDone }) {
+function MovedContacts({ vault, isEveryday, account, blocked, onDone }) {
+  const { tx, send, busy } = useTx(account, onDone)
+  const moved = vault.contacts.filter((c) => c.moved)
+  if (moved.length === 0) return null
+  const proposed = (contact) => vault.changes.some((c) =>
+    c.kind === ChangeKind.ContactAddress && c.contact === contact.address && c.value === BigInt(contact.currentAddress) && !c.cancelled && !c.done)
+  return (
+    <section className="card alert">
+      <h2>A contact's name points somewhere new</h2>
+      <p className="small">
+        Your vault stops all sends to these contacts. If the change is real, propose the new address. Your phone must
+        approve it, then it waits {formatDuration(vault.looseningWait)}, and then it counts as a new contact.
+      </p>
+      <ul className="contacts">
+        {moved.map((contact) => (
+          <li key={contact.address}>
+            <span>{nameOf(vault, contact.address)} now points to {contact.currentAddress === zeroAddress ? 'nothing' : shortAddress(contact.currentAddress)}</span>
+            {contact.currentAddress !== zeroAddress && (
+              proposed(contact) ? (
+                <span className="pill ok">Proposed. Approve it on the phone page.</span>
+              ) : (
+                <button
+                  onClick={() => send(`Propose the new address for ${nameOf(vault, contact.address)}`, { address: vault.address, abi: vaultAbi }, 'propose', [ChangeKind.ContactAddress, contact.address, zeroAddress, BigInt(contact.currentAddress)])}
+                  disabled={!isEveryday || busy || blocked}
+                >
+                  Propose the new address
+                </button>
+              )
+            )}
+          </li>
+        ))}
+      </ul>
+      {!isEveryday && <p className="muted small">Switch MetaMask to the Everyday key to propose.</p>}
+      <TxStatus tx={tx} />
+    </section>
+  )
+}
+
+export default function Propose(props) {
+  return (
+    <>
+      <MovedContacts vault={props.vault} isEveryday={props.role === 'Everyday key'} account={props.account} blocked={props.blocked} onDone={props.onDone} />
+      <RaiseLimit {...props} />
+    </>
+  )
+}
+
+function RaiseLimit({ vault, role, account, blocked, onDone }) {
   const usdc = vault.holdings.find((h) => h.token !== zeroAddress)?.token ?? zeroAddress
   const [token, setToken] = useState(usdc)
   const [text, setText] = useState('')
@@ -44,7 +91,7 @@ export default function Propose({ vault, role, account, blocked, onDone }) {
         </select>
         <button onClick={propose} disabled={!isEveryday || busy || blocked || !amount || Boolean(error)}>Propose</button>
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="panel warn small">{error}</p>}
       {!isEveryday && <p className="muted small">Switch MetaMask to the Everyday key to propose.</p>}
       <TxStatus tx={tx} />
       {tx.status === 'done' && (
