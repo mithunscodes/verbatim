@@ -120,7 +120,7 @@ export function buildReceipt({ vault, account, chainId, sentence, ai, checks, ch
     checksFrom: said?.perCheck ?? null,
     transaction: {
       hash: result.hash,
-      outcome: result.ok ? 'done' : 'refused',
+      outcome: result.ok ? 'done' : result.outside ? 'failed' : 'refused',
       reason: result.ok ? null : result.reason ?? null,
     },
     sealedAi: ai?.proof

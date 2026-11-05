@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { previewTransaction } from './ai.js'
+import { Check, Dots } from './Motion.jsx'
 import Proof from './Proof.jsx'
 
 const PREVIEW_DELAY_MS = 800
@@ -28,16 +29,16 @@ export default function Preview({ vault, sentence, actions, previewKey }) {
   return (
     <div className="preview">
       <h3>Live preview, checked by the sealed AI</h3>
-      {state.status === 'reading' && <p className="muted">Reading what this transaction would really do…</p>}
-      {state.status === 'error' && <p className="error small">Couldn't preview it: {state.error}</p>}
+      {state.status === 'reading' && <p className="reading">Reading what this transaction would really do <Dots /></p>}
+      {state.status === 'error' && <p className="panel warn small">Couldn't preview it: {state.error}</p>}
       {state.status === 'done' && (
         <>
           {verdict ? (
             verdict.matches ? (
-              <p className="pass">✅ This matches what you said.</p>
+              <p className="pass"><Check size={26} />This matches what you said.</p>
             ) : (
               <div className="mismatch">
-                <p><strong>⚠️ This doesn't match what you said</strong></p>
+                <p className="extra-title"><span className="level-dot risky" /><strong>This doesn't match what you said</strong></p>
                 <ul>
                   {verdict.differences.map((line, i) => <li key={i}>{line}</li>)}
                 </ul>

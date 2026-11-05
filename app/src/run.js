@@ -169,7 +169,7 @@ export function explainFailure(error) {
   const revert = error instanceof BaseError
     ? error.walk((e) => e instanceof ContractFunctionRevertedError)
     : null
-  if (!revert || /RetryOnEmpty|retries exhausted/i.test(revert.reason ?? '')) return { reason: error?.shortMessage || error?.message || 'Something went wrong.', network: true }
+  if (!revert) return { reason: error?.shortMessage || error?.message || 'Something went wrong.', network: true }
   if (revert.data?.errorName === 'CheckFailed') {
     const [checkNumber, check, expected, actual] = revert.data.args
     return { checkNumber: Number(checkNumber), check, expected, actual, reason: `Check ${checkNumber} would fail` }
