@@ -25,7 +25,7 @@ export default function CreateVault({ account, blocked, loading, onDone }) {
     <section className="card">
       <div className="card-head">
         <h2>Create my vault</h2>
-        <button className="secondary" onClick={() => onDone()} disabled={loading}>
+        <button className="secondary compact" onClick={() => onDone()} disabled={loading}>
           {loading ? 'Reading…' : 'Refresh'}
         </button>
       </div>
@@ -38,8 +38,9 @@ export default function CreateVault({ account, blocked, loading, onDone }) {
         <input className="address" placeholder="0x…" value={text} onChange={(e) => setText(e.target.value)} />
       </label>
       <p className="muted small">Check it carefully. A vault's keys can never be changed.</p>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="panel warn small">{error}</p>}
       <button
+        className="big"
         onClick={() => send('Create my vault', { address: FACTORY, abi: factoryAbi }, 'createVault', [getAddress(trimmed)])}
         disabled={!valid || same || busy || blocked}
       >

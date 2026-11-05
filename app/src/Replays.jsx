@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { formatAmount } from './format.js'
+import { Dots, Words } from './Motion.jsx'
 
 const MAINNET_EXPLORER = 'https://etherscan.io'
 
@@ -33,7 +34,7 @@ const amount = (value, decimals, digits = 2) =>
 
 function Side({ title, safe, children }) {
   return (
-    <div className={`result ${safe ? 'ok' : 'refused'}`}>
+    <div className={safe ? 'replay-side safe' : 'replay-side lost'}>
       <h3>{title}</h3>
       {children}
     </div>
@@ -85,7 +86,7 @@ function Aave({ data }) {
   )
 }
 
-function ReplayCard({ name }) {
+function ReplayCard({ name, index }) {
   const card = CARDS[name]
   const [state, setState] = useState({ status: 'idle' })
   const start = async () => {
@@ -97,23 +98,25 @@ function ReplayCard({ name }) {
     }
   }
   return (
-    <section className="card column">
+    <section className="card column" style={{ animationDelay: `${200 + index * 150}ms` }}>
+      <span className="pill bad loss">Lost: {card.loss}</span>
       <h2>{card.title}</h2>
-      <p className="muted small">Lost: {card.loss}</p>
       <p>{card.intro}</p>
-      <button onClick={start} disabled={state.status === 'running'}>
-        {state.status === 'done' ? 'Replay it again' : 'Replay it against a Verbatim vault'}
-      </button>
-      {state.status === 'running' && <p className="muted">Starting the saved copy of Ethereum… no internet needed.</p>}
-      {state.status === 'error' && <p className="error">{state.error}</p>}
+      <div className="actions">
+        <button className="big" onClick={start} disabled={state.status === 'running'}>
+          {state.status === 'done' ? 'Replay it again' : 'Replay it against a Verbatim vault'}
+        </button>
+      </div>
+      {state.status === 'running' && <p className="reading">Starting the saved copy of Ethereum <Dots /> no internet needed</p>}
+      {state.status === 'error' && <p className="panel warn">{state.error}</p>}
       {state.status === 'done' && (
-        <>
+        <div key={state.data.totalMs}>
           {name === 'bybit' ? <Bybit data={state.data} /> : <Aave data={state.data} />}
           <p className="muted small">
             Replayed on a saved copy of Ethereum, offline, in {(state.data.totalMs / 1000).toFixed(1)} s. The vault is Verbatim's real
             vault code, the same as on Sepolia.
           </p>
-        </>
+        </div>
       )}
     </section>
   )
@@ -122,15 +125,25 @@ function ReplayCard({ name }) {
 export default function Replays() {
   return (
     <main className="side">
+      <header className="top">
+        <div className="top-left">
+          <a className="brand" href="#">Verbatim</a>
+          <nav className="nav">
+            <a href="#">Pay</a>
+            <a href="#phone">Phone</a>
+            <a href="#replays" className="active">Replays</a>
+          </nav>
+        </div>
+      </header>
       <header className="side-head">
         <div>
-          <h1>Real history, cancelled live</h1>
+          <h1><Words text="Real history, cancelled live" step={90} /></h1>
           <p className="lead">Two real attacks, replayed on a saved copy of Ethereum at the moment they happened. No internet needed.</p>
         </div>
       </header>
       <div className="columns">
-        <ReplayCard name="bybit" />
-        <ReplayCard name="aave" />
+        <ReplayCard name="bybit" index={0} />
+        <ReplayCard name="aave" index={1} />
       </div>
     </main>
   )
