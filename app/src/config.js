@@ -5,7 +5,7 @@ export const chain = sepolia
 
 export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69']
 
-export const FACTORY = '0x8eF83334CE142d09e1fF47ee3DB5e434affd88E6'
+export const FACTORY = '0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7'
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter, IPermit2Pull} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -63,7 +64,7 @@ contract AlwaysOnTest is Test {
         dai = new TestToken();
         router = new TestRouter();
         fakeRouter = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);
@@ -81,8 +82,8 @@ contract AlwaysOnTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 1 days);
-        deadline = block.timestamp + 5 minutes;
+        vm.warp(vm.getBlockTimestamp() + 1 days);
+        deadline = vm.getBlockTimestamp() + 5 minutes;
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -140,7 +141,7 @@ contract AlwaysOnTest is Test {
         actions = new VerbatimVault.Action[](3);
         actions[0] = act(address(usdc), abi.encodeCall(TestToken.approve, (PERMIT2, toPermit2)));
         actions[1] = act(
-            PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), toRouter, uint48(block.timestamp)))
+            PERMIT2, abi.encodeCall(IPermit2.approve, (address(usdc), address(router), toRouter, uint48(vm.getBlockTimestamp())))
         );
         actions[2] = act(address(router), abi.encodeCall(TestRouter.swap, (address(usdc), used, 0.0001 ether)));
     }
@@ -160,7 +161,7 @@ contract AlwaysOnTest is Test {
         returns (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature)
     {
         permit = ISignatureTransfer.PermitTransferFrom(
-            ISignatureTransfer.TokenPermissions(address(usdc), amount), 0, block.timestamp + 1 hours
+            ISignatureTransfer.TokenPermissions(address(usdc), amount), 0, vm.getBlockTimestamp() + 1 hours
         );
         bytes32 tokenPermissions = keccak256(abi.encode(TOKEN_PERMISSIONS_TYPEHASH, permit.permitted));
         bytes32 structHash =
@@ -250,7 +251,7 @@ contract AlwaysOnTest is Test {
     }
 
     function test_AllowedKinds_Permit2PermissionForUntrustedContractRefused() public {
-        bytes memory data = abi.encodeCall(IPermit2.approve, (address(usdc), thief, 5e6, uint48(block.timestamp)));
+        bytes memory data = abi.encodeCall(IPermit2.approve, (address(usdc), thief, 5e6, uint48(vm.getBlockTimestamp())));
         vm.expectRevert("Permission for an untrusted contract");
         runAsEverydayKey(only(act(PERMIT2, data)), noChecks());
     }
@@ -269,6 +270,27 @@ contract AlwaysOnTest is Test {
     function test_NothingElseLeaves_LimitLetsATokenLeave() public {
         runAsEverydayKey(only(act(address(dai), abi.encodeCall(TestToken.transfer, (mom, 10e18)))), limit(address(dai), 10e18));
         assertEq(dai.balanceOf(mom), 10e18);
+    }
+
+    function test_NothingElseLeaves_NoChecksMeansNoTokenLeaves() public {
+        vm.expectRevert("Something else would leave your account");
+        runAsEverydayKey(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 1e6)))), noChecks());
+        assertEq(usdc.balanceOf(mom), 0);
+    }
+
+    function test_NothingElseLeaves_NoChecksMeansNoEthLeaves() public {
+        vm.expectRevert("Something else would leave your account");
+        runAsEverydayKey(only(VerbatimVault.Action(mom, 0.1 ether, "", 0)), noChecks());
+        assertEq(mom.balance, 0);
+    }
+
+    function test_NothingElseLeaves_OnlyAnAtMostCheckLetsATokenLeave() public {
+        VerbatimVault.Check[] memory checks = new VerbatimVault.Check[](2);
+        checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtLeastArrives, address(usdc), address(0), 0);
+        checks[1] = VerbatimVault.Check(VerbatimVault.CheckKind.ExactlyTo, address(usdc), mom, 1e6);
+        vm.expectRevert("Something else would leave your account");
+        runAsEverydayKey(only(act(address(usdc), abi.encodeCall(TestToken.transfer, (mom, 1e6)))), checks);
+        assertEq(usdc.balanceOf(mom), 0);
     }
 
     function test_NothingElseLeaves_HiddenTokenTransferRefused() public {

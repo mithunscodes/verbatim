@@ -20,10 +20,12 @@ import {
 } from './checks.js'
 import { amountPattern, formatAbout, formatAmount, shortAddress } from './format.js'
 import { formSentence, previewKey } from './ai.js'
-import { describeStep } from './intent.js'
 import Say from './Say.jsx'
 import Preview from './Preview.jsx'
 import { ReceiptBox } from './Receipt.jsx'
+import ChainProof from './ChainProof.jsx'
+import { FromWords, StepList, YourWords } from './Words.jsx'
+import { explainRefusal, saidFor } from './words.js'
 import { compareToFair, describeRoute, useQuote } from './quotes.js'
 import {
   extraActions,
@@ -37,10 +39,6 @@ import {
 } from './run.js'
 
 const KIND_NAMES = ['AtMostLeaves', 'AtLeastArrives', 'ExactlyTo']
-
-const HINTS = {
-  'An action failed': 'For example, the vault may not hold enough, or a swap price moved.',
-}
 
 const PRACTICE_DELAY_MS = 400
 
@@ -109,21 +107,23 @@ function buildRequest(vault, form, demo, quote, added, intent) {
 
 function intentRequest(vault, intent, demo, quote) {
   const { plan } = intent
+  const { checks, origins } = plan
   if (plan.swaps.length > 1) return { error: 'One swap per request, for now. Please split your request.' }
   const [swap] = plan.swaps
   if (swap && demo.scenario !== 'honest' && (swap.from === zeroAddress || demo.scenario === 'drain' && swap.amount >= holdingOf(vault, swap.from).amount)) {
-    return { checks: plan.checks, error: 'This demo needs a swap from USDC, and something else left to take.' }
+    return { checks, origins, error: 'This demo needs a swap from USDC, and something else left to take.' }
   }
   const sends = plan.sends.flatMap((send, i) => {
     const { decimals } = holdingOf(vault, send.token)
     const amount = demo.hacked && i === 0 ? send.amount + hackedExtra(send.token, decimals) : send.amount
     return sendActions({ token: send.token, amount, to: send.to })
   })
-  if (!swap) return { checks: plan.checks, actions: sends, swap: null }
-  if (!quote) return { checks: plan.checks, swap }
+  if (!swap) return { checks, origins, actions: sends, swap: null }
+  if (!quote) return { checks, origins, swap }
   const extras = extraActions(demo.scenario, { from: swap.from, decimals: holdingOf(vault, swap.from).decimals })
   return {
-    checks: plan.checks,
+    checks,
+    origins,
     swap,
     note: quote.note ?? null,
     actions: [...swapActions({ from: swap.from, amount: swap.amount, transaction: quote.transaction }), ...extras, ...sends],
@@ -160,15 +160,6 @@ function baseRequest(vault, form, demo, quote) {
     note: quote.note ?? null,
     actions: [...swapActions({ from: form.from, amount, transaction: quote.transaction }), ...extras],
   }
-}
-
-function explain(failure, vault, checks) {
-  if (failure.checkNumber && vault && checks) {
-    const check = checks[failure.checkNumber - 1]
-    return `${describeCheck(vault, check).text}, ${describeFailure(vault, check, failure.actual)}`
-  }
-  const hint = HINTS[failure.reason]
-  return hint ? `${failure.reason}. ${hint}` : failure.reason
 }
 
 function TxLink({ hash }) {
@@ -224,7 +215,7 @@ function SwapNote({ vault, swap, quote }) {
   )
 }
 
-function ChecksList({ vault, request, failure, quote }) {
+function ChecksList({ vault, request, failure, quote, said }) {
   const rules = rulesFor(vault, request.checks)
   return (
     <section className="card">
@@ -239,16 +230,26 @@ function ChecksList({ vault, request, failure, quote }) {
               <span>
                 {text}
                 {failed && <>, {describeFailure(vault, check, failure.actual)}</>}
+                <FromWords words={said?.perCheck?.[i]} />
               </span>
             </li>
           )
         })}
       </ul>
+      {said && (
+        <p className="muted small">
+          Each check traces back to your words, quoted under it. The amounts come from your sentence, names from your contacts and
+          prices from the fair price, never from the AI. The vault refuses any transaction that breaks a check.
+        </p>
+      )}
       {request.added && <AddedNote vault={vault} added={request.added} />}
       <details className="fold">
         <summary>
           <span className="icon">✓</span>
-          <span>Your account stays exactly as it is</span>
+          <span>
+            Your account stays exactly as it is
+            {said?.nothingElse && <span className="from">you said “{said.nothingElse}”, and it's always on</span>}
+          </span>
         </summary>
         <h3>Always on</h3>
         <ul>
@@ -287,10 +288,10 @@ function ChecksList({ vault, request, failure, quote }) {
   )
 }
 
-function Practice({ practice }) {
+function Practice({ practice, vault, checks, said }) {
   if (practice.status === 'running') return <p className="practice muted">Practice run…</p>
   if (practice.status === 'pass') return <p className="practice pass">✓ Practice run: every check passes</p>
-  if (practice.status === 'fail') return <p className="practice fail">✗ Practice run: {explain(practice.failure)}</p>
+  if (practice.status === 'fail') return <p className="practice fail">✗ Practice run: {explainRefusal(practice.failure, vault, checks, said)}</p>
   return null
 }
 
@@ -326,9 +327,9 @@ function AddedNote({ vault, added }) {
   )
 }
 
-function Result({ result, vault, receipt, onReset }) {
+function Result({ result, vault, receipt, said, onReset }) {
   if (result.status === 'signing') {
-    return <p className="muted">Confirm in MetaMask. Keep the "secure" option off.</p>
+    return <p className="muted">Confirm in MetaMask. Leave its "Added protection" switch off.</p>
   }
   if (result.status === 'pending') {
     return <p className="muted">Sent. Waiting for the network… <TxLink hash={result.hash} /></p>
@@ -356,10 +357,11 @@ function Result({ result, vault, receipt, onReset }) {
       ) : (
         <>
           <h3>❌ Your vault refused it, so it never happened</h3>
-          <p>{explain(result.failure, vault, result.checks)}</p>
+          <p>{explainRefusal(result.failure, vault, result.checks, said)}</p>
           <p>Nothing left your vault. Only the network fee was paid.</p>
         </>
       )}
+      <ChainProof vault={vault.address} hash={result.hash} checks={result.checks} describe={(check) => describeCheck(vault, check).text} />
       <p><TxLink hash={result.hash} /></p>
       {receipt && <ReceiptBox input={receipt} />}
       <button className="secondary" onClick={onReset}>New request</button>
@@ -396,6 +398,7 @@ export default function Request({ vault, role, blocked, onDone }) {
     [vault, form, demo, readyQuote, added, intent],
   )
   const sentence = intent ? intent.sentence : form.amount.trim() ? formSentence(vault, form) : ''
+  const said = useMemo(() => (intent ? saidFor(intent.answer.result, request.origins) : null), [intent, request.origins])
   const previewId = useMemo(() => previewKey(sentence, request.actions, demo), [sentence, request.actions, demo])
   const requestKey = useMemo(() => keyOf(request), [request])
   const latest = useRef({ vault, request })
@@ -457,15 +460,17 @@ export default function Request({ vault, role, blocked, onDone }) {
         failure: outcome.failure,
         moved: outcome.moved,
         checks: run.checks,
+        said,
         receipt: {
           vault: vault.address,
           account: vault.everydayKey,
           chainId: 11155111,
           sentence: sentence || 'A request made with the form',
-          ai: intent ? { steps: intent.answer.result.steps, proof: intent.answer.proof } : null,
+          ai: intent ? { result: intent.answer.result, proof: intent.answer.proof } : null,
           checks: run.checks,
           checksInWords: run.checks.map((check) => describeCheck(vault, check).text),
-          result: { hash, ok: outcome.ok, reason: outcome.ok ? null : explain(outcome.failure, vault, run.checks) },
+          said,
+          result: { hash, ok: outcome.ok, reason: outcome.ok ? null : explainRefusal(outcome.failure, vault, run.checks, said) },
         },
       })
     } catch (error) {
@@ -484,10 +489,8 @@ export default function Request({ vault, role, blocked, onDone }) {
             <h2>From your sentence</h2>
             <button className="secondary" onClick={() => setIntent(null)} disabled={busy}>Use the form instead</button>
           </div>
-          <p>"{intent.sentence}"</p>
-          <ul className="understood">
-            {intent.answer.result.steps.map((step, i) => <li key={i}>{describeStep(step)}</li>)}
-          </ul>
+          <YourWords sentence={intent.sentence} result={intent.answer.result} />
+          <StepList result={intent.answer.result} />
           {request.error && <p className="error">{request.error}</p>}
         </section>
       ) : (
@@ -552,12 +555,13 @@ export default function Request({ vault, role, blocked, onDone }) {
           request={request}
           failure={practice.status === 'fail' ? practice.failure : null}
           quote={quote}
+          said={said}
         />
       )}
 
       {request.actions && (
         <section className="card">
-          <Practice practice={practice} />
+          <Practice practice={practice} vault={vault} checks={request.checks} said={said} />
           <Preview vault={vault} sentence={sentence} actions={request.actions} previewKey={previewId} />
           {practice.status === 'fail' && !finished && (
             <ExtraOffer
@@ -581,6 +585,7 @@ export default function Request({ vault, role, blocked, onDone }) {
             result={result}
             vault={vault}
             receipt={result.receipt}
+            said={result.said}
             onReset={() => {
               setResult({ status: 'idle' })
               setPracticeRound((n) => n + 1)

@@ -3,9 +3,11 @@ import { encodeFunctionData, erc20Abi, zeroAddress } from 'viem'
 import { planFor, understandSentence } from './ai.js'
 import { EXPLORER } from './config.js'
 import { ATTACKS, attackRequest, resultOf, sendTry, sentenceRequest, sentenceVault, tokenAmount } from './demo.js'
+import { describeCheck } from './checks.js'
 import { formatDuration } from './format.js'
-import { describeStep } from './intent.js'
 import Proof, { Recorded } from './Proof.jsx'
+import { FromWords, LeftOut, StepList, YourWords } from './Words.jsx'
+import { asSentence, explainRefusal, saidFor, untraced } from './words.js'
 
 const DEADLINE_HOUR = 3600
 
@@ -134,9 +136,27 @@ function Attacks({ clients, scene, balances, disabled, onBusy }) {
   )
 }
 
+function SentenceOutcome({ state, vault, said }) {
+  const { result } = state
+  if (result.ok) {
+    return (
+      <p className="attack-outcome small done">
+        ✓ Done, exactly as you said: the standing rules allowed it. <TxLink hash={result.hash} />
+      </p>
+    )
+  }
+  const why = result.failure ? explainRefusal(result.failure, vault, state.plan.checks, said) : result.reason
+  return (
+    <p className="attack-outcome small refused">
+      ✗ Refused{state.hacked ? ' (the hacked app sent more than you said)' : ''}: {asSentence(why)} Nothing moved. <TxLink hash={result.hash} />
+    </p>
+  )
+}
+
 function Sentence({ clients, scene, balances, disabled, onBusy }) {
   const [text, setText] = useState('')
   const [state, setState] = useState({ status: 'idle' })
+  const [hacked, setHacked] = useState(false)
   const vault = sentenceVault(scene, balances)
 
   const understand = async () => {
@@ -152,11 +172,11 @@ function Sentence({ clients, scene, balances, disabled, onBusy }) {
   const send = async () => {
     onBusy(true)
     const { answer, plan } = state
-    setState({ status: 'sending', answer, plan })
+    setState({ status: 'sending', answer, plan, hacked })
     try {
-      const { hash } = await sendTry(clients, sentenceRequest(scene, plan))
-      setState({ status: 'waiting', answer, plan, hash })
-      setState({ status: 'done', answer, plan, result: await resultOf(clients.reader, hash) })
+      const { hash } = await sendTry(clients, sentenceRequest(scene, plan, hacked))
+      setState({ status: 'waiting', answer, plan, hacked, hash })
+      setState({ status: 'done', answer, plan, hacked, result: await resultOf(clients.reader, hash) })
     } catch (e) {
       setState({ status: 'error', answer, plan, error: problem(e) })
     }
@@ -166,15 +186,19 @@ function Sentence({ clients, scene, balances, disabled, onBusy }) {
   const { answer, plan } = state
   const steps = answer?.result.steps ?? []
   const questions = answer?.result.questions ?? []
+  const leftOut = answer?.result.leftOut ?? []
+  const said = answer && plan ? saidFor(answer.result, plan.origins) : null
   const onlySends = steps.every((step) => step.type === 'send')
-  const canSend = Boolean(plan) && state.status === 'understood' && onlySends && !questions.length && !plan.problems.length && plan.sends.length > 0
+  const traced = Boolean(answer) && untraced(answer.result) === 0
+  const canSend = Boolean(plan) && state.status === 'understood' && onlySends && traced && !questions.length && !leftOut.length
+    && !plan.problems.length && plan.sends.length > 0
 
   return (
     <section className="card">
       <h2>4. Say it in your own words</h2>
       <p className="muted small">
-        A sealed AI on 0G turns your sentence into steps. It never picks addresses: those come from the saved contacts. Then the
-        vault's standing rules still apply. Here, sentences can only send.
+        A sealed AI on 0G turns your sentence into steps, and each check quotes the words it came from. It never picks
+        addresses: those come from the saved contacts. Then the vault's standing rules still apply. Here, sentences can only send.
       </p>
       <textarea
         className="sentence"
@@ -189,14 +213,14 @@ function Sentence({ clients, scene, balances, disabled, onBusy }) {
       {answer && (
         <>
           <Recorded recorded={answer.recorded} />
+          <YourWords sentence={answer.sentence ?? text.trim()} result={answer.result} />
           {steps.length > 0 && (
             <>
               <h3>It understood</h3>
-              <ul className="understood">
-                {steps.map((step, i) => <li key={i}>{describeStep(step)}</li>)}
-              </ul>
+              <StepList result={answer.result} />
             </>
           )}
+          <LeftOut result={answer.result} />
           {questions.length > 0 && (
             <div className="questions">
               <h3>It asked instead of guessing</h3>
@@ -207,24 +231,38 @@ function Sentence({ clients, scene, balances, disabled, onBusy }) {
             </div>
           )}
           {!onlySends && <p className="error small">Here, sentences can only send. Swaps are in the main app.</p>}
+          {!traced && <p className="error small">Part of this couldn't be matched to your exact words, so it can't be sent.</p>}
           {plan?.problems.map((p, i) => <p key={i} className="error small">{p}</p>)}
           <Proof proof={answer.proof} />
           {plan?.checks.length > 0 && (
-            <p className="muted small">
-              Checks: {plan.checks.map((check) => (check.kind === 0 ? `at most ${tokenAmount(scene, check.amount)} leaves` : `exactly ${tokenAmount(scene, check.amount)} to ${scene.contactName ?? 'the contact'}`)).join(', ')}
-            </p>
+            <>
+              <h3>The vault's checks</h3>
+              <ul className="checks compact">
+                {plan.checks.map((check, i) => {
+                  const { icon, text: line } = describeCheck(vault, check)
+                  return (
+                    <li key={i}>
+                      <span className="icon">{icon}</span>
+                      <span>
+                        {line}
+                        <FromWords words={said?.perCheck?.[i]} />
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
           )}
-          <button onClick={send} disabled={!canSend || disabled}>Send it</button>
+          <label className="switch">
+            <input type="checkbox" checked={hacked} onChange={(e) => setHacked(e.target.checked)} disabled={state.status !== 'understood'} />
+            <span>Hacked app: keep these checks, but secretly send 1 {scene.symbol} more than you said</span>
+          </label>
+          <button onClick={send} disabled={!canSend || disabled}>{hacked ? 'Send it through the hacked app' : 'Send it'}</button>
         </>
       )}
       {state.status === 'sending' && <p className="muted small">Signing and sending…</p>}
       {state.status === 'waiting' && <p className="muted small">⏳ Sent, waiting for Sepolia… <TxLink hash={state.hash} /></p>}
-      {state.status === 'done' && (
-        <p className={`attack-outcome small ${state.result.ok ? 'done' : 'refused'}`}>
-          {state.result.ok ? '✓ Done: the standing rules allowed it.' : `✗ Refused: "${state.result.reason}". Nothing moved.`}{' '}
-          <TxLink hash={state.result.hash} />
-        </p>
-      )}
+      {state.status === 'done' && <SentenceOutcome state={state} vault={vault} said={said} />}
       {state.status === 'error' && <p className="error small">✗ {state.error}</p>}
     </section>
   )

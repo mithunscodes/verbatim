@@ -5,7 +5,8 @@ import { formatAmount, shortAddress } from './format.js'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
-import { ReceiptPage } from './Receipt.jsx'
+import { ReceiptPage, RecentReceipts } from './Receipt.jsx'
+import Replays from './Replays.jsx'
 import SideBySide from './SideBySide.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
@@ -92,7 +93,7 @@ function SmartAccountAlert({ delegate }) {
         <li>Open <strong>Smart account</strong> and switch it off for Sepolia (MetaMask may call this <strong>Switch back</strong>), then confirm.</li>
         <li>Come back here and click <strong>Refresh</strong>.</li>
       </ol>
-      <p className="small">Next time, untick "secure" before you confirm in MetaMask.</p>
+      <p className="small">Next time, leave MetaMask's "Added protection" switch off before you confirm.</p>
       {delegate && <p className="muted small">The key now runs code from <AddressLink address={delegate} />.</p>}
     </section>
   )
@@ -102,6 +103,7 @@ export default function App() {
   const page = useHashPage()
   if (page.startsWith('attack:')) return <Attack link={page.slice('attack:'.length)} />
   if (page.startsWith('side:')) return <SideBySide link={page.slice('side:'.length)} />
+  if (page === 'replays') return <Replays />
   return <WalletApp page={page} />
 }
 
@@ -118,6 +120,7 @@ function WalletApp({ page }) {
           <nav className="nav">
             <a href="#" className={page === 'app' ? 'active' : undefined}>App</a>
             <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone page</a>
+            <a href="#replays">Replays</a>
           </nav>
         </div>
         {v.account && (
@@ -156,7 +159,8 @@ function WalletApp({ page }) {
         <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} />
       )}
 
-      {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} />}
+      {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} vault={v.vault} />}
+      {receiptRoot && v.account && <RecentReceipts account={v.account} current={receiptRoot} />}
 
       {!receiptRoot && v.account && v.onSepolia && v.vaults?.length !== 0 && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
@@ -166,6 +170,7 @@ function WalletApp({ page }) {
         <div key={v.vault.address}>
           <Request vault={v.vault} role={v.role} blocked={v.smart} onDone={v.refresh} />
           <Propose vault={v.vault} role={v.role} account={v.account} blocked={v.smart} onDone={v.refresh} />
+          <RecentReceipts account={v.account} />
         </div>
       )}
 

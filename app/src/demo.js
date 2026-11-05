@@ -18,11 +18,8 @@ import {
   chain,
   DEMO_ALLOWED_SEND,
   DEMO_ATTACK_GAS,
-  DEMO_PRIORITY_FEE,
   DEMO_PROPOSED_LIMIT,
   DEMO_RPC_PATH,
-  DIRECTORY_NAMES,
-  directoryAbi,
   FACTORY,
   factoryAbi,
   FORCED_GAS,
@@ -30,10 +27,11 @@ import {
   UNIVERSAL_ROUTER,
   vaultAbi,
 } from './config.js'
+import { lowFees } from './chain.js'
 import { CheckKind } from './checks.js'
 import { formatAmount, shortAddress } from './format.js'
 import { ChangeKind } from './rules.js'
-import { divertedSwapTransaction, explainFailure, fairSwapTransaction, hackedExtra, newDeadline, sendActions, swapActions } from './run.js'
+import { divertedSwapTransaction, explainFailure, hackedExtra, newDeadline, sendActions, swapActions } from './run.js'
 
 const KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/
 
@@ -47,14 +45,7 @@ const ALL_BPS = 10_000n
 
 const TERRIBLE_PRICE_BPS = 9_000n
 
-const MAX_CONTACTS = 10n
-
 export class Refused extends Error {}
-
-async function demoFees(reader) {
-  const { baseFeePerGas } = await reader.getBlock()
-  return { maxPriorityFeePerGas: DEMO_PRIORITY_FEE, maxFeePerGas: (baseFeePerGas ?? 0n) * 2n + DEMO_PRIORITY_FEE }
-}
 
 export function readDemoLink(text) {
   const [key, thief] = (text ?? '').split('/')
@@ -84,70 +75,47 @@ export function sameAddress(a, b) {
   return Boolean(a && b) && a.toLowerCase() === b.toLowerCase()
 }
 
-async function contactAt(reader, vault, index) {
+async function firstContact(reader, vault) {
   try {
-    return await reader.readContract({ address: vault, abi: vaultAbi, functionName: 'contacts', args: [index] })
+    return await reader.readContract({ address: vault, abi: vaultAbi, functionName: 'contacts', args: [0n] })
   } catch (error) {
     if (error instanceof BaseError && error.walk((e) => e instanceof ContractFunctionRevertedError)) return null
     throw error
   }
 }
 
-async function savedContacts(reader, vault) {
-  const found = []
-  for (let i = 0n; i < MAX_CONTACTS; i++) {
-    const contact = await contactAt(reader, vault, i)
-    if (!contact) break
-    found.push(contact)
-  }
-  return found
-}
-
 export async function findScene(reader, everydayKey, thief, factory = FACTORY) {
   const vault = await reader.readContract({ address: factory, abi: factoryAbi, functionName: 'vaultOf', args: [everydayKey] })
   if (vault === zeroAddress) return { everydayKey, thief, vault: null }
-  const [token, contacts, setupFinished, looseningWait, keyInVault] = await Promise.all([
+  const [token, contact, setupFinished, looseningWait] = await Promise.all([
     reader.readContract({ address: vault, abi: vaultAbi, functionName: 'watchedTokens', args: [0n] }),
-    savedContacts(reader, vault),
+    firstContact(reader, vault),
     reader.readContract({ address: vault, abi: vaultAbi, functionName: 'setupFinished' }),
     reader.readContract({ address: vault, abi: vaultAbi, functionName: 'looseningWait' }),
-    reader.readContract({ address: vault, abi: vaultAbi, functionName: 'everydayKey' }),
   ])
-  const contact = contacts[0] ?? null
-  const [symbol, decimals, dailyLimit] = await Promise.all([
+  const [symbol, decimals] = await Promise.all([
     reader.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }),
     reader.readContract({ address: token, abi: erc20Abi, functionName: 'decimals' }),
-    reader.readContract({ address: vault, abi: vaultAbi, functionName: 'dailyLimit', args: [token] }),
   ])
   const contactName = Object.entries(NICKNAMES).find(([known]) => sameAddress(known, contact))?.[1] ?? null
-  const directory = await reader.readContract({ address: vault, abi: vaultAbi, functionName: 'directory' }).catch(() => null)
-  const routerName = DIRECTORY_NAMES.find((name) => name.startsWith('router.'))
-  const routerAddress = directory && routerName
-    ? await reader.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [routerName] }).catch(() => null)
-    : null
-  const listed = routerAddress && routerAddress !== zeroAddress
-  return {
-    everydayKey, thief, vault, token, symbol, decimals, contact, contactName, setupFinished, looseningWait,
-    keyInVault, contacts, dailyLimit, directory, routerName: listed ? routerName : null, routerAddress: listed ? routerAddress : null,
-  }
+  return { everydayKey, thief, vault, token, symbol, decimals, contact, contactName, setupFinished, looseningWait }
 }
 
 export async function readBalances(reader, scene) {
   const blockNumber = await reader.getBlockNumber({ cacheTime: 0 })
   const balanceOf = (account) =>
     reader.readContract({ address: scene.token, abi: erc20Abi, functionName: 'balanceOf', args: [account], blockNumber })
-  const [wallet, vault, gas, thief] = await Promise.all([
+  const [wallet, vault, gas] = await Promise.all([
     balanceOf(scene.everydayKey),
     balanceOf(scene.vault),
     reader.getBalance({ address: scene.everydayKey, blockNumber }),
-    balanceOf(scene.thief),
   ])
-  return { blockNumber, wallet, vault, gas, thief }
+  return { blockNumber, wallet, vault, gas }
 }
 
 export function nameIn(scene, address) {
   if (!address) return 'nobody'
-  if (sameAddress(address, scene.thief)) return scene.thiefName ?? 'the thief'
+  if (sameAddress(address, scene.thief)) return 'the thief'
   if (sameAddress(address, scene.vault)) return 'the Verbatim vault'
   if (sameAddress(address, scene.everydayKey)) return 'the normal wallet'
   if (sameAddress(address, scene.contact)) return scene.contactName ? `${scene.contactName}, a saved contact` : 'a saved contact'
@@ -162,7 +130,7 @@ export function allowedAmount(scene) {
   return parseUnits(DEMO_ALLOWED_SEND, scene.decimals)
 }
 
-export function vaultRun(scene, to, amount) {
+function vaultRun(scene, to, amount) {
   return {
     address: scene.vault,
     abi: vaultAbi,
@@ -178,10 +146,6 @@ export function vaultRun(scene, to, amount) {
   }
 }
 
-export function allowedRequest(scene) {
-  return vaultRun(scene, scene.contact, allowedAmount(scene))
-}
-
 export async function sendAllowed({ reader, signer }, scene) {
   const request = { ...vaultRun(scene, scene.contact, allowedAmount(scene)), account: signer.account }
   let gas
@@ -192,7 +156,7 @@ export async function sendAllowed({ reader, signer }, scene) {
     if (failure.network) throw error
     throw new Refused(failure.reason)
   }
-  return signer.writeContract({ ...request, gas, ...(await demoFees(reader)) })
+  return signer.writeContract({ ...request, gas, ...(await lowFees(reader)) })
 }
 
 export async function sendAttack({ reader, signer }, scene, balances) {
@@ -201,7 +165,7 @@ export async function sendAttack({ reader, signer }, scene, balances) {
   const [walletGas, nonce, fees] = await Promise.all([
     reader.estimateContractGas(steal),
     reader.getTransactionCount({ address: account.address, blockTag: 'pending' }),
-    demoFees(reader),
+    lowFees(reader),
   ])
   const wallet = await signer.writeContract({ ...steal, gas: (walletGas * 12n) / 10n, nonce, ...fees })
   const vault = await signer.writeContract({
@@ -211,7 +175,7 @@ export async function sendAttack({ reader, signer }, scene, balances) {
     nonce: nonce + 1,
     ...fees,
   })
-  return { wallet, vault, nonce }
+  return { wallet, vault }
 }
 
 async function refusal(reader, tx, blockNumber) {
@@ -247,22 +211,20 @@ function failureOf(reader, tx, receipt) {
 
 export async function resultOf(reader, hash) {
   const receipt = await reader.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS, pollingInterval: POLL_MS })
-  const paid = { blockNumber: receipt.blockNumber, fee: receipt.gasUsed * receipt.effectiveGasPrice, payer: receipt.from }
-  if (receipt.status === 'success') return { ok: true, hash, ...paid }
+  if (receipt.status === 'success') return { ok: true, hash, blockNumber: receipt.blockNumber }
   const tx = await reader.getTransaction({ hash })
   const failure = await failureOf(reader, tx, receipt)
-  return { ok: false, hash, ...paid, reason: failure.reason, failure }
+  return { ok: false, hash, blockNumber: receipt.blockNumber, reason: failure.reason, failure }
 }
 
 export const ATTACKS = [
-  { id: 'steal', short: 'Send it all to me', title: 'Send everything to my address', expected: 'Not a saved contact', rule: 'Money only goes to saved contacts' },
-  { id: 'permission', short: 'Blank cheque', title: 'Give my address unlimited spending permission', expected: 'Permission for an untrusted contract', rule: 'No spending permission for untrusted contracts' },
-  { id: 'takeover', short: 'Bybit takeover', title: 'Bybit-style takeover: run borrowed code in the vault', expected: 'Borrowed code would run in your account', rule: 'No borrowed code runs in the vault' },
-  { id: 'swapToMe', short: 'Swap to me', title: 'Swap everything, and send the output to me', expected: 'Unfair trade', rule: 'A swap must pay the vault a fair price' },
-  { id: 'badPrice', short: 'Rigged price', title: 'Swap everything at a terrible price (the vault gets 10%)', expected: 'Unfair trade', rule: 'A swap must pay the vault a fair price' },
-  { id: 'fakeRouter', short: 'Fake Uniswap', title: 'Swap everything through my fake Uniswap router', expected: 'Not a trusted contract', rule: 'Only trusted contracts can be called' },
-  { id: 'addContact', short: 'Add myself', title: 'Add my address to the saved contacts', expected: 'Only the rules key can save contacts', rule: 'Only the rules key can save contacts' },
-  { id: 'loosen', short: 'Raise the limit', title: `Raise the daily limit to ${Number(DEMO_PROPOSED_LIMIT).toLocaleString('en-US')} USDC`, expected: 'proposed', rule: "Looser rules wait for the owner's phone" },
+  { id: 'steal', title: 'Send everything to my address', expected: 'Not a saved contact' },
+  { id: 'permission', title: 'Give my address unlimited spending permission', expected: 'Permission for an untrusted contract' },
+  { id: 'takeover', title: 'Bybit-style takeover: run borrowed code in the vault', expected: 'Borrowed code would run in your account' },
+  { id: 'swapToMe', title: 'Swap everything, and send the output to me', expected: 'Unfair trade' },
+  { id: 'badPrice', title: 'Swap everything at a terrible price (the vault gets 10%)', expected: 'Unfair trade' },
+  { id: 'addContact', title: 'Add my address to the saved contacts', expected: 'Only the rules key can save contacts' },
+  { id: 'loosen', title: `Raise the daily limit to ${Number(DEMO_PROPOSED_LIMIT).toLocaleString('en-US')} USDC`, expected: 'proposed' },
 ]
 
 function runRequest(scene, actions, checks = []) {
@@ -278,12 +240,6 @@ function divertedSwap(scene, amount, bps) {
   return runRequest(scene, swapActions({ from: scene.token, amount, transaction }), atMostLeaves(scene, amount))
 }
 
-function fakeRouterSwap(scene, amount) {
-  const actions = swapActions({ from: scene.token, amount, transaction: fairSwapTransaction({ from: scene.token, amount }) })
-  const diverted = actions.map((action) => (sameAddress(action.target, UNIVERSAL_ROUTER) ? { ...action, target: scene.thief } : action))
-  return runRequest(scene, diverted, atMostLeaves(scene, amount))
-}
-
 export function attackRequest(scene, balances, id) {
   const tokenCall = (functionName, args) => encodeFunctionData({ abi: erc20Abi, functionName, args })
   if (id === 'steal') return vaultRun(scene, scene.thief, balances.vault)
@@ -295,7 +251,6 @@ export function attackRequest(scene, balances, id) {
   }
   if (id === 'swapToMe') return divertedSwap(scene, balances.vault, ALL_BPS)
   if (id === 'badPrice') return divertedSwap(scene, balances.vault, TERRIBLE_PRICE_BPS)
-  if (id === 'fakeRouter') return fakeRouterSwap(scene, balances.vault)
   if (id === 'addContact') return { address: scene.vault, abi: vaultAbi, functionName: 'saveContact', args: [scene.thief] }
   if (id === 'loosen') {
     return {
@@ -336,28 +291,8 @@ export async function sendTry({ reader, signer }, request) {
     if (failure.network) throw error
     predicted = failure.reason
   }
-  const [nonce, fees] = await Promise.all([
-    reader.getTransactionCount({ address: account.address, blockTag: 'pending' }),
-    demoFees(reader),
-  ])
-  const hash = await signer.writeContract({ ...request, account, gas, nonce, ...fees })
-  return { hash, predicted, nonce }
-}
-
-export function checkWords(scene, check) {
-  const amount = tokenAmount(scene, check.amount)
-  if (check.kind === CheckKind.AtMostLeaves) return `at most ${amount} leaves`
-  if (check.kind === CheckKind.AtLeastArrives) return `at least ${amount} arrives`
-  return `exactly ${amount} to ${nameIn(scene, check.to)}`
-}
-
-export function requestWords(scene, request) {
-  if (sameAddress(request.address, scene.token)) {
-    const [to, amount] = request.args
-    return { call: `${scene.symbol}.${request.functionName}`, what: sent(scene, to, amount).what, checks: null }
-  }
-  const checks = request.functionName === 'run' ? request.args[1].map((check) => checkWords(scene, check)) : null
-  return { call: `vault.${request.functionName}`, what: vaultWords(scene, request.functionName, request.args).what, checks }
+  const hash = await signer.writeContract({ ...request, account, gas, ...(await lowFees(reader)) })
+  return { hash, predicted }
 }
 
 function sent(scene, to, amount) {
@@ -369,11 +304,6 @@ function runWords(scene, actions) {
   const action = actions[0]
   if (!action) return { what: 'run nothing', done: 'Ran nothing' }
   if (action.operation !== 0) return { what: 'run borrowed code in the vault, like the Bybit attack', done: 'Ran borrowed code' }
-  const fake = actions.find((a) => sameAddress(a.target, scene.thief) && a.data && a.data !== '0x')
-  if (fake && sameAddress(action.target, scene.token)) {
-    const [, amount] = decodeFunctionData({ abi: erc20Abi, data: action.data }).args
-    return { what: `swap ${tokenAmount(scene, amount)} through the thief's fake Uniswap router`, done: `Swapped ${tokenAmount(scene, amount)} through the thief's fake router` }
-  }
   const router = actions.find((a) => sameAddress(a.target, UNIVERSAL_ROUTER))
   if (router && sameAddress(action.target, scene.token)) {
     const [, amount] = decodeFunctionData({ abi: erc20Abi, data: action.data }).args

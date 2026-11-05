@@ -14,12 +14,9 @@ import {
   sealReceipt,
   storeReceipt,
 } from './receipts.js'
-import { Check, Cross, Dots, Spinner, Words } from './Motion.jsx'
 import Proof from './Proof.jsx'
 import ChainProof from './ChainProof.jsx'
-import { VerifyIt } from './Caught.jsx'
-import WordTiles from './Tiles.jsx'
-import { quoteWords } from './words.js'
+import { FromWords, YourWords } from './Words.jsx'
 
 function understoodOf(receipt) {
   const understood = receipt.understoodAs
@@ -35,14 +32,6 @@ function describerFor(vault, receipt) {
 function explainError(error) {
   if (error?.code === 4001) return 'You cancelled in MetaMask, so no receipt was saved.'
   return error?.message ?? 'Something went wrong.'
-}
-
-function Lock({ size = 18 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 export function ReceiptBox({ input }) {
@@ -77,83 +66,22 @@ export function ReceiptBox({ input }) {
   return (
     <div className="receipt-box">
       {state.status === 'signing' && (
-        <p className="tx-status signing"><Spinner />MetaMask asks you to sign once, to make the key that locks your receipts. It can't move money.</p>
+        <p className="muted small">MetaMask asks you to sign once, to make the key that locks your receipts. It can't move money.</p>
       )}
-      {state.status === 'saving' && <p className="tx-status signing"><Spinner />Saving a private receipt on 0G Storage… about 15 seconds.</p>}
+      {state.status === 'saving' && <p className="muted small">Saving a private receipt on 0G Storage… about 15 seconds.</p>}
       {state.status === 'done' && (
-        <p className="tx-status done">
-          <Lock size={22} />
-          <span>
-            Private receipt saved on 0G Storage: <a href={`#receipt/${state.root}`}>open it</a> ·{' '}
-            <a href={state.explorer} target="_blank" rel="noreferrer">0G transaction</a>
-          </span>
+        <p className="small">
+          🔒 Private receipt saved on 0G Storage: <a href={`#receipt/${state.root}`}>open it</a> ·{' '}
+          <a href={state.explorer} target="_blank" rel="noreferrer">0G transaction</a>
         </p>
       )}
       {state.status === 'error' && (
-        <p className="tx-status error">
-          <span className="mark-bad"><Cross size={26} /></span>
-          <span>
-            Couldn't save the receipt: {state.error}{' '}
-            <button className="link" onClick={() => setRound((n) => n + 1)}>Try again</button>
-          </span>
+        <p className="error small">
+          Couldn't save the receipt: {state.error}{' '}
+          <button className="link" onClick={() => setRound((n) => n + 1)}>Try again</button>
         </p>
       )}
     </div>
-  )
-}
-
-function OpenReceipt({ receipt, vault }) {
-  const understood = understoodOf(receipt)
-  const describe = describerFor(vault, receipt)
-  const done = receipt.transaction.outcome === 'done'
-  const at = (ms) => ({ animationDelay: `${ms}ms` })
-  return (
-    <>
-      <span className={done ? 'stamp big' : 'stamp big refused'} style={at(4000)}>{done ? 'WORD FOR WORD' : 'NEVER HAPPENED'}</span>
-      <section className="vb-in said-block" style={at(1400)}>
-        <h3>You said</h3>
-        {understood ? <WordTiles sentence={receipt.sentence} result={understood} instant small delay={1500} /> : <p className="happened">{receipt.sentence}</p>}
-      </section>
-      <section className="vb-in" style={at(2000)}>
-        <h3>{done ? 'Your vault enforced' : 'Your checks'}</h3>
-        <ul className="ticket-checks">
-          {receipt.checksInWords.map((line, i) => (
-            <li key={i}>
-              <span className="check-num">{i + 1}</span>
-              <span>
-                {line}
-                {receipt.checksFrom?.[i]?.length > 0 && <span className="from">you said {quoteWords(receipt.checksFrom[i])}</span>}
-              </span>
-              {done && <Check size={24} ring={false} delay={2300 + i * 180} />}
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="vb-in" style={at(2500)}>
-        <ChainProof vault={receipt.vault} hash={receipt.transaction.hash} checks={receipt.checks} describe={describe} />
-      </section>
-      <div className="tear"><span /><span /></div>
-      <section>
-        <h3 className="vb-in" style={at(3100)}>What happened</h3>
-        <span className="happened">
-          <Words text={done ? 'Done, exactly as you said.' : 'Refused, so it never happened.'} delay={3200} />
-        </span>
-        {!done && receipt.transaction.reason && <p className="vb-in" style={{ ...at(3600), margin: 0 }}>{receipt.transaction.reason}</p>}
-        <p className="vb-in" style={{ ...at(3700), margin: 0 }}>
-          <a href={`${EXPLORER}/tx/${receipt.transaction.hash}`} target="_blank" rel="noreferrer">See it on Etherscan</a>
-        </p>
-      </section>
-      {receipt.sealedAi && (
-        <section className="vb-in" style={at(3800)}>
-          <h3>Understood by</h3>
-          <Proof proof={{ ...receipt.sealedAi, verifiability: 'TeeML', note: 'The signature and the signed text are stored in this receipt, so the check can be repeated later.' }} />
-        </section>
-      )}
-      <div className="ticket-foot vb-in" style={at(3900)}>
-        {receipt.sealedAi && <span>Understood by a sealed AI on 0G</span>}
-        <span>Saved {new Date(receipt.createdAt).toLocaleString('en-GB')}</span>
-      </div>
-    </>
   )
 }
 
@@ -193,39 +121,56 @@ export function ReceiptPage({ root, account, vault }) {
   }
 
   const { receipt } = state
-  const open = state.status === 'open'
-  const refused = open && receipt.transaction.outcome !== 'done'
+  const understood = receipt ? understoodOf(receipt) : null
+  const describe = receipt ? describerFor(vault, receipt) : null
   return (
-    <section className="receipt">
-      <div className="printer"><span /></div>
-      <div className="paper-slot">
-        <div key={open ? 'open' : 'closed'} className="ticket">
-          <div className={refused ? 'ticket-head refused' : 'ticket-head'}>
-            <div className="card-head">
-              <h2>Receipt</h2>
-              <span className="pill ink"><Lock size={14} />Private</span>
-            </div>
-            <p>Stored on 0G Storage, encrypted. Only the key that made it can open it.</p>
-            <p className="mono">{root}</p>
-          </div>
-          <div className="ticket-body">
-            {state.status === 'loading' && <p className="reading">Fetching it from 0G Storage <Dots /></p>}
-            {state.status === 'error' && <p className="panel warn">{state.error}</p>}
-            {(state.status === 'locked' || state.status === 'opening') && (
-              <div className="lock vb-in" style={{ animationDelay: '1200ms' }}>
-                <span className="happened">This receipt is locked.</span>
-                <button className="big" onClick={unlock} disabled={!account || state.status === 'opening'}>
-                  {state.status === 'opening' ? 'Opening…' : 'Unlock with MetaMask'}
-                </button>
-                {!account && <p className="muted small">Connect MetaMask first.</p>}
-                {state.error && <p className="panel warn small">{state.error}</p>}
-              </div>
-            )}
-            {open && <OpenReceipt receipt={receipt} vault={vault} />}
-          </div>
-        </div>
-      </div>
-      {refused && <VerifyIt vault={receipt.vault} hash={receipt.transaction.hash} withEvidence />}
+    <section className="card">
+      <h2>Private receipt</h2>
+      <p className="muted small">Stored on 0G Storage, encrypted. Only the key that made it can open it.</p>
+      <p className="muted small mono">{root}</p>
+      {state.status === 'loading' && <p className="muted">Fetching it from 0G Storage…</p>}
+      {state.status === 'error' && <p className="error">{state.error}</p>}
+      {(state.status === 'locked' || state.status === 'opening') && (
+        <>
+          <button onClick={unlock} disabled={!account || state.status === 'opening'}>Unlock with MetaMask</button>
+          {!account && <p className="muted small">Connect MetaMask first.</p>}
+          {state.error && <p className="error small">{state.error}</p>}
+        </>
+      )}
+      {state.status === 'open' && (
+        <>
+          <h3>You said</h3>
+          {understood ? <YourWords sentence={receipt.sentence} result={understood} /> : <p>{receipt.sentence}</p>}
+          <h3>{receipt.transaction.outcome === 'done' ? 'Your vault enforced' : 'Your checks'}</h3>
+          <ul className="receipt-checks">
+            {receipt.checksInWords.map((line, i) => (
+              <li key={i}>
+                {line}
+                <FromWords words={receipt.checksFrom?.[i]} />
+              </li>
+            ))}
+          </ul>
+          <ChainProof
+            vault={receipt.vault}
+            hash={receipt.transaction.hash}
+            checks={receipt.checks}
+            describe={describe}
+          />
+          <h3>What happened</h3>
+          <p>
+            {receipt.transaction.outcome === 'done' ? '✅ Done, exactly as you said' : `❌ Refused, so it never happened${receipt.transaction.reason ? `: ${receipt.transaction.reason}` : ''}`}
+            {' · '}
+            <a href={`${EXPLORER}/tx/${receipt.transaction.hash}`} target="_blank" rel="noreferrer">See it on Etherscan</a>
+          </p>
+          {receipt.sealedAi && (
+            <>
+              <h3>Understood by</h3>
+              <Proof proof={{ ...receipt.sealedAi, verifiability: 'TeeML', note: 'The signature and the signed text are stored in this receipt, so the check can be repeated later.' }} />
+            </>
+          )}
+          <p className="muted small">Saved {new Date(receipt.createdAt).toLocaleString('en-GB')}</p>
+        </>
+      )}
     </section>
   )
 }
@@ -257,12 +202,11 @@ export function RecentReceipts({ account, current }) {
         Links to your private receipts on 0G Storage, kept in this browser only. Each one opens with the key that made it.
       </p>
       <ul className="receipt-list">
-        {shown.map((item, i) => (
-          <li key={item.root} style={{ animationDelay: `${Math.min(i, 6) * 60}ms` }}>
-            <span className={item.outcome === 'refused' ? 'pill bad' : 'pill ok'}>{item.outcome === 'refused' ? 'Refused' : 'Done'}</span>
-            <a href={`#receipt/${item.root}`}>Open the receipt</a>
+        {shown.map((item) => (
+          <li key={item.root}>
+            <a href={`#receipt/${item.root}`}>{item.outcome === 'refused' ? '❌ Refused' : '✅ Done'} · {when(item.savedAt)}</a>
+            {' · '}
             <a href={`${EXPLORER}/tx/${item.hash}`} target="_blank" rel="noreferrer">Etherscan</a>
-            <span className="when">{when(item.savedAt)}</span>
           </li>
         ))}
       </ul>

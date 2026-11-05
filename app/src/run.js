@@ -126,10 +126,6 @@ export function drainTransaction({ from, amount, balance }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: balance - amount } })
 }
 
-export function fairSwapTransaction({ from, amount }) {
-  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE })
-}
-
 export function divertedSwapTransaction({ from, amount, to, bps }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, portion: { to, bps } })
 }

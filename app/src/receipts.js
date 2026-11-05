@@ -1,6 +1,35 @@
 import { hexToBytes, stringToHex } from 'viem'
 
 const keys = new Map()
+const pending = new Map()
+const ROOT = /^0x[0-9a-fA-F]{64}$/
+const LIST_LIMIT = 20
+
+export const RECEIPTS_CHANGED = 'verbatim-receipts'
+
+const listKey = (account) => `verbatim.receipts.${account.toLowerCase()}`
+
+export function rememberedReceipts(account) {
+  if (!account) return []
+  try {
+    const list = JSON.parse(localStorage.getItem(listKey(account)) ?? '[]')
+    return Array.isArray(list) ? list.filter((item) => ROOT.test(item?.root ?? '')) : []
+  } catch {
+    return []
+  }
+}
+
+export function rememberReceipt(account, entry) {
+  if (!account || !ROOT.test(entry?.root ?? '')) return false
+  try {
+    const list = [entry, ...rememberedReceipts(account).filter((item) => item.root !== entry.root)].slice(0, LIST_LIMIT)
+    localStorage.setItem(listKey(account), JSON.stringify(list))
+    window.dispatchEvent(new Event(RECEIPTS_CHANGED))
+    return true
+  } catch {
+    return false
+  }
+}
 
 export function receiptMessage(account) {
   return [
@@ -32,12 +61,19 @@ export function hasReceiptKey(account) {
   return keys.has(account)
 }
 
-export async function receiptKey(wallet, account) {
-  if (!keys.has(account)) {
-    const signature = await wallet.request({ method: 'personal_sign', params: [stringToHex(receiptMessage(account)), account] })
-    keys.set(account, await keyFromSignature(signature))
+export function receiptKey(wallet, account) {
+  if (keys.has(account)) return Promise.resolve(keys.get(account))
+  if (!pending.has(account)) {
+    const request = wallet.request({ method: 'personal_sign', params: [stringToHex(receiptMessage(account)), account] })
+      .then(keyFromSignature)
+      .then((key) => {
+        keys.set(account, key)
+        return key
+      })
+      .finally(() => pending.delete(account))
+    pending.set(account, request)
   }
-  return keys.get(account)
+  return pending.get(account)
 }
 
 const plain = (key, value) => (typeof value === 'bigint' ? value.toString() : value)
@@ -69,18 +105,19 @@ export function fetchReceipt(root) {
   return call(`/api/receipt/${root}`)
 }
 
-export function buildReceipt({ vault, account, chainId, sentence, ai, checks, checksInWords, result }) {
+export function buildReceipt({ vault, account, chainId, sentence, ai, checks, checksInWords, said, result }) {
   return {
     kind: 'verbatim-receipt',
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
     chainId,
     vault,
     signedBy: account,
     sentence,
-    understoodAs: ai?.steps ?? null,
+    understoodAs: ai?.result ?? null,
     checks,
     checksInWords,
+    checksFrom: said?.perCheck ?? null,
     transaction: {
       hash: result.hash,
       outcome: result.ok ? 'done' : 'refused',

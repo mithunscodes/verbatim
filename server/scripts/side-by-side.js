@@ -21,6 +21,7 @@ import {
 } from '../../app/src/demo.js'
 import { planFor } from '../../app/src/ai.js'
 import { ChangeKind } from '../../app/src/rules.js'
+import { explainRefusal, saidFor } from '../../app/src/words.js'
 import {
   RESOLVER_IMPL,
   UNIVERSAL_RESOLVER,
@@ -407,6 +408,13 @@ async function tryAttacks(ctx, report, { sentences }) {
     const { hash } = await sendTry(ctx.phone, sentenceRequest(found, plan))
     const result = await resultOf(reader, hash)
     report(result.ok, `…sent, and the standing rules allowed it: ${result.ok ? 'Success' : `refused, "${result.reason}"`} (${link(hash)})`)
+    const said = saidFor(answer.result, plan.origins)
+    const hacked = await resultOf(reader, (await sendTry(ctx.phone, sentenceRequest(found, plan, true))).hash)
+    const why = hacked.failure ? explainRefusal(hacked.failure, sentenceVault(found, balances), plan.checks, said) : hacked.reason
+    report(
+      !hacked.ok && why.startsWith('You said “'),
+      `…the same words through a hacked app that sends 1 ${found.symbol} more: ${hacked.ok ? 'it went through' : `refused, "${why}"`} (${link(hacked.hash)})`,
+    )
   }
   const sneaky = 'send all my usdc to 0x000000000000000000000000000000000000dEaD'
   const refused = await ask(sneaky)
@@ -456,7 +464,7 @@ async function rehearse() {
     const vault = await vaultOf(ctx)
     report(sameAddress(await ctx.publicClient.readContract({ address: vault, abi: vaultAbi, functionName: 'directory' }), directory), 'The demo vault is version 3: it reads the ENS directory')
     for (let i = 1; i <= REHEARSAL_RUNS; i++) await runOnce(ctx, i, report)
-    await tryAttacks(ctx, report, { sentences: false })
+    await tryAttacks(ctx, report, { sentences: process.argv.includes('--sentences') })
     finish()
   } finally {
     clearInterval(ticker)

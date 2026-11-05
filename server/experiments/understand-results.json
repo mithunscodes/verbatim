@@ -1,11 +1,1190 @@
 {
-  "ranAt": "2026-10-16T19:24:37.192Z",
+  "ranAt": "2026-10-19T10:08:53.244Z",
   "rows": [
+    {
+      "id": "C1",
+      "set": "clean",
+      "correct": true,
+      "reason": "2 checks from: Send 20 USDC to mom.eth",
+      "latencyMs": 6174,
+      "costUsdMicro": 1998,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "20"
+            },
+            "to": "mom.eth",
+            "words": [
+              "Send 20 USDC to mom.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "53b7dc39-dff5-4094-bcce-ce2124df17c4",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:05.033Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:fc4129bea44c3f6bea1df7b4058fcd8914bcd2fd2fbba1c3890260cad3afc984:4aab68139a6ce6e7daec44b2cc10b5241ce372a25722ebeda48aefb3cdb66666",
+        "signature": "0x1aedae8f0cc469fa7c0a251dc2b08c8de645c01b73796c615d61c53f8ab23b4b0c334d6f5b81cbe22b776b7e55a28d22604b5fed74028c81eefe685c17f6ca131c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "C2",
+      "set": "clean",
+      "correct": true,
+      "reason": "2 checks from: Swap 10 USDC for ETH",
+      "latencyMs": 4017,
+      "costUsdMicro": 1374,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "words": [
+              "Swap 10 USDC for ETH"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "a79ff5e3-c187-4f8b-a64c-31c7a2137340",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:09.586Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:b8c5d94b20d70f8c289ae15583f07ac00d9ddbe7c4f3b2aa822b4f8c1c713d3e:71a17c3bca60684fd73be131d6d819a42b410dad9b27f742e7c33df21a69414a",
+        "signature": "0x3f9aa41b244f58dac57c75fcb9aff2a2d0e5ad84b88e506d23774154b230f9a125d9111513b1c7989b7a1459e3750b5bb1f4f9a08331dd89c72ba04a6466a9091c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "C3",
+      "set": "clean",
+      "correct": true,
+      "reason": "3 checks from: Swap 10 USDC for ETH; Send 2 USDC to mom.eth",
+      "latencyMs": 11109,
+      "costUsdMicro": 3968,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "words": [
+              "Swap 10 USDC for ETH at a fair price"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "2"
+            },
+            "to": "mom.eth",
+            "words": [
+              "send 2 USDC to mom.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": true,
+        "nothingElseWords": "nothing else",
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "592e5322-525d-47f8-a883-3b29a994f93d",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:20.925Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:e0c3258335de6e4e227a4d1745fac3cab672085f4b9a9cfd1348e54178a2e0dc:d399f8394ba47e986c08ba7be7d185b1dd2291da7c1d04cc511fa761ec8dfe20",
+        "signature": "0x65b810324ab816656ee1523e2d3ff802cac79c6971def958beb374a8202326342210ace735402c8931070d5b6528d51076fdb6e445012c722ea6041d257351a51b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "C4",
+      "set": "clean",
+      "correct": true,
+      "reason": "2 checks from: Deposit 100 USDC into aave",
+      "latencyMs": 6733,
+      "costUsdMicro": 1899,
+      "result": {
+        "steps": [
+          {
+            "type": "deposit",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "100"
+            },
+            "protocol": "aave",
+            "words": [
+              "Deposit 100 USDC into Aave"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "5c70fbf4-b7fa-4227-ad1d-2ac0ee6672f0",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:27.874Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:48606c85a289348e876503be2d9a9bc24b9dca378310efc3571a94670bc93947:f29dfda4959d97186f6963b526dc694fc0ed4ae5a7559c60bc35bd5336cb6c3b",
+        "signature": "0xf92b5509fbbba768c389436d67e8e77adf017cbc9dd9baea36c1cbae6d7142864d33539e136c43beb88ba90c276e5660682d4dfef236c8205583673f8b6825e11b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "C5",
+      "set": "clean",
+      "correct": true,
+      "reason": "2 checks from: Swap 50 DAI for USDC",
+      "latencyMs": 7086,
+      "costUsdMicro": 2545,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "DAI",
+            "toToken": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "50"
+            },
+            "words": [
+              "Swap 50 DAI for USDC"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": 2,
+        "riskLimitWords": "accepting up to 2% price impact",
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "2be19e10-5a3d-48b0-a10b-93a0f167ebcc",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:35.257Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:1401a5f7927170e4f8a51d0c8e54a31fa3faedc2ee35b77729537bb343a9cca9:51f17d93d7576c0c29c8f7df569093ab3ceee9b8cf08d333f83bbe4b31008ae7",
+        "signature": "0x8c22b61b6f21460cfe8659729a0daf9516743968083a22e6b4af99d25f909fad567ed3f6f8c5f8c38d31e99c3b5d7334660ddc34941ba6a2a943f94dabb0adcc1b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M1",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Send 20 USDC to mom.eth",
+      "latencyMs": 5470,
+      "costUsdMicro": 1799,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "20"
+            },
+            "to": "mom.eth",
+            "words": [
+              "snd 20 usdc 2 mom.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "97eebbdf-faba-41f6-9cf3-8333812f683a",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:41.019Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:4caf6888da64dd58c346cf18029c4df825bb33d8a6d1332ae711c1318bd302c5:5ba937d5a75a333ff794d991cead0864e8d057940c8f9a0bc74dd5a0778ed8b1",
+        "signature": "0x9730b16a2b7dfee73ace42a96eba2c781f0c1b471b11c594a98fa728cb1f28775cf84df7ee3cd623357ffe9b79f9c596ca846a11bde2c3d844a57e98617c19f51b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M2",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Swap 10 USDC for ETH",
+      "latencyMs": 10258,
+      "costUsdMicro": 3187,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "words": [
+              "swp 10 usdcc for eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "970832df-7426-440f-89ff-996ec8f06c22",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:00:56.558Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:71d6cd82e1a813e8b0b58724b3fa39bb3f7637e5c87d1b9e974d604d8196384b:dc1cea800d707506e7ce2e8e4441a85f57bf3d25e63fd7b4d534797abca9f7d6",
+        "signature": "0xfb7a2c12c30df3c855b0a004da1f72ed725ed973f6d3393cf5b20b806eda62da08ad5e9f24cbff5cfd81cd69360f213a857ca08b3659abdc75d0bb0c8be14eed1b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M3",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Send 25 USDC to dad.eth",
+      "latencyMs": 4073,
+      "costUsdMicro": 1203,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "25"
+            },
+            "to": "dad.eth",
+            "words": [
+              "send twenty five usdc to dad.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "98ca2e66-b666-4f89-9767-09605050d45b",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:00.858Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:03014693a992d4e7f8ab3e2b2968d8086b9b892328066b1f634f93d0fd4bced0:420ed355880e63c6b1c0149d6b1acdbfd928f06aba95cffcfae7d07acbafa88b",
+        "signature": "0x9cca13dc9d1586486d49e5ff87e1a15dc875a152d845bff2ba27a0fbcf157efb5933c06918c6f287c9dbc8f0c54af928206935bf76d2439af1e785b771bdafd31b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M4",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Send 15 USDC to ravi.yourname.eth",
+      "latencyMs": 5699,
+      "costUsdMicro": 2015,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "15"
+            },
+            "to": "ravi.yourname.eth",
+            "words": [
+              "send 15 usdc to ravi.yourname.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "a0a35b56-fa3f-4483-aff3-a1b28cbfda4b",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:06.783Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:6bf44bc79b366b03c9d80d72d2d54638db560bb7aed8ea56ffca995a3ad12710:1f89fb2f11eab75377a6ddb87cfa13afbacd7daf0fc820f912d9869da8115b1a",
+        "signature": "0xd5044d145144bcde04aa7148729b565a8a67d0b15bbbe7dc24f53c56fa380080551cd0999ec6a6ec3b9c9ff20b8839f9cd62a20cf9905b1f43be98d281d15b041b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M5",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Swap 0.5 ETH for USDC",
+      "latencyMs": 23630,
+      "costUsdMicro": 7327,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "ETH",
+            "toToken": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "0.5"
+            },
+            "words": [
+              "SWAP 0.5 ETH TO USDC NOW"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "40b27d20-eb87-47a9-9c6f-b6f07e4e1510",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:30.658Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:6ef60504a5a8ee45b69b8b037195036974b3b87161f0cd81004e129667c662b1:7c17dba9ee52db810225800bde97596142d8ddbfc3b203082a169a5ab5ac5304",
+        "signature": "0xa36a0358af9afbd755433602483674f7105f145c7bdc8849f98868b326ffeb6f1216638d3e75b67729cb172c202d59c5e54b46311b31cda54ca52c52e5a672291c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M6",
+      "set": "messy",
+      "correct": true,
+      "reason": "2 checks from: Deposit 200 USDC into aave",
+      "latencyMs": 4971,
+      "costUsdMicro": 1543,
+      "result": {
+        "steps": [
+          {
+            "type": "deposit",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "200"
+            },
+            "protocol": "aave",
+            "words": [
+              "depost 200 usdc in aave"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "8f95cf05-4200-43c0-ac89-1d1dfd491770",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:35.856Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:0f0bdb97f5724842826f2e23b54c21fc87856996cc398946379ad0ca84e60266:bc3df5f08bccf41512bb242145f101ab441e0baf5acfe69a07dc1d25b2a911a7",
+        "signature": "0xaccfb4ac74988c860d2d22fee87e8f3baa22c437004e88d29001069b10c84b3b337f1049f9e6565b946014ddaccfd97b0fe33590f4d2c716f23c6ab1ba439a201c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M7",
+      "set": "messy",
+      "correct": true,
+      "reason": "4 checks from: Swap 10 USDC for ETH; Send 2 USDC to mom.eth; Send 3 USDC to dad.eth",
+      "latencyMs": 12527,
+      "costUsdMicro": 4529,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "words": [
+              "swap 10 usdc for eth"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "2"
+            },
+            "to": "mom.eth",
+            "words": [
+              "send 2 usdc to mom.eth"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "3"
+            },
+            "to": "dad.eth",
+            "words": [
+              "3 usdc to dad.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "94f09368-1676-4f73-896d-1116632e475a",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:48.610Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:05b6d969916318fdbc290c2871e661950db88c91f99992e4e0a83a081eaad5a7:bf5159b64ae382dc15b05d3922e09db077897ba169c838b533c97bd7c4d44db6",
+        "signature": "0x749ad6f3e72b0adf6ddca903e7fd92f1ffba41998d9ebbba3def614aafca0d3104af820e0c9e0681f6e92e7a9d640f0b227d0d161e61a8fca47c051ce874c4931b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M8",
+      "set": "messy",
+      "correct": true,
+      "reason": "4 checks from: Deposit 50% of your USDC into aave; Swap 1000 USDC for ETH; Send 100 USDC to mom.eth",
+      "latencyMs": 10037,
+      "costUsdMicro": 3624,
+      "result": {
+        "steps": [
+          {
+            "type": "deposit",
+            "token": "USDC",
+            "amount": {
+              "kind": "fraction_of_balance",
+              "value": "0.5"
+            },
+            "protocol": "aave",
+            "words": [
+              "Put half my USDC into Aave"
+            ]
+          },
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "1000"
+            },
+            "words": [
+              "swap 1,000 USDC for ETH"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "100"
+            },
+            "to": "mom.eth",
+            "words": [
+              "send 100 USDC to mom.eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": true,
+        "nothingElseWords": "Nothing else",
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "066d7276-5897-464b-a96c-7d366aa84b45",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:01:58.913Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:2fa7e4ff1f600690792ea29fadf710a5aa0d3835ff266d8d0fb544a7ef231669:e867f0184f2bf90450ba7c2d35e05dc101ff059adb459280b5b7e871b851bc7b",
+        "signature": "0x2bb71c273710a4722ec8a49a0c26fa1f90bb538e0399f2a3c296ddcf5f7c3e776263fcbff5d0ef452afe5cc6749214adbc397d3f404c272921a3160e22527b461b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M9",
+      "set": "messy",
+      "correct": true,
+      "reason": "4 checks from: Send 5 USDC to mom.eth; Send 5 USDC to dad.eth; Send 10 USDC to priya.eth",
+      "latencyMs": 10368,
+      "costUsdMicro": 3805,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "5"
+            },
+            "to": "mom.eth",
+            "words": [
+              "send mom.eth 5 usdc"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "5"
+            },
+            "to": "dad.eth",
+            "words": [
+              "dad.eth 5 usdc"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "to": "priya.eth",
+            "words": [
+              "priya.eth 10 usdc"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "c8e3f005-3fd5-4e9c-8232-546658769ac0",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:02:09.542Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:b4473fbbce8ccc08becf5bd95265ba837cc19a93bc73dfd50ebd6dd7001479c6:f204bb359a6a6ef7631caa9c13af6c54751a9dc36d1a63d24daf457c5eb157b8",
+        "signature": "0x1b477902e8880b14e6a7436e111a8768c406b6e0941d1fd0a731ddc874f8909023b25ecf7337341e0a09b12544b8413516e09bb9c6872d10cda9896c4a51194d1c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
     {
       "id": "M10",
       "set": "messy",
+      "correct": true,
+      "reason": "asked: How much of the USDC from the swap should I deposit into Aave? The amount depends on the swap result, so I need a number or a share.",
+      "latencyMs": 33142,
+      "costUsdMicro": 10658,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "DAI",
+            "toToken": "USDC",
+            "amount": {
+              "kind": "all",
+              "value": null
+            },
+            "words": [
+              "swap all my dai to usdc"
+            ]
+          }
+        ],
+        "questions": [
+          "How much of the USDC from the swap should I deposit into Aave? The amount depends on the swap result, so I need a number or a share."
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "then put it in aave"
+        ]
+      },
+      "proof": {
+        "chatId": "6b89d484-c122-406b-9c22-7d7e216ea020",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:02:42.927Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:69654d53ce44df56bcf89e63147af5455b591eda00e1abb8207b305a043de5d2:1549657ce6270d21c2d462395de75fb3dea293df2952150c653efc54b52c5a0b",
+        "signature": "0x7f9c08b2addf34a0079d1f51251e5c0fc82dc18d66ad6c039ebbc84e06ce7aab3241a9767f5d4aecfa8546c8b603a44ba2e9368234415f99da255b21e83d38a01c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M11",
+      "set": "messy",
+      "correct": true,
+      "reason": "3 checks from: Swap 20 USDC for ETH; Swap 5 USDC for LINK",
+      "latencyMs": 8425,
+      "costUsdMicro": 2934,
+      "result": {
+        "steps": [
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "20"
+            },
+            "words": [
+              "swap 20 usdc for eth"
+            ]
+          },
+          {
+            "type": "swap",
+            "token": "USDC",
+            "toToken": "LINK",
+            "amount": {
+              "kind": "exact",
+              "value": "5"
+            },
+            "words": [
+              "swap 5 usdc for link"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "32a8001b-e6b2-4147-b602-32cbedb0295a",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:02:51.628Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:7d5afb942274609b2189b7307c638b39fc05af198c575c9e9ee049222fb1e2df:0bd31a5a96b81287c5fe74d463cdd2745ede574cd13e8a30c667bea2d0c2e0d0",
+        "signature": "0x39171e3f49f1c50383b60cb91f26a085dc7f9e221a01c9018fdc2437f4bc47734c5e06c4f470c5b8f323b954c35af237276f1ab7acea9ed98c9b8841659104751c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M12",
+      "set": "messy",
+      "correct": true,
+      "reason": "4 checks from: Send 10 USDC to mom.eth; Send 0.01 ETH to dad.eth",
+      "latencyMs": 4787,
+      "costUsdMicro": 1578,
+      "result": {
+        "steps": [
+          {
+            "type": "send",
+            "token": "USDC",
+            "amount": {
+              "kind": "exact",
+              "value": "10"
+            },
+            "to": "mom.eth",
+            "words": [
+              "pay mom.eth 10 usdc"
+            ]
+          },
+          {
+            "type": "send",
+            "token": "ETH",
+            "amount": {
+              "kind": "exact",
+              "value": "0.01"
+            },
+            "to": "dad.eth",
+            "words": [
+              "dad.eth 0.01 eth"
+            ]
+          }
+        ],
+        "questions": [],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": []
+      },
+      "proof": {
+        "chatId": "60b05445-3034-4562-8858-d80fdfd6ab77",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:02:56.694Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:615ad4b878ab3803652d454f86c421421ad0a496183738fa492d1e39f414ad72:5335748b1a080dde1b406929ae16dc3dd81e0ae242ec84a4f8e9dbf839057a07",
+        "signature": "0x16737cee69d7d1723ffe23b4f224d12fb0c246e88704ecc9d96579805f4b50132cc9eb3cc8bb597c22c4077ee20f8e97c7b37a912b9c0852e42ff41414efb37d1c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M13",
+      "set": "messy",
+      "correct": true,
+      "reason": "asked: You have mom.eth saved. Use that?",
+      "latencyMs": 10900,
+      "costUsdMicro": 2790,
+      "result": {
+        "steps": [],
+        "questions": [
+          "You have mom.eth saved. Use that?"
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "send 100 usdc to mom"
+        ]
+      },
+      "proof": {
+        "chatId": "72c15bd3-8326-4803-8383-3ef00d2ebfac",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:03:07.909Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:088a3e4622db82e86a349f300ea5af7cbf7ec327161ad9f73a4ce90522c96121:d71cd63a9edd47b0b7871d062620dfed7d92646d04135a23aa448da7417e305d",
+        "signature": "0x804a8532dff6a8ceb1755e9243ec977058eec1b36bc071b925305cadf2cb6e3f55116b3c96913af91827ff596fff25dafcd5fb917646b2127c305a7903bf91301c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M14",
+      "set": "messy",
+      "correct": true,
+      "reason": "asked: You have ravi.yourname.eth saved. Use that?",
+      "latencyMs": 13606,
+      "costUsdMicro": 2184,
+      "result": {
+        "steps": [],
+        "questions": [
+          "You have ravi.yourname.eth saved. Use that?"
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "send 50 usdc to ravi"
+        ]
+      },
+      "proof": {
+        "chatId": "f687cd97-3d28-4730-8d0a-31e5a4cf93de",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:03:21.758Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:e7be7d96c9fd07101c972c737a6a90a5c83233b0104ad1179755144b29a5d9cd:4fabc6797a489d9af62a036afa7ea359472f5cca247ec4cf46e6113b2bd4093e",
+        "signature": "0x1d0acb974a8d04a730d63191997ac90ea4c950e50d3e1d6f22a7a570126a37926c0a09ef327a39ffa8791d9188554cf11e6a8883cadef2e1b78417978787fec41c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M15",
+      "set": "messy",
+      "correct": true,
+      "reason": "asked: john.eth is not a saved name. You have mom.eth, dad.eth, priya.eth, and ravi.yourname.eth saved. Who should receive the 20 USDC?",
+      "latencyMs": 8349,
+      "costUsdMicro": 1942,
+      "result": {
+        "steps": [],
+        "questions": [
+          "john.eth is not a saved name. You have mom.eth, dad.eth, priya.eth, and ravi.yourname.eth saved. Who should receive the 20 USDC?"
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "send 20 usdc to john.eth"
+        ]
+      },
+      "proof": {
+        "chatId": "1effd103-48c6-4b2e-921b-8f1e63a6cea9",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:03:30.332Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:1a23bf0a835e0b4e9bf9b1075f34f9dd9d9d5d4128d9d4600ffdba392f50a57c:63cdca1a99c8121d62c8eeaa1e23dcfa6070eca3417efc69f7966660fdc1ce83",
+        "signature": "0x8ea1add2078fefac994cdb9ec368c868ca8a6522a285ae4202c2b839e6b5e47e0aeafffae2593853529ba42242e47cfc0311f637781e372b4251fb49e6c13dcd1c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M16",
+      "set": "messy",
+      "correct": true,
+      "reason": "asked: I don't have a saved name for your brother. Which saved name should I send the 10 USDC to?",
+      "latencyMs": 40747,
+      "costUsdMicro": 5875,
+      "result": {
+        "steps": [],
+        "questions": [
+          "I don't have a saved name for your brother. Which saved name should I send the 10 USDC to?"
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "send 10 usdc to my brother"
+        ]
+      },
+      "proof": {
+        "chatId": "e43a40f1-6abe-4f80-bbe6-e03fa0fcf337",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:04:11.298Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:7de0a8d339a9d1f84f6c9bf4332edeab6818b65675120fa72592613b127c637f:7b5cdf02e48597b842d22d03e420c60cb1defb62e586f3851e5b8d7c61402606",
+        "signature": "0xcc5180be633e10836def0f0bea872e3aa8033d0e1c7eb4985719755dfd526e5f2e8bb01fbb9d906f0f50839c04ddcc3e08bb820e310fa2e98b5e2abb52e4e75d1b",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M17",
+      "set": "messy",
       "correct": false,
-      "reason": "call failed: The sealed AI took too long. Please rephrase, or try again."
+      "reason": "call failed: The sealed AI couldn't work that out in time, so it didn't guess. Please say it more simply, one step at a time."
+    },
+    {
+      "id": "M18",
+      "set": "messy",
+      "correct": false,
+      "reason": "call failed: The sealed AI couldn't work that out in time, so it didn't guess. Please say it more simply, one step at a time."
+    },
+    {
+      "id": "M19",
+      "set": "messy",
+      "correct": true,
+      "reason": "asked: Which token would you like to send 20 of to dad.eth? You can use USDC, ETH, DAI, LINK, or AAVE.",
+      "latencyMs": 11326,
+      "costUsdMicro": 1833,
+      "result": {
+        "steps": [],
+        "questions": [
+          "Which token would you like to send 20 of to dad.eth? You can use USDC, ETH, DAI, LINK, or AAVE."
+        ],
+        "riskLimitPercent": null,
+        "riskLimitWords": null,
+        "nothingElse": false,
+        "nothingElseWords": null,
+        "leftOut": [
+          "send 20 to dad.eth"
+        ]
+      },
+      "proof": {
+        "chatId": "c2418901-1521-42c5-b122-6469e440a0b4",
+        "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+        "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+        "checkedAt": "2026-10-19T10:07:22.946Z",
+        "verified": true,
+        "model": "glm-5.3",
+        "verifiability": "TeeML",
+        "signerAcknowledged": true,
+        "registeredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "recoveredSigner": "0x34101E02F34a8720172249Ec06630BEC32dE30E7",
+        "imageDigest": "sha256:0af48f52def03acdb73433560ff6839e59e40d8122875bb294bb58bcce790ed4",
+        "signedText": "zg-sig-v1/e2ee-ct:f87f0ee030d4ef34cb25d0bb35cf6aed51cd65eefbd6da74ea385d3125dc3936:46ced0c9b22d60696268625f3df7764af3971dc0fd7069a1122d24cd970566a5",
+        "signature": "0x6cee28ad5846bd736bec346cd603d4e3bb79f5919383d707a7d76629a89a52895b4fdee784769f3d07352b4e189ebeb35899153673128f7ae31aed97134d3e3b1c",
+        "registry": {
+          "chain": "0G mainnet",
+          "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+        },
+        "problem": null
+      }
+    },
+    {
+      "id": "M20",
+      "set": "messy",
+      "correct": false,
+      "reason": "call failed: The sealed AI couldn't work that out in time, so it didn't guess. Please say it more simply, one step at a time."
     }
   ]
 }

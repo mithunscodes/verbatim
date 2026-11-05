@@ -115,7 +115,7 @@ function mark(sentence, response, context) {
     return { correct: true, reason: `asked: ${result.questions.join(' | ')}` }
   }
   if (result.questions.length) return { correct: false, reason: `asked when it shouldn't: ${result.questions.join(' | ')}` }
-  const expected = planFromSteps(context, emptyResult(expect.steps.map(answerKeyStep)))
+  const expected = planFromSteps(context, { ...emptyResult(expect.steps.map(answerKeyStep)), riskLimitPercent: expect.riskLimit ?? null })
   if (!sameChecks(plan.checks, expected.checks)) return { correct: false, reason: `different checks from: ${result.steps.map(describeStep).join('; ')}` }
   if ((expect.riskLimit ?? null) !== result.riskLimitPercent) return { correct: false, reason: `risk limit ${result.riskLimitPercent}, expected ${expect.riskLimit ?? null}` }
   if (expect.nothingElse && !result.nothingElse) return { correct: false, reason: 'missed "nothing else"' }
@@ -154,6 +154,13 @@ async function main() {
   const asked = rows.filter((r) => r.result?.questions.length).map((r) => r.id)
   console.log(`\nScore: ${score()} (clean ${score('clean')}, messy ${score('messy')})`)
   console.log(`Asking back: ${unclear.filter((id) => asked.includes(id)).length}/${unclear.length} unclear sentences got a question, ${asked.filter((id) => !unclear.includes(id)).length} clear ones did`)
+  const answered = rows.filter((r) => r.result)
+  const traced = answered.filter((r) => r.result.steps.every((step) => Array.isArray(step.words) && step.words.length > 0))
+  console.log(`Words: ${traced.length}/${answered.length} answers have every step traced to the user's own words`)
+  const saidNothingElse = rows.filter((r) => sentences.find((s) => s.id === r.id)?.expect.nothingElse && r.result)
+  console.log(`"Nothing else": ${saidNothingElse.filter((r) => r.result.nothingElseWords).length}/${saidNothingElse.length} answers quote the words that said it`)
+  const askedRows = rows.filter((r) => r.result?.questions.length)
+  console.log(`Left out: ${askedRows.filter((r) => r.result.leftOut?.length).length}/${askedRows.length} answers that asked back also mark the exact words they left out`)
   const proved = rows.filter((r) => r.proof?.verified).length
   console.log(`Sealed-hardware proof: ${proved}/${rows.length} answers signed by the signer registered on 0G's chain`)
   const timed = rows.filter((r) => r.latencyMs)

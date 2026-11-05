@@ -21,9 +21,9 @@ function resolveAmount(holding, amount) {
   return exact > 0n ? exact : null
 }
 
-function add(map, key, amount, extra = {}) {
+function add(map, key, amount, step, extra = {}) {
   const current = map.get(key)
-  map.set(key, { ...extra, ...current, amount: (current?.amount ?? 0n) + amount })
+  map.set(key, { ...extra, ...current, amount: (current?.amount ?? 0n) + amount, steps: [...(current?.steps ?? []), step] })
 }
 
 export function describeStep(step) {
@@ -50,7 +50,7 @@ export function planFromSteps(context, result) {
   const swaps = []
   const deposits = []
 
-  for (const step of result.steps) {
+  for (const [index, step] of result.steps.entries()) {
     const holding = bySymbol(step.token)
     if (!holding) {
       problems.push(`Your vault doesn't hold ${step.token}.`)
@@ -67,8 +67,8 @@ export function planFromSteps(context, result) {
         problems.push(`${step.to} isn't one of your contacts.`)
         continue
       }
-      add(leaves, holding.token, amount)
-      add(exactly, `${holding.token}:${contact.address}`, amount, { token: holding.token, to: contact.address })
+      add(leaves, holding.token, amount, index)
+      add(exactly, `${holding.token}:${contact.address}`, amount, index, { token: holding.token, to: contact.address })
       sends.push({ token: holding.token, amount, to: contact.address, name: contact.name })
     } else if (step.type === 'swap') {
       const out = bySymbol(step.toToken)
@@ -78,37 +78,49 @@ export function planFromSteps(context, result) {
         continue
       }
       const minimum = roundDown((expected * (10_000n - slippage)) / 10_000n, shownDigits)
-      add(leaves, holding.token, amount)
-      add(arrives, out.token, minimum)
-      swaps.push({ from: holding.token, to: out.token, amount, expected, minimum })
+      add(leaves, holding.token, amount, index)
+      add(arrives, out.token, minimum, index)
+      swaps.push({ from: holding.token, to: out.token, amount, expected, minimum, step: index })
     } else {
       const receipt = depositPlaces[step.protocol]?.[holding.symbol]
       if (!receipt) {
         problems.push(`Deposits into ${step.protocol} aren't available on this vault yet.`)
         continue
       }
-      add(leaves, holding.token, amount)
-      add(arrives, receipt, (amount * (10_000n - DEPOSIT_KEEP_BPS)) / 10_000n)
+      add(leaves, holding.token, amount, index)
+      add(arrives, receipt, (amount * (10_000n - DEPOSIT_KEEP_BPS)) / 10_000n, index)
       deposits.push({ token: holding.token, amount, protocol: step.protocol, receipt })
     }
   }
 
   const checks = []
+  const origins = []
   const tokens = [...new Set([...leaves.keys(), ...arrives.keys()])]
+  const stepsFor = (token) => [...new Set([...(leaves.get(token)?.steps ?? []), ...(arrives.get(token)?.steps ?? [])])].sort((a, b) => a - b)
   for (const token of tokens) {
     const out = leaves.get(token)?.amount ?? 0n
     const back = arrives.get(token)?.amount ?? 0n
-    if (out > back) checks.push({ kind: CheckKind.AtMostLeaves, token, to: '0x0000000000000000000000000000000000000000', amount: out - back })
+    if (out > back) {
+      checks.push({ kind: CheckKind.AtMostLeaves, token, to: '0x0000000000000000000000000000000000000000', amount: out - back })
+      origins.push(stepsFor(token))
+    }
   }
   for (const token of tokens) {
     const out = leaves.get(token)?.amount ?? 0n
     const back = arrives.get(token)?.amount ?? 0n
-    if (back > out) checks.push({ kind: CheckKind.AtLeastArrives, token, to: '0x0000000000000000000000000000000000000000', amount: back - out })
+    if (back > out) {
+      checks.push({ kind: CheckKind.AtLeastArrives, token, to: '0x0000000000000000000000000000000000000000', amount: back - out })
+      origins.push(stepsFor(token))
+    }
   }
-  for (const { token, to, amount } of exactly.values()) checks.push({ kind: CheckKind.ExactlyTo, token, to, amount })
+  for (const { token, to, amount, steps } of exactly.values()) {
+    checks.push({ kind: CheckKind.ExactlyTo, token, to, amount })
+    origins.push([...new Set(steps)])
+  }
 
   return {
     checks,
+    origins,
     sends,
     swaps,
     deposits,

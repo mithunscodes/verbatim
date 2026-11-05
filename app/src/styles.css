@@ -1,3090 +1,975 @@
-body {
-  margin: 0;
-  background: #f5f1e8;
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --border: #e3e1dc;
+  --accent: #1f5eff;
+  --accent-text: #ffffff;
+  --error: #c62828;
+  --error-bg: #fdecea;
+  --ok: #2e7d32;
+  --ok-bg: #e8f5e9;
+  --warn: #b26a00;
+  --warn-bg: #fff4e0;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 12px;
+  --space: 16px;
+  --width: 560px;
+  color-scheme: light dark;
 }
 
-.vb {
-  --paper: #f5f1e8;
-  --ink: #16151c;
-  --white: #ffffff;
-  --cobalt: #2d4be0;
-  --cobalt-tint: #e3e8ff;
-  --tangerine: #f0592a;
-  --tangerine-tint: #ffe3d6;
-  --muted: #5b5866;
-  --hairline: #ddd6c8;
-  --soft: #ede8dd;
-  --display: "Bricolage Grotesque Variable", "Bricolage Grotesque", system-ui, sans-serif;
-  --body: "DM Sans Variable", "DM Sans", system-ui, sans-serif;
-  --mono: "DM Mono", ui-monospace, Menlo, monospace;
-  --bouncy: linear(0, 0.03, 0.11, 0.221, 0.35, 0.485, 0.616, 0.738, 0.844, 0.933, 1.004, 1.057, 1.093, 1.115, 1.125, 1.125, 1.118, 1.106, 1.091, 1.074, 1.057, 1.041, 1.026, 1.014, 1.004, 0.996, 0.99, 0.987, 0.985, 0.984, 0.985, 0.986, 0.988, 0.99, 0.992, 0.994, 0.996, 0.997, 0.999, 1, 1.001, 1.001, 1.002, 1.002, 1);
-  --smooth: linear(0, 0.031, 0.108, 0.209, 0.32, 0.431, 0.536, 0.63, 0.712, 0.782, 0.839, 0.886, 0.922, 0.95, 0.971, 0.986, 0.997, 1.004, 1.008, 1.01, 1.011, 1.011, 1.01, 1.009, 1.008, 1.007, 1.006, 1.004, 1.004, 1.003, 1);
-  min-height: 100vh;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--body);
-  font-size: 16px;
-  line-height: 1.5;
-  color-scheme: light;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: clip;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212;
+    --surface: #1d1d1d;
+    --text: #f0f0f0;
+    --muted: #9a9a9a;
+    --border: #2e2e2e;
+    --accent: #5b8cff;
+    --error: #ef5350;
+    --error-bg: #3a1f1f;
+    --ok: #66bb6a;
+    --ok-bg: #1f3a24;
+    --warn: #ffb74d;
+    --warn-bg: #3a2c14;
+  }
 }
 
-.vb *,
-.vb *::before,
-.vb *::after {
+* {
   box-sizing: border-box;
 }
 
-.vb a {
-  color: var(--ink);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-  transition: color 0.2s ease;
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.5;
 }
 
-.vb a:hover {
-  color: var(--cobalt);
+a {
+  color: var(--accent);
 }
 
-.vb h1,
-.vb h2,
-.vb h3 {
-  font-family: var(--display);
-  letter-spacing: -0.025em;
-  line-height: 1.05;
-}
-
-.vb .mono {
+.mono {
   font-family: var(--mono);
-  font-size: 0.92em;
 }
 
-.vb .mono.full {
-  word-break: break-all;
+.page {
+  max-width: var(--width);
+  margin: 0 auto;
+  padding: calc(var(--space) * 2) var(--space);
 }
 
-.vb .muted {
-  color: var(--muted);
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: calc(var(--space) * 1.5);
 }
 
-.vb .small {
+.top h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   font-size: 0.875rem;
 }
 
-.vb .error {
-  color: #b3330e;
-  font-weight: 600;
+.role {
+  color: var(--muted);
 }
 
-.vb .pass {
-  color: var(--cobalt);
-  font-weight: 700;
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: calc(var(--space) * 1.25);
+  margin-bottom: var(--space);
 }
 
-.vb .row {
+.card h2 {
+  margin: 0 0 calc(var(--space) / 2);
+  font-size: 1.125rem;
+}
+
+.card-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.vb .stack {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.vb .page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 20px clamp(16px, 4vw, 48px) 96px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.vb .top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  animation: vb-down 0.9s var(--smooth) both;
-}
-
-.vb .top-left {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
 }
 
-.vb .brand {
-  display: inline-flex;
-  padding: 6px 14px 8px;
-  border: 2px solid var(--ink);
-  border-radius: 10px;
-  background: var(--white);
-  box-shadow: 0 3px 0 var(--ink);
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  text-decoration: none;
-  rotate: -2deg;
-  transition: transform 0.45s var(--bouncy);
+.balances {
+  list-style: none;
+  margin: var(--space) 0;
+  padding: 0;
 }
 
-.vb .brand:hover {
-  color: var(--ink);
-  transform: translateY(-3px) rotate(-2deg) scale(1.04);
-}
-
-.vb .nav {
+.balances li {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  align-items: baseline;
+  gap: calc(var(--space) / 2);
+  padding: calc(var(--space) / 2) 0;
+  border-bottom: 1px solid var(--border);
 }
 
-.vb .nav a {
-  padding: 9px 16px;
-  border-radius: 999px;
-  font-size: 15px;
+.balances li:last-child {
+  border-bottom: none;
+}
+
+.amount {
+  font-size: 1.75rem;
   font-weight: 600;
-  color: var(--ink);
-  text-decoration: none;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  font-variant-numeric: tabular-nums;
 }
 
-.vb .nav a:hover {
-  background: var(--soft);
+.symbol {
+  color: var(--muted);
 }
 
-.vb .nav a.active {
-  background: var(--ink);
-  color: var(--white);
+button {
+  font: inherit;
+  padding: calc(var(--space) / 2) var(--space);
+  border: none;
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
 }
 
-.vb .who {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 8px 7px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  font-size: 14px;
-  font-weight: 600;
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
 }
 
-.vb .who a {
-  text-decoration: none;
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
-.vb .dot {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--cobalt);
-  animation: vb-dot 2.4s ease-in-out infinite;
+.muted {
+  color: var(--muted);
 }
 
-.vb .role {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--cobalt-tint);
-  color: var(--cobalt);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.vb .hero {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px 0 4px;
-}
-
-.vb .hero h1 {
-  margin: 0;
-  font-size: clamp(42px, 6.4vw, 78px);
-  font-weight: 800;
-  line-height: 0.96;
-  letter-spacing: -0.035em;
-}
-
-.vb .hero p {
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(22px, 3vw, 34px);
-  font-weight: 500;
-  line-height: 1.12;
-  letter-spacing: -0.02em;
-  color: var(--cobalt);
-}
-
-.vb .word {
-  display: inline-block;
-  animation: vb-word 1s var(--smooth) both;
-}
-
-.vb .card {
-  position: relative;
-  padding: clamp(18px, 2.6vw, 28px);
-  border: 2px solid var(--ink);
-  border-radius: 22px;
-  background: var(--white);
-  box-shadow: 0 5px 0 var(--ink);
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .card.still {
-  animation: none;
-}
-
-.vb .page-flow,
-.vb .flow {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.vb .flow[hidden] {
-  display: none;
-}
-
-.vb .card > :first-child {
-  margin-top: 0;
-}
-
-.vb .card > :last-child {
+.small {
+  font-size: 0.875rem;
   margin-bottom: 0;
 }
 
-.vb .card h2 {
-  margin: 0 0 8px;
-  font-size: clamp(22px, 2.4vw, 28px);
-  font-weight: 800;
+.error {
+  color: var(--error);
 }
 
-.vb .card h3 {
-  margin: 20px 0 10px;
-  font-family: var(--body);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0;
+.tabs {
+  display: flex;
+  gap: calc(var(--space) / 2);
+  margin-bottom: var(--space);
+}
+
+button.tab {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+button.tab.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: calc(var(--space) / 2);
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
   color: var(--muted);
 }
 
-.vb .card p {
-  margin: 0 0 10px;
-}
-
-.vb .card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.vb .card-head h2 {
-  margin: 0;
-}
-
-.vb .eyebrow {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.vb .notice {
-  background: var(--white);
-}
-
-.vb .alert {
-  background: var(--tangerine-tint);
-}
-
-.vb .alert ol {
-  margin: 0 0 12px;
-  padding-left: 22px;
-}
-
-.vb .alert li {
-  margin-bottom: 6px;
-}
-
-.vb button {
-  min-height: 48px;
-  padding: 11px 22px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  background: var(--ink);
-  color: var(--white);
-  box-shadow: 0 4px 0 var(--ink);
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-  cursor: pointer;
-  transition: transform 0.3s var(--bouncy), box-shadow 0.3s var(--bouncy), background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
-}
-
-.vb button:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 7px 0 var(--ink);
-}
-
-.vb button:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--ink);
-  transition-duration: 0.08s;
-}
-
-.vb button:focus-visible,
-.vb a:focus-visible {
-  outline: 3px solid var(--cobalt);
-  outline-offset: 3px;
-}
-
-.vb button.secondary {
-  background: var(--white);
-  color: var(--ink);
-}
-
-.vb button.big {
-  min-height: 56px;
-  padding: 14px 28px;
-  font-size: 20px;
-}
-
-.vb button.compact {
-  min-height: 40px;
-  padding: 7px 14px;
-  font-size: 15px;
-  box-shadow: 0 3px 0 var(--ink);
-}
-
-.vb button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.vb button.link {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-.vb button.link:hover:not(:disabled),
-.vb button.link:active:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  color: var(--cobalt);
-}
-
-.vb .actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.vb input:not([type="checkbox"]),
-.vb select,
-.vb textarea {
-  min-height: 46px;
-  padding: 10px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  background: var(--white);
-  color: var(--ink);
+input:not([type="checkbox"]),
+select {
   font: inherit;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) / 1.5);
+  padding: calc(var(--space) / 2);
 }
 
-.vb input:not([type="checkbox"]):focus,
-.vb select:focus,
-.vb textarea:focus {
-  outline: none;
-  border-color: var(--cobalt);
-  box-shadow: 0 0 0 4px var(--cobalt-tint);
+.form input {
+  width: 8rem;
 }
 
-.vb select {
+.checks {
+  list-style: none;
+  margin: var(--space) 0;
+  padding: 0;
+}
+
+.checks li,
+.fold summary {
+  display: flex;
+  gap: calc(var(--space) / 2);
+  padding: calc(var(--space) / 2) 0;
+  font-size: 1.0625rem;
+}
+
+.icon {
+  width: 1.25rem;
+  flex-shrink: 0;
+  text-align: center;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.fold {
+  border-top: 1px solid var(--border);
+}
+
+.fold summary {
   cursor: pointer;
+  list-style: none;
+}
+
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold h3 {
+  margin: calc(var(--space) / 2) 0 4px;
+  font-size: 0.875rem;
+  color: var(--muted);
   font-weight: 600;
 }
 
-.vb input.address {
+.fold ul,
+.fold ol {
+  margin: 0 0 calc(var(--space) / 2);
+  padding-left: calc(var(--space) * 2.5);
+}
+
+.fold.raw summary {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.fold.raw code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.checks li.failed {
+  color: var(--error);
+}
+
+.checks li.failed .icon {
+  color: var(--error);
+}
+
+.practice {
+  margin-top: 0;
+  font-weight: 600;
+}
+
+.practice.pass {
+  color: var(--ok);
+}
+
+.practice.fail {
+  color: var(--error);
+}
+
+.result {
+  margin-top: var(--space);
+  padding: var(--space);
+  border-radius: calc(var(--radius) / 1.5);
+}
+
+.result h3 {
+  margin: 0 0 calc(var(--space) / 2);
+}
+
+.result.ok {
+  background: var(--ok-bg);
+}
+
+.result.refused {
+  background: var(--error-bg);
+}
+
+.extra {
+  margin-top: calc(var(--space) / 2);
+  padding: calc(var(--space) * 0.75);
+  border-radius: calc(var(--radius) / 1.5);
+}
+
+.extra p {
+  margin: 0 0 calc(var(--space) / 2);
+}
+
+.extra p:last-child {
+  margin-bottom: 0;
+}
+
+.extra.small {
+  background: var(--ok-bg);
+}
+
+.extra.risky {
+  background: var(--warn-bg);
+}
+
+.extra.risky strong {
+  color: var(--warn);
+}
+
+.extra.never {
+  background: var(--error-bg);
+}
+
+.demo summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--space) / 2);
+  margin-top: calc(var(--space) / 2);
+  font-size: 0.875rem;
+}
+
+.switch input {
+  margin: 0.2rem 0 0;
+}
+
+.scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: calc(var(--space) / 2);
+  font-size: 0.875rem;
+}
+
+.scenario select {
+  width: 100%;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space);
+  margin-top: 4px;
+  font-size: 0.875rem;
+}
+
+.nav a {
+  font-family: var(--font);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.nav a.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pass {
+  color: var(--ok);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--space) / 2);
+  align-items: center;
+}
+
+input.address {
   flex: 1;
   min-width: 0;
   font-family: var(--mono);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
-.vb .picker {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.card h3 {
+  margin: var(--space) 0 calc(var(--space) / 2);
+  font-size: 0.875rem;
+  color: var(--muted);
 }
 
-.vb .picker select {
-  width: 100%;
-}
-
-.vb .vault-card .balances {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 28px;
-  margin: 10px 0 14px;
-  padding: 0;
+.changes,
+.contacts {
   list-style: none;
-}
-
-.vb .vault-card .balances li {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.vb .amount {
-  font-family: var(--display);
-  font-size: clamp(34px, 4.6vw, 52px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.vb .symbol {
-  font-family: var(--display);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.vb .odo {
-  display: inline-flex;
-  align-items: flex-start;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.12;
-}
-
-.vb .odo-col {
-  display: inline-block;
-  height: 1.12em;
-  overflow: hidden;
-}
-
-.vb .odo-strip {
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.9s var(--bouncy);
-}
-
-.vb .odo-strip > span {
-  display: block;
-  height: 1.12em;
-}
-
-.vb .odo-sep {
-  display: inline-block;
-  height: 1.12em;
-  white-space: pre;
-}
-
-.vb .say {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: visible;
-  transition: box-shadow 0.3s ease;
-}
-
-.vb .say:focus-within {
-  box-shadow: 0 5px 0 var(--ink), 0 0 0 6px var(--cobalt-tint);
-}
-
-.vb .say-head {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.vb textarea.sentence {
-  position: relative;
-  width: 100%;
-  min-height: 132px;
+  margin: var(--space) 0 0;
   padding: 0;
-  border: 0;
-  background: transparent;
-  font-family: var(--display);
-  font-size: clamp(22px, 3vw, 32px);
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.015em;
-  resize: none;
 }
 
-.vb textarea.sentence:focus {
-  box-shadow: none;
+.change {
+  padding: var(--space) 0;
+  border-top: 1px solid var(--border);
 }
 
-.vb textarea.sentence::placeholder {
-  color: #a19c91;
-}
-
-.vb .sentence-box {
-  position: relative;
-}
-
-.vb .sample {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  color: #a19c91;
-  font-family: var(--display);
-  font-size: clamp(22px, 3vw, 32px);
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.015em;
-  transition: opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease;
-}
-
-.vb .sample.out {
-  opacity: 0;
-  filter: blur(8px);
-  transform: translateY(-6px);
-}
-
-.vb .sample .word {
-  animation-duration: 0.6s;
-}
-
-.vb .scan {
-  position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  pointer-events: none;
-  animation: vb-appear 0.4s ease-out both;
-}
-
-.vb .scan span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 35%;
-  background: linear-gradient(90deg, rgba(45, 75, 224, 0), rgba(45, 75, 224, 0.16), rgba(45, 75, 224, 0));
-  animation: vb-scan 1.3s ease-in-out infinite;
-}
-
-.vb .reading {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
+.change-words {
+  margin: 0 0 4px;
+  font-size: 1.0625rem;
   font-weight: 600;
-  color: var(--muted);
-  animation: vb-rise 0.8s var(--smooth) 0.3s both;
 }
 
-.vb .dots {
-  display: inline-flex;
+.change.waiting .change-words {
+  color: var(--accent);
+}
+
+.change.cancelled .change-words,
+.change.expired .change-words {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.contacts li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space);
+  padding: calc(var(--space) / 2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.alert {
+  border-color: var(--error);
+  background: var(--error-bg);
+}
+
+.alert h2 {
+  color: var(--error);
+}
+
+.alert ol {
+  margin: 0;
+  padding-left: calc(var(--space) * 1.5);
+}
+
+.alert li {
+  margin-bottom: 4px;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space);
+}
+
+.picker select {
+  width: 100%;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.vb .dots span {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--cobalt);
-  animation: vb-dot 1s ease-in-out infinite;
+.mono.full {
+  word-break: break-all;
+  color: var(--text);
 }
 
-.vb .dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.vb .dots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.vb .tiles {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 10px;
-  margin: 0;
-  padding: 4px 0 6px;
-}
-
-.vb .tiles.small {
-  gap: 10px 8px;
-}
-
-.vb .tile-wrap {
-  display: inline-block;
-  max-width: 100%;
-  transition: transform 0.8s var(--bouncy);
-}
-
-.vb .tile-burst {
-  display: inline-flex;
-  max-width: 100%;
-  animation: vb-burst 0.8s var(--bouncy) both;
-}
-
-.vb .tile-burst.still {
-  animation: none;
-}
-
-.vb .tile-hover {
-  display: inline-flex;
-  max-width: 100%;
-  transition: transform 0.45s var(--bouncy);
-}
-
-.vb .tile-hover:hover {
-  transform: translateY(-4px) rotate(-1.5deg) scale(1.05);
-}
-
-.vb .tile {
-  --fill: var(--cobalt);
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 15px 11px;
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  background-color: var(--white);
-  background-image: linear-gradient(var(--fill), var(--fill));
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  background-size: 100% 0%;
-  box-shadow: 0 4px 0 var(--ink);
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: clamp(20px, 2.5vw, 28px);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.12;
-  max-width: 100%;
-  transition: background-size 0.7s var(--smooth), color 0.3s ease;
-}
-
-.vb .tiles.small .tile {
-  padding: 7px 12px 9px;
-  border-radius: 10px;
-  box-shadow: 0 3px 0 var(--ink);
-  font-size: 19px;
-}
-
-.vb .tile.filled {
-  background-size: 100% 100%;
-  color: var(--white);
-}
-
-.vb .tile.broken {
-  --fill: var(--tangerine);
-  color: var(--ink);
-}
-
-.vb .tile.left {
-  border-style: dashed;
-  border-color: var(--muted);
-  background-color: transparent;
-  box-shadow: none;
-  color: var(--muted);
-}
-
-.vb .badge {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  color: var(--cobalt);
-  font-family: var(--body);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  animation: vb-pop 0.6s var(--bouncy) both;
-}
-
-.vb .tiles.small .badge {
-  width: 20px;
-  height: 20px;
-  font-size: 11px;
-}
-
-.vb .tile.broken .badge {
-  color: var(--ink);
-}
-
-.vb .tile.left .badge {
-  border-color: var(--muted);
-  color: var(--muted);
-}
-
-.vb .shake {
-  animation: vb-shake 0.5s ease-in-out 3;
-}
-
-.vb .from-answers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 0;
-}
-
-.vb .said-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
+.steps {
   list-style: none;
+  margin: var(--space) 0 0;
+  padding: 0;
 }
 
-.vb .said-list li {
+.step {
+  padding: var(--space) 0;
+  border-top: 1px solid var(--border);
+}
+
+.step-head {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--paper);
+  justify-content: space-between;
+  gap: var(--space);
   font-weight: 600;
-  animation: vb-rise 0.7s var(--smooth) both;
+  margin-bottom: 4px;
 }
 
-.vb .said-list li:nth-child(2) { animation-delay: 0.08s; }
-.vb .said-list li:nth-child(3) { animation-delay: 0.16s; }
-.vb .said-list li:nth-child(4) { animation-delay: 0.24s; }
-.vb .said-list li:nth-child(5) { animation-delay: 0.32s; }
-.vb .said-list li:nth-child(n + 6) { animation-delay: 0.4s; }
-
-.vb .said-label {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: var(--cobalt);
-  color: var(--white);
-  font-size: 12px;
-  font-weight: 800;
+.step p {
+  margin: 0 0 calc(var(--space) / 2);
 }
 
-.vb .from {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--muted);
+textarea.sentence {
+  width: 100%;
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  margin-bottom: 8px;
 }
 
-.vb .from.warn {
-  color: #b3330e;
-  font-weight: 700;
+.understood {
+  margin: 4px 0 12px;
+  padding-left: 20px;
 }
 
-.vb .your-words {
+.questions {
+  background: var(--warn-bg);
+  border-radius: 8px;
+  padding: 8px 12px;
   margin: 8px 0;
 }
 
-.vb .said-sentence {
-  margin: 0 0 8px;
-  font-family: var(--display);
-  font-size: 1.25rem;
-  line-height: 2;
-}
-
-.vb mark.said {
-  padding: 3px 8px;
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  background: var(--cobalt);
-  color: var(--white);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
-}
-
-.vb mark.said sup {
-  margin-left: 4px;
-  font-size: 0.7em;
-  font-weight: 800;
-}
-
-.vb mark.said.left {
-  border-style: dashed;
-  background: transparent;
-  color: var(--muted);
-}
-
-.vb .panel,
-.vb .left-out,
-.vb .questions,
-.vb .mismatch,
-.vb .extra {
-  margin: 12px 0;
-  padding: 14px 18px;
-  border-radius: 16px;
-  background: var(--paper);
-  animation: vb-rise 0.7s var(--smooth) both;
-}
-
-.vb .panel > :last-child,
-.vb .left-out > :last-child,
-.vb .questions > :last-child,
-.vb .extra > :last-child {
-  margin-bottom: 0;
-}
-
-.vb .panel.ok {
-  background: var(--cobalt-tint);
-  color: var(--cobalt);
-}
-
-.vb .panel.warn,
-.vb .left-out,
-.vb .questions,
-.vb .mismatch,
-.vb .extra.risky,
-.vb .extra.never {
-  background: var(--tangerine-tint);
-  color: var(--ink);
-}
-
-.vb .extra.small {
-  background: var(--cobalt-tint);
-}
-
-.vb .extra.never {
-  border: 2px solid var(--ink);
-}
-
-.vb .panel.line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  font-weight: 700;
-}
-
-.vb .left-out p,
-.vb .questions p,
-.vb .extra p {
-  margin: 0 0 8px;
-}
-
-.vb .extra-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--display);
-  font-size: 18px;
-}
-
-.vb .level-dot {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--cobalt);
-}
-
-.vb .level-dot.risky {
-  background: var(--tangerine);
-}
-
-.vb .level-dot.never {
-  background: var(--ink);
-}
-
-.vb .mark-bad {
-  display: inline-flex;
-  flex: none;
-  color: var(--tangerine);
-}
-
-.vb .panel-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-weight: 700;
-}
-
-.vb .questions ul {
-  margin: 6px 0 12px;
+.questions ul {
+  margin: 4px 0 8px;
   padding-left: 20px;
-  font-weight: 600;
 }
 
-.vb .questions .row input {
-  flex: 1;
-  min-width: 180px;
-}
-
-.vb .proof {
+.proof {
   margin: 12px 0;
-  border-radius: 14px;
-  background: var(--paper);
-  overflow: hidden;
-}
-
-.vb .proof summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  font-weight: 700;
-  cursor: pointer;
-  list-style: none;
-}
-
-.vb .proof summary::-webkit-details-marker {
-  display: none;
-}
-
-.vb .proof summary::after {
-  content: "";
-  width: 8px;
-  height: 8px;
-  margin-left: auto;
-  border-right: 2.5px solid currentColor;
-  border-bottom: 2.5px solid currentColor;
-  transform: rotate(45deg) translateY(-2px);
-  transition: transform 0.35s var(--bouncy);
-}
-
-.vb .proof[open] summary::after {
-  transform: rotate(225deg) translateY(-2px);
-}
-
-.vb .proof.ok summary {
-  color: var(--cobalt);
-}
-
-.vb .proof.bad summary {
-  color: #b3330e;
-}
-
-.vb .proof ul,
-.vb .proof p {
-  margin: 0;
-  padding: 0 14px 12px 34px;
-  font-size: 0.875rem;
-}
-
-.vb .proof p {
-  padding-left: 14px;
-}
-
-.vb .form-card .tabs,
-.vb .print-tabs {
-  display: inline-flex;
-  gap: 4px;
-  margin-bottom: 18px;
-  padding: 4px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  background: var(--paper);
-}
-
-.vb button.tab {
-  min-height: 40px;
-  padding: 7px 18px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ink);
-  font-size: 16px;
-}
-
-.vb button.tab:hover:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  background: var(--soft);
-}
-
-.vb button.tab.active,
-.vb button.tab.active:hover:not(:disabled) {
-  background: var(--ink);
-  color: var(--white);
-}
-
-.vb .form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.vb .form label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.vb .form label input,
-.vb .form label select,
-.vb .form select {
-  min-height: 52px;
-  color: var(--ink);
-  font-size: 17px;
-}
-
-.vb .form input {
-  width: 9rem;
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.vb .checks-area {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.vb .checks-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px 24px;
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .checks-head h2 {
-  margin: 0;
-  font-size: clamp(28px, 3.4vw, 40px);
-  font-weight: 800;
-}
-
-.vb .checks-head p {
-  max-width: 470px;
-  margin: 0;
-  font-size: 15px;
-  color: var(--muted);
-}
-
-.vb .check-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px;
-}
-
-.vb .check-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 18px 20px;
-  border: 2px solid var(--ink);
-  border-radius: 20px;
-  background: var(--white);
-  box-shadow: 0 5px 0 var(--ink);
-  transition: border-color 0.4s ease, box-shadow 0.4s ease;
-}
-
-.vb .check-slot {
-  display: flex;
-  min-width: 0;
-  animation: vb-appear 0.35s ease-out both;
-}
-
-.vb .check-slot > .check-card {
-  flex: 1;
-}
-
-.vb .check-card.kept {
-  border-color: var(--cobalt);
-  box-shadow: 0 5px 0 var(--cobalt);
-}
-
-.vb .check-card.failed {
-  border-color: var(--tangerine);
-  box-shadow: 0 5px 0 var(--tangerine);
-  animation: vb-pulse 1.1s ease-out 2;
-}
-
-.vb .check-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 30px;
-}
-
-.vb .check-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.vb .check-num {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--cobalt);
-  color: var(--white);
-  font-size: 12px;
-  font-weight: 800;
-  transition: background-color 0.3s ease;
-}
-
-.vb .check-card.failed .check-num {
-  background: var(--tangerine);
-  color: var(--ink);
-}
-
-.vb .quote-tiles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 38px;
-}
-
-.vb .quote-tile {
-  max-width: 100%;
-  line-height: 1.12;
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  padding: 7px 12px 9px;
-  border: 2px solid var(--ink);
-  border-radius: 10px;
-  background: var(--cobalt);
-  box-shadow: 0 3px 0 var(--ink);
-  color: var(--white);
-  font-family: var(--display);
-  font-size: 19px;
-  font-weight: 650;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.vb .check-card.failed .quote-tile {
-  background: var(--tangerine);
-  color: var(--ink);
-}
-
-.vb .check-text {
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: -0.015em;
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .check-detail {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--tangerine-tint);
-  font-size: 14px;
-  font-weight: 600;
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .check-said {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 2px dashed var(--hairline);
-  font-size: 14px;
-  color: var(--muted);
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .check-said strong {
-  color: var(--ink);
-}
-
-.vb .stamp {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border: 2px solid var(--cobalt);
-  border-radius: 999px;
-  background: var(--white);
-  color: var(--cobalt);
-  font-size: 13px;
-  font-weight: 800;
-  rotate: -5deg;
-  animation: vb-slam 0.6s var(--bouncy) both;
-}
-
-.vb .check-card .stamp {
-  position: absolute;
-  top: -14px;
-  right: 12px;
-  z-index: 4;
-}
-
-.vb .stamp.refused {
-  border-color: var(--ink);
-  background: var(--tangerine);
-  color: var(--ink);
-  rotate: 5deg;
-}
-
-.vb .stamp.plain {
-  border-color: var(--ink);
-  background: var(--soft);
-  color: var(--ink);
-}
-
-.vb .stamp.big {
-  position: absolute;
-  z-index: 3;
-  padding: 7px 14px;
-  border-width: 3px;
-  border-radius: 12px;
-  font-family: var(--display);
-  font-size: 18px;
-  letter-spacing: 0.04em;
-}
-
-.vb .more-checks {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  animation: vb-rise 0.8s var(--smooth) 0.9s both;
-}
-
-.vb button.toggle {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 4px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--ink);
-  font-family: var(--body);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.vb button.toggle:hover:not(:disabled),
-.vb button.toggle:active:not(:disabled) {
-  transform: none;
-  box-shadow: none;
-  color: var(--cobalt);
-}
-
-.vb .chevron {
-  width: 9px;
-  height: 9px;
-  border-right: 2.5px solid currentColor;
-  border-bottom: 2.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.45s var(--bouncy);
-}
-
-.vb .chevron.open {
-  transform: rotate(45deg);
-}
-
-.vb .chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .chips li {
   padding: 8px 12px;
-  border: 2px solid var(--ink);
-  border-radius: 10px;
-  background: var(--white);
-  font-size: 14px;
-  font-weight: 600;
-  animation: vb-burst 0.7s var(--bouncy) both;
-}
-
-.vb .chips li:nth-child(2) { animation-delay: 0.05s; }
-.vb .chips li:nth-child(3) { animation-delay: 0.1s; }
-.vb .chips li:nth-child(4) { animation-delay: 0.15s; }
-.vb .chips li:nth-child(5) { animation-delay: 0.2s; }
-.vb .chips li:nth-child(6) { animation-delay: 0.25s; }
-.vb .chips li:nth-child(7) { animation-delay: 0.3s; }
-.vb .chips li:nth-child(n + 8) { animation-delay: 0.35s; }
-
-.vb .chips.rules li {
-  border-style: dashed;
-  background: transparent;
-}
-
-.vb .fold {
-  border-radius: 14px;
-}
-
-.vb .fold summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  list-style: none;
-}
-
-.vb .fold summary::-webkit-details-marker {
-  display: none;
-}
-
-.vb .fold summary::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-right: 2.5px solid currentColor;
-  border-bottom: 2.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.4s var(--bouncy);
-}
-
-.vb .fold[open] summary::before {
-  transform: rotate(45deg);
-}
-
-.vb .fold ul,
-.vb .fold ol {
-  margin: 4px 0 10px;
-  padding-left: 22px;
-  font-size: 14px;
-}
-
-.vb .fold h3 {
-  margin: 10px 0 4px;
-}
-
-.vb .fold.raw code {
-  font-family: var(--mono);
-  font-size: 12px;
-  word-break: break-all;
-}
-
-.vb .swap-note {
-  margin: 0;
-  padding: 14px 18px;
-  border-radius: 16px;
-  background: var(--soft);
-  font-size: 14px;
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .swap-note p {
-  margin: 0 0 6px;
-}
-
-.vb .swap-note p:last-child {
-  margin-bottom: 0;
-}
-
-.vb .action {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.vb .practice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 18px;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 700;
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .practice.running {
-  background: var(--soft);
-  color: var(--muted);
-}
-
-.vb .practice.pass {
-  background: var(--cobalt-tint);
-  color: var(--cobalt);
-}
-
-.vb .practice.fail {
-  background: var(--tangerine-tint);
-  color: var(--ink);
-}
-
-.vb .practice > span:not(.mark-bad) {
-  flex: 1;
-  min-width: 200px;
-}
-
-.vb .drawn {
-  flex: none;
-  stroke: currentColor;
-}
-
-.vb .drawn .ring {
-  stroke-width: 2.5;
-  stroke-dasharray: 76;
-  stroke-dashoffset: 76;
-  transform: rotate(-90deg);
-  transform-origin: 14px 14px;
-  animation: vb-draw 0.9s var(--smooth) forwards;
-}
-
-.vb .drawn .tick,
-.vb .drawn .cross {
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 24;
-  stroke-dashoffset: 24;
-  animation: vb-draw 0.45s ease-out forwards;
-}
-
-.vb .spin {
-  flex: none;
-  stroke: currentColor;
-  animation: vb-spin 0.8s linear infinite;
-}
-
-.vb .spin path {
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-
-.vb .progress {
-  position: relative;
-  height: 10px;
-  margin-top: 10px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  overflow: hidden;
-}
-
-.vb .progress span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 40%;
-  border-radius: 999px;
-  background: var(--cobalt);
-  animation: vb-slide 1.4s ease-in-out infinite;
-}
-
-.vb .preview {
-  margin: 14px 0 6px;
-  padding-top: 16px;
-  border-top: 2px dashed var(--hairline);
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .preview h3 {
-  margin: 0 0 10px;
-}
-
-.vb .preview .pass {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 10px;
-  padding: 12px 16px;
-  border-radius: 14px;
-  background: var(--cobalt-tint);
-}
-
-.vb .preview ul.muted {
-  margin: 0 0 10px;
-  padding-left: 20px;
-}
-
-.vb .mismatch ul {
-  margin: 6px 0 0;
-  padding-left: 20px;
-}
-
-.vb .send-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.vb .banner {
-  position: relative;
-  padding: clamp(22px, 3vw, 32px);
-  border: 2px solid var(--ink);
-  border-radius: 24px;
-  box-shadow: 0 6px 0 var(--ink);
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .banner.done {
-  background: var(--cobalt);
-  color: var(--white);
-}
-
-.vb .banner.never {
-  background: var(--tangerine-tint);
-}
-
-.vb .banner.failed {
-  background: var(--soft);
-}
-
-.vb .banner-head {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.vb .banner h2 {
-  margin: 0;
-  font-size: clamp(30px, 4vw, 46px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.vb .banner p {
-  margin: 10px 0 0;
-  font-size: 17px;
-}
-
-.vb .banner .lead-in {
-  font-weight: 600;
-}
-
-.vb .outcomes {
-  display: grid;
-  gap: 8px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .outcomes li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-
-.vb .after {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.vb .after p {
-  margin: 0;
-}
-
-.vb .chain-proof {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 16px;
-  border-radius: 16px;
-  font-size: 14px;
-  animation: vb-rise 0.7s var(--smooth) both;
-}
-
-.vb .chain-proof.ok {
-  background: var(--cobalt-tint);
-}
-
-.vb .chain-proof.bad {
-  background: var(--tangerine-tint);
-}
-
-.vb .chain-proof.checking {
-  background: var(--soft);
-  color: var(--muted);
-}
-
-.vb .chain-proof strong {
-  display: block;
-  font-size: 15px;
-}
-
-.vb .chain-proof.ok strong {
-  color: var(--cobalt);
-}
-
-.vb .chain-proof ol {
-  margin: 6px 0 0;
-  padding-left: 20px;
-}
-
-.vb .tx-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-  padding: 12px 16px;
-  border-radius: 14px;
-  font-weight: 600;
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .tx-status.signing {
-  background: var(--soft);
-}
-
-.vb .tx-status.done {
-  background: var(--cobalt-tint);
-  color: var(--cobalt);
-}
-
-.vb .tx-status.failed,
-.vb .tx-status.error {
-  background: var(--tangerine-tint);
-}
-
-.vb .demo {
-  border-style: dashed;
-  box-shadow: none;
-  background: transparent;
-}
-
-.vb .demo summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  list-style: none;
-}
-
-.vb .demo summary::-webkit-details-marker {
-  display: none;
-}
-
-.vb .demo summary::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-right: 2.5px solid currentColor;
-  border-bottom: 2.5px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform 0.4s var(--bouncy);
-}
-
-.vb .demo[open] summary::before {
-  transform: rotate(45deg);
-}
-
-.vb .switch {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-top: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.vb .switch input {
-  appearance: none;
-  position: relative;
-  flex: none;
-  width: 46px;
-  height: 28px;
-  margin: 0;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--soft);
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.vb .switch input::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--white);
-  transition: transform 0.45s var(--bouncy);
-}
-
-.vb .switch input:checked {
-  background: var(--tangerine);
-}
-
-.vb .switch input:checked::after {
-  transform: translateX(18px);
-}
-
-.vb .switch input:focus-visible {
-  outline: 3px solid var(--cobalt);
-  outline-offset: 3px;
-}
-
-.vb .scenario {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 14px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.vb .scenario select {
-  width: 100%;
-  color: var(--ink);
-}
-
-.vb .receipt-box {
-  margin: 0;
-}
-
-.vb .receipt-box p {
-  margin: 0;
-}
-
-.vb .receipt-list {
-  display: grid;
-  gap: 10px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .receipt-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 2px dashed var(--ink);
-  border-radius: 14px;
-  background: var(--paper);
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .receipt-list li a:first-of-type {
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.vb .receipt-list .when {
-  margin-left: auto;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.vb .pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.3;
-  white-space: nowrap;
-  transition: background-color 0.4s ease, color 0.4s ease;
-}
-
-.vb .pill.ok {
-  background: var(--cobalt-tint);
-  color: var(--cobalt);
-}
-
-.vb .pill.bad {
-  background: var(--tangerine);
-  color: var(--ink);
-}
-
-.vb .pill.warn {
-  background: var(--tangerine-tint);
-  color: var(--ink);
-}
-
-.vb .pill.plain {
-  background: var(--soft);
-  color: var(--ink);
-}
-
-.vb .pill.ink {
-  background: var(--ink);
-  color: var(--white);
-}
-
-.vb .vb-in {
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .receipt {
-  width: 100%;
-  max-width: 660px;
-  align-self: center;
-}
-
-.vb .said-block {
-  padding-right: 180px;
-}
-
-.vb .printer {
-  position: relative;
-  z-index: 2;
-  height: 26px;
-  margin: 0 -8px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  background: var(--ink);
-  box-shadow: 0 4px 0 #3a3844;
-}
-
-.vb .printer::before {
-  content: "";
-  position: absolute;
-  top: 8px;
-  left: 20px;
-  right: 20px;
-  height: 6px;
-  border-radius: 999px;
-  background: #000000;
-}
-
-.vb .printer span {
-  position: absolute;
-  top: 7px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--cobalt);
-  animation: vb-glow 2s ease-in-out both;
-}
-
-.vb .paper-slot {
-  position: relative;
-  margin-top: -12px;
-  padding: 0 2px 10px;
-  overflow: hidden;
-}
-
-.vb .ticket {
-  border: 2px solid var(--ink);
-  border-radius: 0 0 26px 26px;
-  background: var(--white);
-  box-shadow: 0 8px 0 var(--ink);
-  animation: vb-print 1.9s var(--smooth) both;
-}
-
-.vb .ticket-head {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 34px clamp(20px, 3vw, 30px) 24px;
-  border-bottom: 2px solid var(--ink);
-  background: var(--cobalt);
-  color: var(--white);
-}
-
-.vb .ticket-head.refused {
-  background: var(--tangerine);
-  color: var(--ink);
-}
-
-.vb .ticket-head.failed {
-  background: var(--soft);
-  color: var(--ink);
-}
-
-.vb .ticket-head h2 {
-  margin: 0;
-  font-size: 34px;
-  font-weight: 800;
-}
-
-.vb .ticket-head p {
-  margin: 0;
-  font-size: 15px;
-}
-
-.vb .ticket-head .mono {
-  opacity: 0.8;
-  font-size: 12px;
-  word-break: break-all;
-}
-
-.vb .ticket-body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: clamp(20px, 3vw, 30px);
-}
-
-.vb .ticket-body section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.vb .ticket-body h3 {
-  margin: 0;
-  font-family: var(--body);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0;
-  color: var(--muted);
-}
-
-.vb .ticket-body .stamp.big {
-  top: 20px;
-  right: 20px;
-}
-
-.vb .ticket-checks {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  border: 2px solid var(--ink);
-  border-radius: 16px;
-  list-style: none;
-  overflow: hidden;
-}
-
-.vb .ticket-checks li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 2px solid var(--soft);
-  font-weight: 700;
-}
-
-.vb .ticket-checks li:last-child {
-  border-bottom: 0;
-}
-
-.vb .ticket-checks li > span:not(.check-num) {
-  flex: 1;
-}
-
-.vb .tear {
-  position: relative;
-  height: 0;
-  margin: 4px calc(-1 * clamp(20px, 3vw, 30px));
-}
-
-.vb .tear::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  border-top: 2px dashed var(--ink);
-  transform-origin: 0 50%;
-  animation: vb-tear 0.9s var(--smooth) 2.8s both;
-}
-
-.vb .tear span {
-  position: absolute;
-  top: -15px;
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-}
-
-.vb .tear span:first-child {
-  left: -16px;
-}
-
-.vb .tear span:last-child {
-  right: -16px;
-}
-
-.vb .happened {
-  font-family: var(--display);
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-}
-
-.vb .ticket-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.vb .lock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.vb .phone-page {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.vb .changes {
-  display: grid;
-  gap: 14px;
-  margin: 14px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .change {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px 20px;
-  border: 2px solid var(--ink);
-  border-radius: 20px;
-  background: var(--white);
-  box-shadow: 0 4px 0 var(--ink);
-  animation: vb-rise 0.7s var(--smooth) both;
-}
-
-.vb .change.waiting {
-  border-color: var(--tangerine);
-  background: var(--tangerine-tint);
-  box-shadow: 0 4px 0 var(--tangerine);
-}
-
-.vb .change.approved .change-words,
-.vb .change.ready .change-words {
-  padding-right: 120px;
-}
-
-.vb .change.cancelled,
-.vb .change.expired,
-.vb .change.used,
-.vb .change.done {
-  box-shadow: none;
-  background: var(--paper);
-}
-
-.vb .change-words {
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(19px, 2.2vw, 23px);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-}
-
-.vb .change.cancelled .change-words,
-.vb .change.expired .change-words {
-  color: var(--muted);
-  text-decoration: line-through;
-  text-decoration-thickness: 2px;
-}
-
-.vb .change-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.vb .countdown {
-  font-family: var(--display);
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--ink);
-}
-
-.vb .countdown .odo-strip,
-.vb .change-meta .odo-strip {
-  transition: transform 0.45s var(--smooth);
-}
-
-.vb .change .stamp.big {
-  top: 16px;
-  right: 16px;
-  font-size: 16px;
-}
-
-.vb .breathe {
-  animation: vb-breathe 1.8s ease-in-out infinite;
-}
-
-.vb .steps {
-  display: grid;
-  gap: 12px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .step {
-  padding: 16px 18px;
-  border: 2px solid var(--ink);
-  border-radius: 18px;
-  background: var(--white);
-  animation: vb-rise 0.7s var(--smooth) both;
-}
-
-.vb .step.is-done {
-  background: var(--paper);
-}
-
-.vb .step-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 14px;
-  margin-bottom: 6px;
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.vb .step-head > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.vb .step-head .muted {
-  font-family: var(--body);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.vb .step p {
-  margin: 0 0 10px;
-}
-
-.vb .step .row input {
-  width: 9rem;
-}
-
-.vb .circle {
-  display: inline-block;
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border: 2.5px dashed var(--muted);
-  border-radius: 999px;
-}
-
-.vb .contacts {
-  display: grid;
-  gap: 10px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .contacts li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--paper);
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .contact-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .contact-tiles li {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--paper);
-  animation: vb-burst 0.7s var(--bouncy) both;
-}
-
-.vb .contact-tiles .tile {
-  font-size: 19px;
-  padding: 7px 12px 9px;
-  border-radius: 10px;
-  box-shadow: 0 3px 0 var(--ink);
-}
-
-.vb .side {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 28px clamp(16px, 4vw, 48px) 80px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.vb .side-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-}
-
-.vb .side-head h1 {
-  margin: 0 0 12px;
-  font-size: clamp(40px, 5.4vw, 72px);
-  font-weight: 800;
-  line-height: 0.98;
-  letter-spacing: -0.035em;
-}
-
-.vb .lead {
-  margin: 0;
-  max-width: 640px;
-  font-size: clamp(17px, 1.8vw, 21px);
-  color: var(--muted);
-  animation: vb-rise 0.8s var(--smooth) 0.5s both;
-}
-
-.vb .qr {
-  flex: none;
-  margin: 0;
-  padding: 14px;
-  border: 2px solid var(--ink);
-  border-radius: 22px;
-  background: var(--white);
-  box-shadow: 0 6px 0 var(--ink);
-  text-align: center;
-  rotate: 2deg;
-  animation: vb-burst 0.9s var(--bouncy) 0.4s both;
-}
-
-.vb .qr img {
-  display: block;
-  width: 230px;
-  height: 230px;
-  border-radius: 10px;
-}
-
-.vb .qr figcaption {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.vb .columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.vb .column {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.vb .column h2 {
-  font-size: clamp(26px, 2.6vw, 34px);
-}
-
-.vb .column.vault {
-  border-color: var(--cobalt);
-  box-shadow: 0 6px 0 var(--cobalt);
-}
-
-.vb .column-tag {
-  align-self: flex-start;
-  margin-bottom: 8px;
-}
-
-.vb .big-amount {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 14px 0 18px;
-  font-family: var(--display);
-  font-size: clamp(56px, 7vw, 96px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-
-.vb .big-amount .symbol {
-  font-size: 0.3em;
-  letter-spacing: 0;
-}
-
-.vb .side-txs {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .side-txs li {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 2px solid var(--ink);
-  border-radius: 16px;
-  background: var(--white);
-  animation: vb-burst 0.7s var(--bouncy) both;
-}
-
-.vb .side-txs li.failed {
-  background: var(--tangerine-tint);
-}
-
-.vb .side-txs li.waiting-change {
-  border-style: dashed;
-  background: var(--paper);
-}
-
-.vb .side-waiting {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 18px;
-  border-radius: 16px;
-  background: var(--tangerine-tint);
-  font-weight: 700;
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .verdict {
-  text-align: left;
-}
-
-.vb .verdict h2 {
-  margin: 0;
-  font-size: clamp(36px, 5vw, 64px);
-}
-
-.vb .verdict p {
-  font-size: clamp(18px, 2vw, 22px);
-}
-
-.vb .replay-side {
-  margin: 14px 0 0;
-  padding: 16px 18px;
-  border: 2px solid var(--ink);
-  border-radius: 18px;
-  animation: vb-burst 0.8s var(--bouncy) both;
-}
-
-.vb .replay-side.lost {
-  background: var(--tangerine-tint);
-}
-
-.vb .replay-side.safe {
-  background: var(--cobalt-tint);
-  animation-delay: 0.25s;
-}
-
-.vb .replay-side h3 {
-  margin: 0 0 8px;
-  font-family: var(--display);
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-}
-
-.vb .replay-side p {
-  margin: 0 0 6px;
-}
-
-.vb .replay-amount {
-  font-family: var(--display);
-  font-size: clamp(22px, 2.4vw, 30px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.vb .loss {
-  align-self: flex-start;
-}
-
-.vb .column.wide {
-  grid-column: 1 / -1;
-}
-
-.vb .replay-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 14px;
-  margin: 0 0 12px;
-}
-
-.vb .replay-said {
-  margin-top: 14px;
-}
-
-.vb .print-image {
-  display: block;
-  width: 100%;
-  max-width: 512px;
-  height: auto;
-  margin: 14px 0 8px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-}
-
-.vb .print-tabs {
-  align-self: flex-start;
-  margin: 6px 0 12px;
-}
-
-.vb .print-file {
-  margin: 4px 0 8px;
-}
-
-.vb .print-checks {
-  margin: 4px 0 8px;
-  padding-left: 20px;
-}
-
-.vb .caught {
-  border-color: var(--tangerine);
-  box-shadow: 0 5px 0 var(--tangerine);
-}
-
-.vb .caught-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.vb .caught-head h2 {
-  margin: 0;
-}
-
-.vb .caught-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: stretch;
-}
-
-.vb .caught-side {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-  padding: 16px 18px;
-  border: 2px solid var(--ink);
-  border-radius: 18px;
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .caught-side.said {
-  background: var(--cobalt-tint);
-}
-
-.vb .caught-side.sent {
-  background: var(--tangerine-tint);
-  animation-delay: 0.15s;
-}
-
-.vb .caught-side h3 {
-  margin: 0;
-}
-
-.vb .caught-text {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.vb .caught-vs {
-  align-self: center;
-  font-family: var(--display);
-  font-size: 56px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--tangerine);
-  animation: vb-slam 0.6s var(--bouncy) 0.35s both;
-}
-
-.vb .plain-steps {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .plain-steps li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 2px solid transparent;
-  border-radius: 12px;
-  background: var(--white);
-  font-size: 15px;
-  font-weight: 600;
-  animation: vb-rise 0.6s var(--smooth) both;
-}
-
-.vb .plain-steps li.flag {
-  border-color: var(--tangerine);
-  animation: vb-rise 0.6s var(--smooth) both, vb-shake 0.5s ease-in-out 1.1s 2;
-}
-
-.vb .caught-verdict {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 18px 0 8px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--paper);
-  font-size: 16px;
-  animation: vb-rise 0.8s var(--smooth) 0.5s both;
-}
-
-.vb .caught-source {
-  margin: 0;
-}
-
-.vb .verify-steps {
-  display: grid;
-  gap: 12px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .verify-steps li {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: var(--paper);
-  animation: vb-rise 0.7s var(--smooth) both;
-}
-
-.vb .verify-steps li:nth-child(2) { animation-delay: 0.1s; }
-.vb .verify-steps li:nth-child(3) { animation-delay: 0.2s; }
-.vb .verify-steps li:nth-child(4) { animation-delay: 0.3s; }
-
-.vb .verify-steps li > div {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.vb .verify-steps p {
-  margin: 0;
-}
-
-.vb .quote-code {
-  padding: 2px 6px;
-  border: 1.5px solid var(--hairline);
   border-radius: 8px;
-  background: var(--white);
-  font-family: var(--mono);
-  font-size: 13px;
-  word-break: break-word;
+  border: 1px solid var(--border);
 }
 
-.vb .command {
+.proof.ok summary {
+  color: var(--ok);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proof.bad summary {
+  color: var(--error);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.proof ul {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 0.9em;
+}
+
+.preview {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.preview h3 {
+  margin-top: 0;
+}
+
+.mismatch {
+  background: var(--warn-bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.mismatch ul {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.receipt-box {
+  margin: 8px 0;
+}
+
+.attack .balances li .label {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.side {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 2) var(--space);
+}
+
+.side-head {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--ink);
-  color: var(--white);
+  gap: calc(var(--space) * 2);
+  margin-bottom: calc(var(--space) * 1.5);
 }
 
-.vb .command code {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--mono);
-  font-size: 13px;
-  word-break: break-all;
+.side-head h1 {
+  margin: 0 0 calc(var(--space) / 2);
+  font-size: 2.25rem;
 }
 
-.vb .command button.secondary {
-  box-shadow: none;
+.lead {
+  font-size: 1.25rem;
+  margin: 0;
 }
 
-.vb a.go {
-  align-self: flex-start;
-  display: inline-flex;
-  margin-top: 4px;
-  padding: 8px 14px;
-  border: 2px solid var(--ink);
-  border-radius: 12px;
-  background: var(--white);
-  box-shadow: 0 3px 0 var(--ink);
-  font-weight: 700;
-  text-decoration: none;
-  transition: transform 0.3s var(--bouncy), box-shadow 0.3s var(--bouncy);
+.qr {
+  margin: 0;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.vb a.go:hover {
-  color: var(--ink);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 0 var(--ink);
+.qr img {
+  display: block;
+  width: 240px;
+  height: 240px;
+  background: #ffffff;
+  border-radius: var(--radius);
 }
 
-.vb .receipt > .verify {
-  margin-top: 22px;
+.qr figcaption {
+  margin-top: calc(var(--space) / 2);
 }
 
-.vb .evidence-title {
-  font-size: clamp(36px, 5vw, 64px) !important;
-}
-
-.vb .evidence-rows {
+.columns {
   display: grid;
-  gap: 14px;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space);
+}
+
+.column h2 {
+  font-size: 1.5rem;
+}
+
+.big-amount {
+  margin: var(--space) 0;
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.side-txs {
+  list-style: none;
   margin: 0;
   padding: 0;
-  list-style: none;
-}
-
-.vb .evidence-row {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
-  gap: 18px;
-  padding: 20px;
-  border: 2px solid var(--ink);
-  border-radius: 22px;
-  background: var(--white);
-  box-shadow: 0 5px 0 var(--ink);
-  animation: vb-rise 0.8s var(--smooth) both;
+  gap: calc(var(--space) / 2);
 }
 
-.vb .evidence-row.bad {
-  border-color: var(--tangerine);
-  box-shadow: 0 5px 0 var(--tangerine);
-}
-
-.vb .evidence-claim {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-family: var(--display);
-  font-size: 20px;
-  line-height: 1.2;
-}
-
-.vb .evidence-proof {
+.side-txs li {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 0;
+  gap: 2px;
+  padding: calc(var(--space) / 2) var(--space);
+  border-radius: calc(var(--radius) / 1.5);
 }
 
-.vb .evidence-proof p {
-  margin: 0;
+.side-txs li.ok {
+  background: var(--ok-bg);
 }
 
-.vb .evidence-proof .plain-steps li {
-  background: var(--paper);
+.side-txs li.ok strong {
+  color: var(--ok);
 }
 
-.vb .evidence-big {
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.25;
+.side-txs li.failed {
+  background: var(--error-bg);
 }
 
-.vb .evidence-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.side-txs li.failed strong {
+  color: var(--error);
 }
 
-.vb .evidence-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--paper);
+.side-txs li.waiting-change {
+  background: var(--warn-bg);
+}
+
+.side-txs li.waiting-change strong {
+  color: var(--warn);
+}
+
+.waiting {
+  padding: calc(var(--space) / 2) var(--space);
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--warn-bg);
+  color: var(--warn);
   font-weight: 600;
 }
 
-.vb .evidence-list li.broken {
-  outline: 2px solid var(--tangerine);
+.verdict {
+  margin-top: var(--space);
+  font-size: 1.25rem;
 }
 
-.vb .evidence-list li > span:not(.check-num) {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+.verdict h2 {
+  font-size: 1.75rem;
 }
 
-.vb .rerun {
-  margin: 14px 0 6px;
-  padding: 4px 14px 12px;
-  border: 2px dashed var(--hairline);
-}
-
-.vb .rerun p {
-  margin: 4px 0 10px;
-}
-
-.vb .command code {
-  max-height: 120px;
-  overflow: auto;
-}
-
-.vb .caught > a.go {
-  margin: 12px 0 6px;
-}
-
-.vb .story {
-  display: grid;
-  gap: 10px;
-  margin: 20px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.vb .story li {
-  display: grid;
-  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
-  gap: 14px;
-  align-items: baseline;
-  padding: 12px 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7);
-  animation: vb-rise 0.8s var(--smooth) both;
-}
-
-.vb .banner.done .story li {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.vb .story-label {
-  font-size: 14px;
-  font-weight: 700;
-  opacity: 0.75;
-}
-
-.vb .story-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-family: var(--display);
-  font-size: clamp(18px, 2vw, 22px);
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.vb .story-check {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 18px;
-  margin: 18px 0 12px;
-}
-
-.vb .story-check p {
-  flex: 1;
-  min-width: 260px;
-  margin: 0;
-  font-size: 15px;
-}
-
-.vb a.big-go {
-  margin-top: 0;
-  padding: 13px 22px;
-  border-radius: 14px;
-  background: var(--ink);
-  color: var(--white);
-  box-shadow: 0 4px 0 var(--ink);
-  font-family: var(--display);
-  font-size: 18px;
-}
-
-.vb a.big-go:hover {
-  color: var(--white);
-}
-
-.vb .more-proof {
-  padding: 4px 4px 0;
-}
-
-.vb .more-proof > summary {
-  font-size: 15px;
-}
-
-.vb .more-proof[open] {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.vb .caught-proof {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  margin: 16px 0 8px;
-  font-weight: 700;
-}
-
-@media (max-width: 760px) {
-  .vb .side-head {
+@media (max-width: 720px) {
+  .side-head {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .vb .columns {
+  .columns {
     grid-template-columns: 1fr;
   }
 
-  .vb .replay-pair {
-    grid-template-columns: 1fr;
-  }
-
-  .vb .change.approved .change-words,
-  .vb .change.ready .change-words {
-    padding-right: 0;
-    padding-top: 46px;
-  }
-
-  .vb .ticket-body .stamp.big {
-    position: static;
-    align-self: flex-start;
-  }
-
-  .vb .said-block {
-    padding-right: 0;
-  }
-
-  .vb .caught-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .vb .evidence-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .vb .evidence-qr {
-    display: none;
-  }
-
-  .vb .story li {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
-  .vb .caught-vs {
-    justify-self: center;
-    font-size: 40px;
+  .big-amount {
+    font-size: 2.5rem;
   }
 }
 
-@keyframes vb-word {
-  from { opacity: 0; filter: blur(14px); transform: translateY(0.35em); }
-  to { opacity: 1; filter: blur(0); transform: none; }
+.attacks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-@keyframes vb-down {
-  from { opacity: 0; transform: translateY(-18px); }
-  to { opacity: 1; transform: none; }
+.attacks li {
+  padding: calc(var(--space) / 2) 0;
+  border-bottom: 1px solid var(--border);
 }
 
-@keyframes vb-rise {
-  from { opacity: 0; filter: blur(8px); transform: translateY(18px); }
-  to { opacity: 1; filter: blur(0); transform: none; }
+.attacks li:last-child {
+  border-bottom: none;
 }
 
-@keyframes vb-appear {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.attack-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space);
 }
 
-@keyframes vb-burst {
-  from { opacity: 0; filter: blur(10px); transform: translateY(22px) scale(0.5); }
-  to { opacity: 1; filter: blur(0); transform: none; }
+.attack-head p {
+  margin: 2px 0 0;
 }
 
-@keyframes vb-pop {
-  from { opacity: 0; transform: scale(0.3); }
-  to { opacity: 1; transform: none; }
+.attack-head button {
+  flex-shrink: 0;
 }
 
-@keyframes vb-slam {
-  from { opacity: 0; filter: blur(6px); transform: scale(2.4) rotate(-12deg); }
-  to { opacity: 1; filter: blur(0); transform: none; }
+.attack-outcome {
+  padding: calc(var(--space) / 2) calc(var(--space) / 1.5);
+  border-radius: calc(var(--radius) / 1.5);
 }
 
-@keyframes vb-shake {
-  0%, 100% { transform: translateX(0) rotate(0); }
-  20% { transform: translateX(-9px) rotate(-4deg); }
-  40% { transform: translateX(8px) rotate(3deg); }
-  60% { transform: translateX(-6px) rotate(-2deg); }
-  80% { transform: translateX(4px) rotate(1deg); }
+.attack-outcome.refused,
+.attack-outcome.done {
+  background: var(--ok-bg);
 }
 
-@keyframes vb-pulse {
-  0% { box-shadow: 0 5px 0 var(--tangerine), 0 0 0 0 rgba(240, 89, 42, 0.5); }
-  100% { box-shadow: 0 5px 0 var(--tangerine), 0 0 0 20px rgba(240, 89, 42, 0); }
+.attack-outcome.unexpected {
+  background: var(--error-bg);
+  color: var(--error);
 }
 
-@keyframes vb-scan {
-  from { transform: translateX(-120%); }
-  to { transform: translateX(330%); }
+.attack-outcome.waiting-change {
+  background: var(--warn-bg);
 }
 
-@keyframes vb-draw {
-  to { stroke-dashoffset: 0; }
+.copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 4px 0 0;
 }
 
-@keyframes vb-spin {
-  to { transform: rotate(360deg); }
+.copy button {
+  padding: 2px calc(var(--space) / 2);
+  font-size: 0.875rem;
 }
 
-@keyframes vb-slide {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(260%); }
+.copy-text {
+  display: block;
+  word-break: break-all;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  user-select: all;
 }
 
-@keyframes vb-dot {
-  0%, 100% { opacity: 0.3; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-4px); }
+.copy-row {
+  display: block;
 }
 
-@keyframes vb-print {
-  from { transform: translateY(-102%); }
-  to { transform: none; }
+.replay-amount {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes vb-tear {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+.recorded {
+  padding: calc(var(--space) / 2) calc(var(--space) / 1.5);
+  border-radius: calc(var(--radius) / 1.5);
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
-@keyframes vb-glow {
-  0% { opacity: 0; }
-  15%, 85% { opacity: 1; }
-  100% { opacity: 0.35; }
+.your-words {
+  margin: calc(var(--space) / 2) 0;
 }
 
-@keyframes vb-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+.said-sentence {
+  margin: 0 0 calc(var(--space) / 2);
+  font-size: 1.0625rem;
+  line-height: 2;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .vb *,
-  .vb *::before,
-  .vb *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+mark.said {
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: inherit;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+mark.said sup {
+  margin-left: 2px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+mark.said.else {
+  background: var(--ok-bg);
+}
+
+mark.said.else sup {
+  color: var(--ok);
+}
+
+mark.said.risk {
+  background: var(--warn-bg);
+}
+
+mark.said.risk sup {
+  color: var(--warn);
+}
+
+mark.said.left {
+  background: var(--error-bg);
+  text-decoration: underline wavy var(--error);
+  text-underline-offset: 3px;
+}
+
+mark.said.left sup {
+  color: var(--error);
+}
+
+.said-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.said-list li {
+  display: flex;
+  gap: calc(var(--space) / 2);
+  margin-bottom: 6px;
+}
+
+.said-label {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 2px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  color: var(--accent);
+}
+
+.said-label.else {
+  color: var(--ok);
+}
+
+.said-label.risk {
+  color: var(--warn);
+}
+
+.from {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.from.warn {
+  color: var(--warn);
+}
+
+.left-out {
+  margin: calc(var(--space) / 2) 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--error-bg);
+}
+
+.left-out p {
+  margin: 0 0 4px;
+}
+
+.checks.compact {
+  margin: calc(var(--space) / 2) 0;
+}
+
+.checks.compact li {
+  font-size: 0.9375rem;
+}
+
+.chain-proof {
+  margin: calc(var(--space) / 2) 0;
+}
+
+.chain-proof.ok {
+  color: var(--ok);
+}
+
+.chain-proof.bad {
+  color: var(--error);
+}
+
+.chain-proof ol {
+  margin: 4px 0;
+  padding-left: calc(var(--space) * 1.5);
+}
+
+.receipt-checks li {
+  margin-bottom: 6px;
+}
+
+.receipt-list {
+  list-style: none;
+  margin: calc(var(--space) / 2) 0 0;
+  padding: 0;
+}
+
+.receipt-list li {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
 }

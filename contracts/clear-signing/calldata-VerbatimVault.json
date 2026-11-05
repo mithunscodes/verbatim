@@ -1,0 +1,142 @@
+{
+  "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-v2.schema.json",
+  "context": {
+    "$id": "VerbatimVault",
+    "contract": {
+      "factory": {
+        "deployEvent": "VaultCreated(address indexed vault, address indexed everydayKey, address indexed rulesKey)",
+        "deployments": [
+          {
+            "chainId": 11155111,
+            "address": "0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7"
+          }
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "owner": "Verbatim",
+    "contractName": "VerbatimVault",
+    "enums": {
+      "checkKind": {
+        "0": "At most this leaves your vault",
+        "1": "At least this arrives in your vault",
+        "2": "Exactly this goes to"
+      }
+    }
+  },
+  "display": {
+    "formats": {
+      "run((address target,uint256 value,bytes data,uint8 operation)[] actions,(uint8 kind,address token,address to,uint256 amount)[] checks,uint256 deadline)": {
+        "intent": "Run with your checks",
+        "fields": [
+          {
+            "path": "#.checks.[]",
+            "label": "Your checks",
+            "fields": [
+              {
+                "path": "kind",
+                "label": "Check",
+                "format": "enum",
+                "params": {
+                  "$ref": "$.metadata.enums.checkKind"
+                }
+              },
+              {
+                "path": "amount",
+                "label": "Amount",
+                "format": "tokenAmount",
+                "params": {
+                  "tokenPath": "token",
+                  "nativeCurrencyAddress": "0x0000000000000000000000000000000000000000"
+                }
+              },
+              {
+                "path": "to",
+                "label": "To",
+                "format": "addressName",
+                "params": {
+                  "types": [
+                    "eoa",
+                    "wallet",
+                    "contract"
+                  ],
+                  "sources": [
+                    "local",
+                    "ens"
+                  ]
+                },
+                "visible": {
+                  "ifNotIn": [
+                    "0x0000000000000000000000000000000000000000"
+                  ]
+                }
+              },
+              {
+                "path": "token",
+                "label": "Token",
+                "visible": "never"
+              }
+            ]
+          },
+          {
+            "path": "#.actions.[]",
+            "label": "What the app will do",
+            "fields": [
+              {
+                "path": "target",
+                "label": "Calls",
+                "format": "addressName",
+                "params": {
+                  "types": [
+                    "contract",
+                    "token",
+                    "eoa",
+                    "wallet"
+                  ],
+                  "sources": [
+                    "local",
+                    "ens"
+                  ]
+                }
+              },
+              {
+                "path": "value",
+                "label": "Sends",
+                "format": "amount",
+                "visible": {
+                  "ifNotIn": [
+                    0
+                  ]
+                }
+              },
+              {
+                "path": "operation",
+                "label": "Borrowed code",
+                "format": "raw",
+                "visible": {
+                  "mustMatch": [
+                    0
+                  ]
+                }
+              },
+              {
+                "path": "data",
+                "label": "Data",
+                "visible": "never"
+              }
+            ]
+          },
+          {
+            "path": "#.deadline",
+            "label": "Valid until",
+            "format": "date",
+            "params": {
+              "encoding": "timestamp"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
