@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
+import { checkEnsName, getWallet, normalName } from './chain.js'
 import { DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
 import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
@@ -23,6 +24,54 @@ function LimitStep({ title, note, holding, current, onSet, disabled }) {
           Set
         </button>
       </div>
+    </li>
+  )
+}
+
+function EnsNameStep({ vault, disabled, onSet }) {
+  const [text, setText] = useState('')
+  const [check, setCheck] = useState({ name: null, status: 'idle' })
+  const name = text.trim() ? normalName(text) : null
+  useEffect(() => {
+    if (!name) return undefined
+    let current = true
+    setCheck({ name, status: 'reading' })
+    const timer = setTimeout(() => {
+      checkEnsName(getWallet(), vault, name)
+        .then((result) => current && setCheck({ name, status: 'done', ...result }))
+        .catch(() => current && setCheck({ name, status: 'failed' }))
+    }, 400)
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [name, vault])
+  const result = check.name === name ? check : { status: 'reading' }
+  const message = !text.trim() ? null
+    : !name ? "That isn't a valid ENS name"
+    : result.status === 'reading' ? `Reading ${name}…`
+    : result.status === 'failed' ? "Couldn't read this name. Try again."
+    : !result.resolver ? 'This name has no genuine ENS resolver'
+    : !result.canWrite ? "Your vault can't write to this name yet. Set the name up for this vault first (to-do.md, step J2)."
+    : `Your vault will write your rules, pending changes and contacts to ${name}.`
+  const ready = result.status === 'done' && result.canWrite
+  return (
+    <li className="step">
+      <div className="step-head">
+        <span>{vault.ensName ? '✓' : '○'} Your ENS name (recommended, first)</span>
+        <span className="muted small">{vault.ensName ? `Now: ${vault.ensName}` : 'Not set'}</span>
+      </div>
+      <p className="muted small">
+        Your rules then live in ENS, where anyone can check them, and only your vault can change them. Set it before the
+        other steps, so they're written there too.
+      </p>
+      {!vault.ensName && (
+        <div className="row">
+          <input className="address" placeholder="yourname.eth" value={text} onChange={(e) => setText(e.target.value)} />
+          <button className="secondary" disabled={disabled || !ready} onClick={() => onSet(name)}>Set</button>
+        </div>
+      )}
+      {message && !vault.ensName && <p className={ready ? 'muted small' : 'error small'}>{message}</p>}
     </li>
   )
 }
@@ -53,6 +102,9 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
       </p>
       <TxStatus tx={tx} />
       <ol className="steps">
+        {vault.directory && (
+          <EnsNameStep vault={vault} disabled={disabled} onSet={(name) => send(`Your ENS name: ${name}`, target, 'setEnsName', [name])} />
+        )}
         {usdc && (
           <LimitStep
             title={`Daily limit for ${usdc.symbol} (needed)`}

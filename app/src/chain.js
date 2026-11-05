@@ -7,7 +7,22 @@ import {
   getAddress,
   zeroAddress,
 } from 'viem'
-import { chain, FACTORY, factoryAbi, KNOWN_VAULTS, NICKNAMES, priceSourceAbi, SEPOLIA_TIP, vaultAbi } from './config.js'
+import { normalize } from 'viem/ens'
+import {
+  chain,
+  DIRECTORY_NAMES,
+  directoryAbi,
+  ENS_UNIVERSAL_RESOLVER,
+  FACTORY,
+  factoryAbi,
+  KNOWN_VAULTS,
+  NICKNAMES,
+  priceSourceAbi,
+  RESOLVER_SET_TEXT,
+  resolverAbi,
+  SEPOLIA_TIP,
+  vaultAbi,
+} from './config.js'
 
 const MAX_LIST = 50
 
@@ -96,6 +111,70 @@ function isRevert(error) {
   return error instanceof BaseError && Boolean(error.walk((e) => e instanceof ContractFunctionRevertedError))
 }
 
+function optional(promise) {
+  return promise.catch((error) => {
+    if (isRevert(error)) return null
+    throw error
+  })
+}
+
+export function normalName(text) {
+  try {
+    return normalize(text.trim())
+  } catch {
+    return null
+  }
+}
+
+export async function resolveName(wallet, directory, name) {
+  const client = createPublicClient({ chain, transport: custom(wallet) })
+  const found = await client.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [name] })
+  return found === zeroAddress ? null : found
+}
+
+export async function checkEnsName(wallet, vault, name) {
+  const client = createPublicClient({ chain, transport: custom(wallet) })
+  const resolver = await client.readContract({ address: vault.directory, abi: directoryAbi, functionName: 'resolverOf', args: [name] })
+  if (resolver === zeroAddress) return { resolver: null, canWrite: false }
+  const canWrite = await client.readContract({ address: resolver, abi: resolverAbi, functionName: 'hasRootRoles', args: [RESOLVER_SET_TEXT, vault.address] })
+  return { resolver, canWrite }
+}
+
+function primaryName(client, address) {
+  if (!address || address === zeroAddress) return Promise.resolve(null)
+  return client.getEnsName({ address, universalResolverAddress: ENS_UNIVERSAL_RESOLVER }).catch(() => null)
+}
+
+async function directoryNames(client, directory, blockNumber) {
+  if (!directory) return []
+  const found = await Promise.all(DIRECTORY_NAMES.map((name) =>
+    optional(client.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [name], blockNumber }))))
+  return found.map((address, i) => (address && address !== zeroAddress ? [address, DIRECTORY_NAMES[i]] : null)).filter(Boolean)
+}
+
+const RULE_KEYS = ['allowanceValidity', 'newContactPeriod', 'allowanceMinAge', 'looseningWait', 'tradeTolerance', 'priceSource']
+
+function parseChange(text) {
+  try {
+    const change = JSON.parse(text)
+    return { ...change, readyAt: BigInt(change.readyAt), expiresAt: BigInt(change.expiresAt) }
+  } catch {
+    return null
+  }
+}
+
+export async function readEnsRecords(wallet, vault) {
+  if (!vault.ensName) return null
+  const client = createPublicClient({ chain, transport: custom(wallet), batch: { multicall: true } })
+  const text = (key) =>
+    client.getEnsText({ name: vault.ensName, key: `verbatim.${key}`, universalResolverAddress: ENS_UNIVERSAL_RESOLVER }).catch(() => null)
+  const keys = [...vault.holdings.flatMap((h) => [`dailyLimit.${h.symbol}`, `newContactLimit.${h.symbol}`]), ...RULE_KEYS]
+  const [values, count] = await Promise.all([Promise.all(keys.map(text)), text('changeCount')])
+  const total = Math.min(Number(count ?? 0) || 0, 200)
+  const changes = (await Promise.all(Array.from({ length: total }, (_, i) => text(`change.${i}`)))).map(parseChange).filter(Boolean)
+  return { name: vault.ensName, rules: keys.map((key, i) => ({ key, value: values[i] })), changes }
+}
+
 async function readList(read, functionName) {
   const items = []
   while (items.length < MAX_LIST) {
@@ -151,6 +230,8 @@ export async function readVault(wallet, address) {
     looseningWait,
     changeCount,
     setupFinished,
+    directory,
+    ensName,
   ] = await Promise.all([
     read('everydayKey'),
     read('rulesKey'),
@@ -165,6 +246,8 @@ export async function readVault(wallet, address) {
     read('looseningWait'),
     read('changeCount'),
     read('setupFinished'),
+    optional(read('directory')),
+    optional(read('ensName')),
   ])
 
   const withRules = async (holding) => {
@@ -198,17 +281,45 @@ export async function readVault(wallet, address) {
       { token: zeroAddress, symbol: 'ETH', decimals: chain.nativeCurrency.decimals, amount: eth },
       ...tokenHoldings,
     ].map(withRules)),
-    Promise.all(contactAddresses.map(async (address) => ({
-      address,
-      nickname: NICKNAMES[address] ?? null,
-      savedAt: await read('savedAt', [address]),
-    }))),
+    Promise.all(contactAddresses.map(async (address) => {
+      const [savedAt, ensName] = await Promise.all([read('savedAt', [address]), optional(read('nameOf', [address]))])
+      const currentAddress = ensName
+        ? await client.readContract({ address: directory, abi: directoryAbi, functionName: 'addressOf', args: [ensName], blockNumber })
+        : address
+      return {
+        address,
+        ensName: ensName || null,
+        nickname: ensName || NICKNAMES[address] || null,
+        currentAddress,
+        moved: currentAddress !== address,
+        savedAt,
+      }
+    })),
     readFairPrice(client, priceSource, blockNumber),
     Promise.all(Array.from({ length: Number(changeCount) }, (_, i) => readChange(BigInt(i)))),
   ])
 
+  const [found, everydayName, rulesName, priceName] = await Promise.all([
+    directoryNames(client, directory, blockNumber),
+    primaryName(client, everydayKey),
+    primaryName(client, rulesKey),
+    primaryName(client, priceSource),
+  ])
+  const names = {}
+  const name = (account, value) => {
+    if (account && value && !names[account]) names[account] = value
+  }
+  name(address, ensName || null)
+  for (const contact of contacts) name(contact.address, contact.ensName)
+  for (const [account, value] of found) name(account, value)
+  name(everydayKey, everydayName)
+  name(rulesKey, rulesName)
+  name(priceSource, priceName)
+
   return {
     address,
+    ensName: ensName || null,
+    names,
     setupFinished,
     blockNumber,
     timestamp: block.timestamp,
@@ -224,6 +335,7 @@ export async function readVault(wallet, address) {
     allowanceMinAge,
     looseningWait,
     changes,
+    directory,
   }
 }
 
@@ -243,7 +355,12 @@ export async function findVaults(wallet, account) {
   const found = await Promise.all(candidates.map(async (address) => {
     const [everydayKey, rulesKey] = await readKeys(address)
     const role = account === everydayKey ? 'Everyday key' : account === rulesKey ? 'Rules key' : null
-    return role ? { address, everydayKey, rulesKey, role } : null
+    if (!role) return null
+    const [ensName, everydayName] = await Promise.all([
+      optional(client.readContract({ address, abi: vaultAbi, functionName: 'ensName' })),
+      primaryName(client, everydayKey),
+    ])
+    return { address, everydayKey, rulesKey, role, ensName: ensName || null, everydayName }
   }))
   return found.filter(Boolean)
 }

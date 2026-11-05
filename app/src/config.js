@@ -11,6 +11,16 @@ export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 
 export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 
+export const ENS_UNIVERSAL_RESOLVER = '0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe'
+
+export const DIRECTORY_NAMES = [
+  'router.uniswap.verbatimdirectory.eth',
+  'permit2.uniswap.verbatimdirectory.eth',
+  'usdc.circle.verbatimdirectory.eth',
+]
+
+export const RESOLVER_SET_TEXT = 16n
+
 export const UNIVERSAL_ROUTER = '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b'
 
 export const WETH = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
@@ -20,6 +30,12 @@ export const BAD_ROUTE_POOL_FEE = 100
 export const FAIR_POOL_FEE = 500
 
 export const DEMO_STRANGER = '0x000000000000000000000000000000000000dEaD'
+
+export const SMALL_EXTRA_BPS = 100n
+
+export const DEMO_FEE_BPS = 25n
+
+export const DEMO_TIP = '0.1'
 
 export const DEMO_TIMINGS = {
   looseningWait: 120n,
@@ -76,6 +92,11 @@ export const vaultAbi = parseAbi([
   'function changes(uint256) view returns (uint8 kind, address contact, address token, uint256 value, uint256 valueBefore, uint256 readyAt, uint256 expiresAt, bool cancelled, bool done)',
   'function allowances(address) view returns (address token, uint256 amount, uint256 activeFrom, uint256 expiresAt, bool used)',
   'function saveContact(address contact)',
+  'function saveContactName(string name)',
+  'function nameOf(address contact) view returns (string)',
+  'function directory() view returns (address)',
+  'function ensName() view returns (string)',
+  'function setEnsName(string name)',
   'function propose(uint8 kind, address contact, address token, uint256 value) returns (uint256 id)',
   'function approve(uint256 id)',
   'function cancel(uint256 id)',
@@ -84,6 +105,15 @@ export const vaultAbi = parseAbi([
   'struct Check { uint8 kind; address token; address to; uint256 amount; }',
   'function run(Action[] actions, Check[] checks, uint256 deadline)',
   'error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual)',
+])
+
+export const directoryAbi = parseAbi([
+  'function addressOf(string name) view returns (address)',
+  'function resolverOf(string name) view returns (address)',
+])
+
+export const resolverAbi = parseAbi([
+  'function hasRootRoles(uint256 roleBitmap, address account) view returns (bool)',
 ])
 
 export const permit2Abi = parseAbi([

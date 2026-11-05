@@ -7,10 +7,10 @@ import Request from './Request.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
 
-function AddressLink({ address }) {
+function AddressLink({ address, name }) {
   return (
-    <a className="mono" href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer">
-      {shortAddress(address)}
+    <a className={name ? undefined : 'mono'} href={`${EXPLORER}/address/${address}`} target="_blank" rel="noreferrer" title={address}>
+      {name ?? shortAddress(address)}
     </a>
   )
 }
@@ -48,12 +48,12 @@ function Balances({ vault, loading, onRefresh }) {
       )}
       {vault && (
         <p className="muted small">
-          Vault <AddressLink address={vault.address} /> · read at block {vault.blockNumber.toLocaleString('en-US')}
+          Vault <AddressLink address={vault.address} name={vault.ensName} /> · read at block {vault.blockNumber.toLocaleString('en-US')}
         </p>
       )}
       {vault && vault.holdings.every((h) => h.amount === 0n) && (
         <p className="muted small">
-          To add money, send test USDC to this address: <span className="mono full">{vault.address}</span>
+          To add money, send test USDC to {vault.ensName ? <strong>{vault.ensName}</strong> : 'this address'}: <span className="mono full">{vault.address}</span>
         </p>
       )}
       {vault && !vault.setupFinished && (
@@ -70,7 +70,7 @@ function VaultPicker({ vaults, selected, onChoose }) {
       <select value={selected} onChange={(e) => onChoose(e.target.value)}>
         {vaults.map((v) => (
           <option key={v.address} value={v.address}>
-            {shortAddress(v.address)} · you're its {v.role} · Everyday key {shortAddress(v.everydayKey)}
+            {v.ensName ?? shortAddress(v.address)} · you're its {v.role} · Everyday key {v.everydayName ?? shortAddress(v.everydayKey)}
           </option>
         ))}
       </select>
@@ -112,7 +112,7 @@ export default function App() {
         </div>
         {v.account && (
           <div className="who">
-            <AddressLink address={v.account} />
+            <AddressLink address={v.account} name={v.vault?.names?.[v.account]} />
             {v.role && <span className="role">{v.role}</span>}
           </div>
         )}
