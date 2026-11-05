@@ -1,11 +1,13 @@
 import Attack from './Attack.jsx'
 import { EXPLORER } from './config.js'
 import CreateVault from './CreateVault.jsx'
+import Evidence from './Evidence.jsx'
 import { formatAmount, shortAddress } from './format.js'
+import { Rolling, Words } from './Motion.jsx'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
 import Request from './Request.jsx'
-import { ReceiptPage } from './Receipt.jsx'
+import { ReceiptPage, RecentReceipts } from './Receipt.jsx'
 import Replays from './Replays.jsx'
 import SideBySide from './SideBySide.jsx'
 import { useHashPage } from './hooks.js'
@@ -24,17 +26,21 @@ function Notice({ title, children, action, onAction }) {
     <section className="card notice">
       <h2>{title}</h2>
       <p>{children}</p>
-      {action && <button onClick={onAction}>{action}</button>}
+      {action && (
+        <div className="actions">
+          <button className="big" onClick={onAction}>{action}</button>
+        </div>
+      )}
     </section>
   )
 }
 
 function Balances({ vault, loading, onRefresh }) {
   return (
-    <section className="card">
+    <section className="card vault-card">
       <div className="card-head">
-        <h2>Your vault holds</h2>
-        <button className="secondary" onClick={() => onRefresh()} disabled={loading}>
+        <span className="eyebrow">Your vault holds</span>
+        <button className="secondary compact" onClick={() => onRefresh()} disabled={loading}>
           {loading ? 'Reading…' : 'Refresh'}
         </button>
       </div>
@@ -42,7 +48,7 @@ function Balances({ vault, loading, onRefresh }) {
         <ul className="balances">
           {vault.holdings.map((holding) => (
             <li key={holding.token}>
-              <span className="amount">{formatAmount(holding.amount, holding.decimals)}</span>
+              <span className="amount"><Rolling value={formatAmount(holding.amount, holding.decimals)} /></span>
               <span className="symbol">{holding.symbol}</span>
             </li>
           ))}
@@ -61,7 +67,7 @@ function Balances({ vault, loading, onRefresh }) {
         </p>
       )}
       {vault && !vault.setupFinished && (
-        <p className="error small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
+        <p className="panel warn small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
       )}
     </section>
   )
@@ -69,8 +75,8 @@ function Balances({ vault, loading, onRefresh }) {
 
 function VaultPicker({ vaults, selected, onChoose }) {
   return (
-    <label className="picker">
-      <span className="muted small">Vault</span>
+    <label className="picker card">
+      <span className="eyebrow">Vault</span>
       <select value={selected} onChange={(e) => onChoose(e.target.value)}>
         {vaults.map((v) => (
           <option key={v.address} value={v.address}>
@@ -93,18 +99,56 @@ function SmartAccountAlert({ delegate }) {
         <li>Open <strong>Smart account</strong> and switch it off for Sepolia (MetaMask may call this <strong>Switch back</strong>), then confirm.</li>
         <li>Come back here and click <strong>Refresh</strong>.</li>
       </ol>
-      <p className="small">Next time, untick "secure" before you confirm in MetaMask.</p>
+      <p className="small">Next time, leave MetaMask's "Added protection" switch off before you confirm.</p>
       {delegate && <p className="muted small">The key now runs code from <AddressLink address={delegate} />.</p>}
+    </section>
+  )
+}
+
+function Hero() {
+  return (
+    <section className="hero">
+      <h1><Words text="Say what you want." step={90} /></h1>
+      <p><Words text="That's the only thing your money can do." delay={450} step={60} /></p>
     </section>
   )
 }
 
 export default function App() {
   const page = useHashPage()
-  if (page.startsWith('attack:')) return <Attack link={page.slice('attack:'.length)} />
-  if (page.startsWith('side:')) return <SideBySide link={page.slice('side:'.length)} />
-  if (page === 'replays') return <Replays />
-  return <WalletApp page={page} />
+  if (page.startsWith('attack:')) {
+    return (
+      <div className="console-theme">
+        <Attack link={page.slice('attack:'.length)} />
+      </div>
+    )
+  }
+  if (page.startsWith('side:')) {
+    return (
+      <div className="vb">
+        <SideBySide link={page.slice('side:'.length)} />
+      </div>
+    )
+  }
+  if (page.startsWith('proof:')) {
+    return (
+      <div className="vb">
+        <Evidence key={page} hash={page.slice('proof:'.length)} />
+      </div>
+    )
+  }
+  if (page === 'replays') {
+    return (
+      <div className="vb">
+        <Replays />
+      </div>
+    )
+  }
+  return (
+    <div className="vb">
+      <WalletApp page={page} />
+    </div>
+  )
 }
 
 function WalletApp({ page }) {
@@ -115,21 +159,24 @@ function WalletApp({ page }) {
   return (
     <main className="page">
       <header className="top">
-        <div>
-          <h1>Verbatim</h1>
+        <div className="top-left">
+          <a className="brand" href="#">Verbatim</a>
           <nav className="nav">
-            <a href="#" className={page === 'app' ? 'active' : undefined}>App</a>
-            <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone page</a>
+            <a href="#" className={page === 'app' ? 'active' : undefined}>Pay</a>
+            <a href="#phone" className={page === 'phone' ? 'active' : undefined}>Phone</a>
             <a href="#replays">Replays</a>
           </nav>
         </div>
         {v.account && (
           <div className="who">
+            <span className="dot" />
             <AddressLink address={v.account} name={v.vault?.names?.[v.account]} />
             {v.role && <span className="role">{v.role}</span>}
           </div>
         )}
       </header>
+
+      {page === 'app' && <Hero />}
 
       {!v.hasWallet && (
         <Notice title="MetaMask not found">
@@ -159,24 +206,32 @@ function WalletApp({ page }) {
         <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} />
       )}
 
-      {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} />}
+      {receiptRoot && <ReceiptPage key={receiptRoot} root={receiptRoot} account={v.account} vault={v.vault} />}
+      {receiptRoot && v.account && <RecentReceipts account={v.account} current={receiptRoot} />}
 
-      {!receiptRoot && v.account && v.onSepolia && v.vaults?.length !== 0 && (
+      {!receiptRoot && page !== 'phone' && v.account && v.onSepolia && v.vaults?.length !== 0 && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
       {ready && page === 'app' && (
-        <div key={v.vault.address}>
+        <div key={v.vault.address} className="page-flow">
           <Request vault={v.vault} role={v.role} blocked={v.smart} onDone={v.refresh} />
           <Propose vault={v.vault} role={v.role} account={v.account} blocked={v.smart} onDone={v.refresh} />
+          <RecentReceipts account={v.account} />
         </div>
       )}
 
       {ready && page === 'phone' && (
-        <Phone key={v.vault.address} vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
+        <div className="phone-page">
+          <Phone key={v.vault.address} vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
+        </div>
       )}
 
-      {v.error && <p className="error">{v.error}</p>}
+      {page === 'phone' && v.account && v.onSepolia && v.vaults?.length !== 0 && (
+        <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
+      )}
+
+      {v.error && <p className="panel warn">{v.error}</p>}
     </main>
   )
 }
