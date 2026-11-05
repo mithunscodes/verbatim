@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 
 contract VerbatimVaultTest is Test {
@@ -48,8 +49,8 @@ contract VerbatimVaultTest is Test {
         tokens[0] = address(usdc);
     }
 
-    function noContracts() internal pure returns (address[] memory) {
-        return new address[](0);
+    function noContracts() internal returns (address) {
+        return address(new TestDirectory(new address[](0)));
     }
 
     function test_KnowsItsKeys() public view {
@@ -58,10 +59,16 @@ contract VerbatimVaultTest is Test {
     }
 
     function test_RevertWhen_KeysEmptyOrSame() public {
+        address directory = noContracts();
         vm.expectRevert("Keys can't be empty");
-        new VerbatimVault(address(0), rulesKey, watched(), noContracts());
+        new VerbatimVault(address(0), rulesKey, watched(), directory);
         vm.expectRevert("The two keys must be different");
-        new VerbatimVault(everydayKey, everydayKey, watched(), noContracts());
+        new VerbatimVault(everydayKey, everydayKey, watched(), directory);
+    }
+
+    function test_RevertWhen_DirectoryEmpty() public {
+        vm.expectRevert("The directory can't be empty");
+        new VerbatimVault(everydayKey, rulesKey, watched(), address(0));
     }
 
     function test_DepositEth() public {

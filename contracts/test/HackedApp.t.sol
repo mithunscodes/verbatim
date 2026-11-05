@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
+import {TestPriceSource} from "./TestPriceSource.sol";
 
 contract HackedAppTest is Test {
     address constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
@@ -15,6 +17,7 @@ contract HackedAppTest is Test {
     TestToken usdc;
     TestToken dai;
     TestRouter router;
+    TestPriceSource prices;
     address everydayKey = makeAddr("everydayKey");
     address rulesKey = makeAddr("rulesKey");
     address mom = makeAddr("mom");
@@ -31,17 +34,21 @@ contract HackedAppTest is Test {
         watched[1] = address(dai);
         address[] memory trusted = new address[](1);
         trusted[0] = address(router);
-        vault = new VerbatimVault(everydayKey, rulesKey, watched, trusted);
+        vault = new VerbatimVault(everydayKey, rulesKey, watched, address(new TestDirectory(trusted)));
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
+        prices = new TestPriceSource();
+        prices.setPrice(address(usdc), 1e6, 1e6);
+        prices.setPrice(address(0), 1 ether, 50_000e6);
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.saveContact(thief);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(address(dai), 100e18);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);

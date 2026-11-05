@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestMultisig} from "./TestMultisig.sol";
 import {LeakyVault} from "./LeakyVault.sol";
@@ -20,13 +21,13 @@ contract SlowLooseningTest is Test {
 
     event SetupFinished();
     event ChangeProposed(uint256 indexed id, VerbatimVault.ChangeKind kind, address contact, address token, uint256 value);
-    event ChangeApproved(uint256 indexed id, uint256 readyAt);
+    event ChangeApproved(uint256 indexed id, uint256 readyAt, uint256 expiresAt);
     event ChangeCancelled(uint256 indexed id);
     event ChangeSwitchedOn(uint256 indexed id);
 
     function setUp() public {
         usdc = new TestToken();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
         usdc.mint(address(vault), 2 * MILLION);
         vm.startPrank(rulesKey);
         vault.saveContact(warmWallet);
@@ -84,7 +85,7 @@ contract SlowLooseningTest is Test {
     }
 
     function readyAtOf(VerbatimVault target, uint256 id) internal view returns (uint256 readyAt) {
-        (,,,,, readyAt,,) = target.changes(id);
+        (,,,,, readyAt,,,) = target.changes(id);
     }
 
     function test_MillionAllowance_OneSendBetween24And72HoursAfterApproval() public {
@@ -149,7 +150,7 @@ contract SlowLooseningTest is Test {
         assertEq(id, 0);
         assertEq(vault.changeCount(), 1);
         vm.expectEmit(address(vault));
-        emit ChangeApproved(id, block.timestamp + 24 hours);
+        emit ChangeApproved(id, block.timestamp + 24 hours, block.timestamp + 72 hours);
         approve(id);
         assertEq(readyAtOf(vault, id), block.timestamp + 24 hours);
     }
@@ -244,6 +245,46 @@ contract SlowLooseningTest is Test {
         vm.prank(rulesKey);
         vm.expectRevert("Already switched on");
         vault.cancel(id);
+    }
+
+    function test_AnApprovedChangeMustBeSwitchedOnWithin48Hours() public {
+        uint256 id = proposeLimit(50_000e6);
+        uint256 approvedAt = block.timestamp;
+        approve(id);
+        vm.warp(approvedAt + 24 hours + 48 hours + 1);
+        vm.expectRevert("Change expired");
+        vault.switchOn(id);
+        assertEq(vault.dailyLimit(address(usdc)), 10_000e6);
+    }
+
+    function test_AnApprovedChangeWorksUntilItExpires() public {
+        uint256 id = proposeLimit(50_000e6);
+        uint256 approvedAt = block.timestamp;
+        approve(id);
+        vm.warp(approvedAt + 72 hours);
+        vault.switchOn(id);
+        assertEq(vault.dailyLimit(address(usdc)), 50_000e6);
+    }
+
+    function test_AForgottenApprovalCantBeUsedMonthsLater() public {
+        uint256 id = proposeLimit(2 * MILLION);
+        approve(id);
+        vm.warp(block.timestamp + 180 days);
+        vm.prank(everydayKey);
+        vm.expectRevert("Change expired");
+        vault.switchOn(id);
+        assertEq(vault.dailyLimit(address(usdc)), 10_000e6);
+    }
+
+    function test_ChangingTheSettingDoesntMoveAPendingDeadline() public {
+        uint256 id = proposeLimit(50_000e6);
+        uint256 approvedAt = block.timestamp;
+        approve(id);
+        vm.prank(rulesKey);
+        vault.setAllowanceValidity(1 hours);
+        vm.warp(approvedAt + 72 hours);
+        vault.switchOn(id);
+        assertEq(vault.dailyLimit(address(usdc)), 50_000e6);
     }
 
     function test_EverydayKeyAloneCantLoosenAnything() public {
@@ -386,7 +427,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_NothingMovesBeforeSetupIsFinished() public {
-        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
+        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
         usdc.mint(address(fresh), 100e6);
         vm.startPrank(rulesKey);
         fresh.setNewContactPeriod(0);
@@ -422,7 +463,7 @@ contract SlowLooseningTest is Test {
         address firstManager = makeAddr("firstManager");
         address secondManager = makeAddr("secondManager");
         TestMultisig managers = new TestMultisig(firstManager, secondManager);
-        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), new address[](0));
+        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), address(new TestDirectory(new address[](0))));
         bytes memory finish = abi.encodeCall(VerbatimVault.finishSetup, ());
         vm.prank(firstManager);
         managers.submit(address(team), finish);

@@ -3,14 +3,17 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestSwap} from "./TestSwap.sol";
+import {TestPriceSource} from "./TestPriceSource.sol";
 import {ReentryKey} from "./ReentryKey.sol";
 
 contract ChecksTest is Test {
     VerbatimVault vault;
     TestToken usdc;
     TestSwap swap;
+    TestPriceSource prices;
     address everydayKey = makeAddr("everydayKey");
     address rulesKey = makeAddr("rulesKey");
     address mom = makeAddr("mom");
@@ -23,16 +26,19 @@ contract ChecksTest is Test {
     function setUp() public {
         usdc = new TestToken();
         swap = new TestSwap();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(swap)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(swap)))));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(swap), 10 ether);
+        prices = new TestPriceSource();
+        prices.setPrice(address(usdc), 1e6, 1e6);
+        prices.setPrice(ETH, 1 ether, 3334e6);
         vm.startPrank(rulesKey);
-        vault.saveContact(address(swap));
         vault.saveContact(mom);
         vault.saveContact(thief);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
@@ -49,12 +55,12 @@ contract ChecksTest is Test {
     }
 
     function swapPays(uint256 ethOut) internal view returns (VerbatimVault.Action memory) {
-        return VerbatimVault.Action(address(swap), 0, abi.encodeCall(TestSwap.pay, (ethOut)), 0);
+        return VerbatimVault.Action(address(swap), 0, abi.encodeCall(TestSwap.swap, (address(usdc), 10e6, ethOut)), 0);
     }
 
     function heroActions(uint256 ethOut, address recipient, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {
         actions = new VerbatimVault.Action[](3);
-        actions[0] = sendUsdc(address(swap), 10e6);
+        actions[0] = VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.approve, (address(swap), 10e6)), 0);
         actions[1] = swapPays(ethOut);
         actions[2] = sendUsdc(recipient, amount);
     }
@@ -153,7 +159,7 @@ contract ChecksTest is Test {
 
     function test_ReentryIsBlocked() public {
         ReentryKey key = new ReentryKey();
-        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), list(address(key)));
+        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), address(new TestDirectory(list(address(key)))));
         key.setVault(keyVault);
         vm.prank(rulesKey);
         keyVault.finishSetup();

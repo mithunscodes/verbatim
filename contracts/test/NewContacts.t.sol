@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
+import {TestPriceSource} from "./TestPriceSource.sol";
 import {LeakyVault} from "./LeakyVault.sol";
 
 contract NewContactsTest is Test {
@@ -14,6 +16,7 @@ contract NewContactsTest is Test {
     VerbatimVault vault;
     TestToken usdc;
     TestRouter router;
+    TestPriceSource prices;
     address everydayKey = makeAddr("everydayKey");
     address rulesKey = makeAddr("rulesKey");
     address mom = makeAddr("mom");
@@ -28,16 +31,20 @@ contract NewContactsTest is Test {
         vm.etch(PERMIT2, vm.parseJsonBytes(vm.readFile("test/fixtures/permit2-sepolia.json"), ".code"));
         usdc = new TestToken();
         router = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 2000e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
+        prices = new TestPriceSource();
+        prices.setPrice(address(usdc), 1e6, 1e6);
+        prices.setPrice(address(0), 1 ether, 50_000e6);
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.setDailyLimit(address(usdc), 1000e6);
         vault.setDailyLimit(ETH, 1 ether);
         vault.setNewContactLimit(address(usdc), 50e6);
         vault.setNewContactLimit(ETH, 0.02 ether);
+        vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 30 days);
@@ -156,8 +163,9 @@ contract NewContactsTest is Test {
         vm.expectRevert("Over the new-contact limit");
         vault.run(swapTo(vendor, 5e6, 0.03 ether), atMost(address(usdc), 5e6), block.timestamp);
         vm.prank(everydayKey);
+        vm.expectRevert("Unfair trade");
         vault.run(swapTo(vendor, 5e6, 0.02 ether), atMost(address(usdc), 5e6), block.timestamp);
-        assertEq(vendor.balance, 0.02 ether);
+        assertEq(vendor.balance, 0);
     }
 
     function test_EthToANewContactHasItsOwnLimit() public {
@@ -171,7 +179,7 @@ contract NewContactsTest is Test {
     }
 
     function test_NoNewContactLimitSetMeansNothingForNewContacts() public {
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         vm.startPrank(rulesKey);
         vault.setDailyLimit(address(usdc), 100e6);
@@ -241,7 +249,7 @@ contract NewContactsTest is Test {
     }
 
     function test_NewContactRulesAreSettings() public {
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 2000e6);
         vm.startPrank(everydayKey);
         vm.expectRevert("Only the rules key can change settings");

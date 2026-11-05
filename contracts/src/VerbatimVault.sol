@@ -13,6 +13,15 @@ interface IPermit2 {
     function allowance(address user, address token, address spender) external view returns (uint160 amount, uint48 expiration, uint48 nonce);
 }
 
+interface IPriceSource {
+    function valueOf(address token, uint256 amount) external view returns (uint256);
+}
+
+interface IEnsDirectory {
+    function listed() external view returns (address[] memory);
+    function isListed(address account) external view returns (bool);
+}
+
 contract VerbatimVault {
     enum CheckKind {
         AtMostLeaves,
@@ -27,7 +36,9 @@ contract VerbatimVault {
         AllowanceValidity,
         NewContactPeriod,
         AllowanceMinAge,
-        LooseningWait
+        LooseningWait,
+        TradeTolerance,
+        PriceSource
     }
 
     struct Action {
@@ -58,6 +69,11 @@ contract VerbatimVault {
         bool used;
     }
 
+    struct KnownContracts {
+        bool read;
+        address[] list;
+    }
+
     struct Change {
         ChangeKind kind;
         address contact;
@@ -65,6 +81,7 @@ contract VerbatimVault {
         uint256 value;
         uint256 valueBefore;
         uint256 readyAt;
+        uint256 expiresAt;
         bool cancelled;
         bool done;
     }
@@ -74,7 +91,7 @@ contract VerbatimVault {
     address public everydayKey;
     address public rulesKey;
     address[] public watchedTokens;
-    address[] public trustedContracts;
+    address public directory;
     address[] public contacts;
     uint256[] dailyLimits;
     uint256[] spentToday;
@@ -84,6 +101,8 @@ contract VerbatimVault {
     uint256 public newContactPeriod = 24 hours;
     uint256 public allowanceMinAge = 7 days;
     uint256 public looseningWait = 24 hours;
+    uint256 public tradeTolerance = 300;
+    address public priceSource;
     bool public setupFinished;
     mapping(address => Allowance) public allowances;
     mapping(address => uint256) public savedAt;
@@ -101,21 +120,24 @@ contract VerbatimVault {
     event NewContactPeriodSet(uint256 duration);
     event AllowanceMinAgeSet(uint256 duration);
     event LooseningWaitSet(uint256 duration);
+    event TradeToleranceSet(uint256 basisPoints);
+    event PriceSourceSet(address source);
     event SetupFinished();
     event ChangeProposed(uint256 indexed id, ChangeKind kind, address contact, address token, uint256 value);
-    event ChangeApproved(uint256 indexed id, uint256 readyAt);
+    event ChangeApproved(uint256 indexed id, uint256 readyAt, uint256 expiresAt);
     event ChangeCancelled(uint256 indexed id);
     event ChangeSwitchedOn(uint256 indexed id);
 
     error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual);
 
-    constructor(address everydayKey_, address rulesKey_, address[] memory watchedTokens_, address[] memory trustedContracts_) {
+    constructor(address everydayKey_, address rulesKey_, address[] memory watchedTokens_, address directory_) {
         require(everydayKey_ != address(0) && rulesKey_ != address(0), "Keys can't be empty");
         require(everydayKey_ != rulesKey_, "The two keys must be different");
+        require(directory_ != address(0), "The directory can't be empty");
         everydayKey = everydayKey_;
         rulesKey = rulesKey_;
         watchedTokens = watchedTokens_;
-        trustedContracts = trustedContracts_;
+        directory = directory_;
         dailyLimits = new uint256[](watchedTokens_.length + 1);
         spentToday = new uint256[](watchedTokens_.length + 1);
         dayStarted = new uint256[](watchedTokens_.length + 1);
@@ -132,6 +154,10 @@ contract VerbatimVault {
         require(msg.sender == rulesKey, "Only the rules key can save contacts");
         require(contact != address(0), "A contact can't be empty");
         require(!contains(contacts, contact), "Already a saved contact");
+        require(
+            contact != PERMIT2 && !IEnsDirectory(directory).isListed(contact) && !contains(watchedTokens, contact),
+            "A token or trusted contract can't be a contact"
+        );
         contacts.push(contact);
         savedAt[contact] = block.timestamp;
         emit ContactSaved(contact);
@@ -167,6 +193,16 @@ contract VerbatimVault {
         changeRule(ChangeKind.LooseningWait, address(0), duration);
     }
 
+    function setTradeTolerance(uint256 basisPoints) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        changeRule(ChangeKind.TradeTolerance, address(0), basisPoints);
+    }
+
+    function setPriceSource(address source) external {
+        require(msg.sender == rulesKey, "Only the rules key can change settings");
+        changeRule(ChangeKind.PriceSource, address(0), uint256(uint160(source)));
+    }
+
     function finishSetup() external {
         require(msg.sender == rulesKey, "Only the rules key can finish setup");
         require(!setupFinished, "Setup already finished");
@@ -184,7 +220,7 @@ contract VerbatimVault {
             require(value > 0, "An allowance can't be empty");
         }
         id = changes.length;
-        changes.push(Change(kind, contact, token, value, 0, 0, false, false));
+        changes.push(Change(kind, contact, token, value, 0, 0, 0, false, false));
         emit ChangeProposed(id, kind, contact, token, value);
     }
 
@@ -194,16 +230,17 @@ contract VerbatimVault {
         require(!change.cancelled, "Change cancelled");
         require(change.readyAt == 0, "Already approved");
         uint256 readyAt = block.timestamp + looseningWait;
+        uint256 expiresAt = readyAt + allowanceValidity;
         change.readyAt = readyAt;
+        change.expiresAt = expiresAt;
         if (change.kind == ChangeKind.Allowance) {
             require(oldEnough(change.contact), "Contact too new for big payments");
-            uint256 expiresAt = readyAt + allowanceValidity;
             allowances[change.contact] = Allowance(change.token, change.value, readyAt, expiresAt, false);
             emit AllowanceCreated(change.contact, change.token, change.value, readyAt, expiresAt);
         } else {
             change.valueBefore = currentValue(change.kind, change.token);
         }
-        emit ChangeApproved(id, readyAt);
+        emit ChangeApproved(id, readyAt, expiresAt);
     }
 
     function cancel(uint256 id) external {
@@ -227,6 +264,7 @@ contract VerbatimVault {
         require(change.readyAt != 0, "Not approved yet");
         require(!change.done, "Already switched on");
         require(block.timestamp >= change.readyAt, "Still waiting");
+        require(block.timestamp <= change.expiresAt, "Change expired");
         require(currentValue(change.kind, change.token) == change.valueBefore, "This rule changed during the wait");
         change.done = true;
         writeValue(change.kind, change.token, change.value);
@@ -278,7 +316,7 @@ contract VerbatimVault {
         require(!running, "Already running");
         running = true;
         bytes32 accountBefore = fingerprint();
-        Permission[] memory permissions = inspect(actions);
+        (Permission[] memory permissions, uint256[] memory paid) = inspect(actions);
         uint256[] memory balancesBefore = measure(checks);
         uint256[] memory holdingsBefore = holdingsOf(address(this));
         address[] memory fresh = newContacts();
@@ -290,44 +328,64 @@ contract VerbatimVault {
         requireNothingElseLeft(checks, holdingsBefore, holdingsAfter);
         countTowardDailyLimits(holdingsBefore, holdingsAfter);
         countTowardNewContactLimits(fresh, freshBefore);
+        requireFairTrade(holdingsBefore, holdingsAfter, paid);
         require(fingerprint() == accountBefore, "Your account would change");
         running = false;
         emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(checks)), actions.length, deadline);
     }
 
-    function inspect(Action[] calldata actions) private view returns (Permission[] memory permissions) {
+    function inspect(Action[] calldata actions) private view returns (Permission[] memory permissions, uint256[] memory paid) {
         permissions = new Permission[](actions.length);
+        paid = new uint256[](watchedTokens.length + 1);
+        KnownContracts memory known;
         for (uint256 i = 0; i < actions.length; i++) {
-            permissions[i] = inspectOne(actions[i]);
+            permissions[i] = inspectOne(actions[i], paid, known);
         }
     }
 
-    function inspectOne(Action calldata action) private view returns (Permission memory none) {
+    function inspectOne(Action calldata action, uint256[] memory paid, KnownContracts memory known)
+        private
+        view
+        returns (Permission memory none)
+    {
         require(action.operation == 0, "Borrowed code would run in your account");
         if (action.data.length == 0) {
             require(contains(contacts, action.target), "Not a saved contact");
+            paid[0] += action.value;
             return none;
         }
         if (contains(watchedTokens, action.target)) {
             require(action.data.length >= 4, "This kind of action isn't allowed");
             bytes4 selector = bytes4(action.data[:4]);
             if (selector == IERC20.transfer.selector) {
-                (address to,) = abi.decode(action.data[4:], (address, uint256));
+                (address to, uint256 amount) = abi.decode(action.data[4:], (address, uint256));
                 require(contains(contacts, to), "Not a saved contact");
+                paid[indexOf(action.target)] += amount;
                 return none;
             }
             require(selector == IERC20.approve.selector, "This kind of action isn't allowed");
             (address spender,) = abi.decode(action.data[4:], (address, uint256));
-            require(spender == PERMIT2 || contains(trustedContracts, spender), "Permission for an untrusted contract");
+            require(spender == PERMIT2 || isKnown(known, spender), "Permission for an untrusted contract");
             return Permission(action.target, spender, false);
         }
         if (action.target == PERMIT2) {
             require(action.data.length >= 4 && bytes4(action.data[:4]) == IPermit2.approve.selector, "This kind of action isn't allowed");
             (address token, address spender,,) = abi.decode(action.data[4:], (address, address, uint160, uint48));
-            require(contains(trustedContracts, spender), "Permission for an untrusted contract");
+            require(isKnown(known, spender), "Permission for an untrusted contract");
             return Permission(token, spender, true);
         }
-        require(contains(trustedContracts, action.target), "Not a trusted contract");
+        require(isKnown(known, action.target), "Not a trusted contract");
+    }
+
+    function isKnown(KnownContracts memory known, address account) private view returns (bool) {
+        if (!known.read) {
+            known.list = IEnsDirectory(directory).listed();
+            known.read = true;
+        }
+        for (uint256 i = 0; i < known.list.length; i++) {
+            if (known.list[i] == account) return true;
+        }
+        return false;
     }
 
     function execute(Action[] calldata actions) private {
@@ -449,6 +507,30 @@ contract VerbatimVault {
         }
     }
 
+    function requireFairTrade(uint256[] memory holdingsBefore, uint256[] memory holdingsAfter, uint256[] memory paid)
+        private
+        view
+    {
+        bool tradedAway = false;
+        for (uint256 i = 0; i < holdingsAfter.length; i++) {
+            if (holdingsAfter[i] + paid[i] < holdingsBefore[i]) tradedAway = true;
+        }
+        if (!tradedAway) return;
+        require(priceSource != address(0), "No fair price available");
+        uint256 valueOut = 0;
+        uint256 valueIn = 0;
+        for (uint256 i = 0; i < holdingsAfter.length; i++) {
+            uint256 kept = holdingsAfter[i] + paid[i];
+            address token = i == 0 ? address(0) : watchedTokens[i - 1];
+            if (kept < holdingsBefore[i]) {
+                valueOut += IPriceSource(priceSource).valueOf(token, holdingsBefore[i] - kept);
+            } else if (kept > holdingsBefore[i]) {
+                valueIn += IPriceSource(priceSource).valueOf(token, kept - holdingsBefore[i]);
+            }
+        }
+        require(valueIn * 10_000 >= valueOut * (10_000 - tradeTolerance), "Unfair trade");
+    }
+
     function dayOver(uint256 i) private view returns (bool) {
         return dayStarted[i] == 0 || block.timestamp >= dayStarted[i] + 1 days;
     }
@@ -472,6 +554,7 @@ contract VerbatimVault {
     }
 
     function loosens(ChangeKind kind, uint256 current, uint256 next) private pure returns (bool) {
+        if (kind == ChangeKind.PriceSource) return next != current;
         if (kind == ChangeKind.NewContactPeriod || kind == ChangeKind.AllowanceMinAge || kind == ChangeKind.LooseningWait) {
             return next < current;
         }
@@ -485,6 +568,8 @@ contract VerbatimVault {
         if (kind == ChangeKind.NewContactPeriod) return newContactPeriod;
         if (kind == ChangeKind.AllowanceMinAge) return allowanceMinAge;
         if (kind == ChangeKind.LooseningWait) return looseningWait;
+        if (kind == ChangeKind.TradeTolerance) return tradeTolerance;
+        if (kind == ChangeKind.PriceSource) return uint256(uint160(priceSource));
         revert("Not a rule");
     }
 
@@ -507,6 +592,14 @@ contract VerbatimVault {
         } else if (kind == ChangeKind.LooseningWait) {
             looseningWait = value;
             emit LooseningWaitSet(value);
+        } else if (kind == ChangeKind.TradeTolerance) {
+            require(value <= 10_000, "Tolerance can't be over 100%");
+            tradeTolerance = value;
+            emit TradeToleranceSet(value);
+        } else if (kind == ChangeKind.PriceSource) {
+            require(value <= type(uint160).max, "Not an address");
+            priceSource = address(uint160(value));
+            emit PriceSourceSet(priceSource);
         } else {
             revert("Not a rule");
         }
@@ -521,7 +614,6 @@ contract VerbatimVault {
 
     function fingerprint() private view returns (bytes32) {
         address[] memory watched = watchedTokens;
-        address[] memory trusted = trustedContracts;
         address[] memory saved = contacts;
         uint256[] memory limits = dailyLimits;
         uint256[] memory newLimits = newContactLimits;
@@ -532,9 +624,19 @@ contract VerbatimVault {
             ages[i] = savedAt[saved[i]];
         }
         bytes32 settings = keccak256(
-            abi.encode(limits, newLimits, allowanceValidity, newContactPeriod, allowanceMinAge, looseningWait, setupFinished)
+            abi.encode(
+                limits,
+                newLimits,
+                allowanceValidity,
+                newContactPeriod,
+                allowanceMinAge,
+                looseningWait,
+                setupFinished,
+                tradeTolerance,
+                priceSource
+            )
         );
-        return keccak256(abi.encode(everydayKey, rulesKey, watched, trusted, saved, given, ages, settings, address(this).codehash));
+        return keccak256(abi.encode(everydayKey, rulesKey, watched, directory, saved, given, ages, settings, address(this).codehash));
     }
 
     function contains(address[] storage list, address item) private view returns (bool) {

@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
+import {TestPriceSource} from "./TestPriceSource.sol";
 import {LeakyVault} from "./LeakyVault.sol";
 
 contract DailyLimitTest is Test {
@@ -14,6 +16,7 @@ contract DailyLimitTest is Test {
     VerbatimVault vault;
     TestToken usdc;
     TestRouter router;
+    TestPriceSource prices;
     address everydayKey = makeAddr("everydayKey");
     address rulesKey = makeAddr("rulesKey");
     address mom = makeAddr("mom");
@@ -25,15 +28,19 @@ contract DailyLimitTest is Test {
         vm.etch(PERMIT2, vm.parseJsonBytes(vm.readFile("test/fixtures/permit2-sepolia.json"), ".code"));
         usdc = new TestToken();
         router = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
+        prices = new TestPriceSource();
+        prices.setPrice(address(usdc), 1e6, 1e6);
+        prices.setPrice(address(0), 1 ether, 50_000e6);
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.saveContact(dad);
         vault.setDailyLimit(address(usdc), 10e6);
         vault.setDailyLimit(ETH, 0.1 ether);
+        vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);
@@ -161,7 +168,7 @@ contract DailyLimitTest is Test {
     }
 
     function test_NoLimitSetMeansNothingCanLeave() public {
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.startPrank(rulesKey);

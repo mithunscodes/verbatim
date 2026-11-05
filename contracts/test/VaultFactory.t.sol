@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {VaultFactory} from "../src/VaultFactory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
@@ -25,7 +26,7 @@ contract VaultFactoryTest is Test {
         vm.etch(PERMIT2, vm.parseJsonBytes(vm.readFile("test/fixtures/permit2-sepolia.json"), ".code"));
         usdc = new TestToken();
         router = new TestRouter();
-        factory = new VaultFactory(list(address(usdc)), list(address(router)));
+        factory = new VaultFactory(list(address(usdc)), address(new TestDirectory(list(address(router)))));
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -57,7 +58,8 @@ contract VaultFactoryTest is Test {
         assertEq(vault.everydayKey(), alice);
         assertEq(vault.rulesKey(), alicePhone);
         assertEq(vault.watchedTokens(0), address(usdc));
-        assertEq(vault.trustedContracts(0), address(router));
+        assertEq(vault.directory(), factory.directory());
+        assertTrue(TestDirectory(vault.directory()).isListed(address(router)));
         assertEq(factory.vaultOf(alice), address(vault));
         address[] memory guarded = factory.vaultsGuardedBy(alicePhone);
         assertEq(guarded.length, 1);
@@ -68,7 +70,7 @@ contract VaultFactoryTest is Test {
 
     function test_SameCodeAsTheTestedVault() public {
         VerbatimVault fromFactory = createFor(alice, alicePhone);
-        VerbatimVault direct = new VerbatimVault(bob, alicePhone, list(address(usdc)), list(address(router)));
+        VerbatimVault direct = new VerbatimVault(bob, alicePhone, list(address(usdc)), address(new TestDirectory(list(address(router)))));
         assertEq(keccak256(address(fromFactory).code), keccak256(address(direct).code));
     }
 

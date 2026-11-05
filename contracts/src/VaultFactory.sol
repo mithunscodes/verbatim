@@ -5,21 +5,21 @@ import {VerbatimVault} from "./VerbatimVault.sol";
 
 contract VaultFactory {
     address[] public watchedTokens;
-    address[] public trustedContracts;
+    address public directory;
     address[] public vaults;
     mapping(address => address) public vaultOf;
     mapping(address => address[]) private guardedBy;
 
     event VaultCreated(address indexed vault, address indexed everydayKey, address indexed rulesKey);
 
-    constructor(address[] memory watchedTokens_, address[] memory trustedContracts_) {
+    constructor(address[] memory watchedTokens_, address directory_) {
         watchedTokens = watchedTokens_;
-        trustedContracts = trustedContracts_;
+        directory = directory_;
     }
 
     function createVault(address rulesKey) external returns (address vault) {
         require(vaultOf[msg.sender] == address(0), "You already have a vault");
-        vault = address(new VerbatimVault(msg.sender, rulesKey, watchedTokens, trustedContracts));
+        vault = address(new VerbatimVault(msg.sender, rulesKey, watchedTokens, directory));
         vaultOf[msg.sender] = vault;
         guardedBy[rulesKey].push(vault);
         vaults.push(vault);

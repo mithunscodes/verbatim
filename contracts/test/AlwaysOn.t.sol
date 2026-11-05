@@ -3,8 +3,10 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter, IPermit2Pull} from "./TestRouter.sol";
+import {TestPriceSource} from "./TestPriceSource.sol";
 import {LeakyVault} from "./LeakyVault.sol";
 
 interface ISignatureTransfer {
@@ -46,6 +48,7 @@ contract AlwaysOnTest is Test {
     TestToken usdc;
     TestToken dai;
     TestRouter router;
+    TestPriceSource prices;
     TestRouter fakeRouter;
     address everydayKey;
     uint256 everydayPrivateKey;
@@ -61,18 +64,22 @@ contract AlwaysOnTest is Test {
         dai = new TestToken();
         router = new TestRouter();
         fakeRouter = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), list(address(router)));
+        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), address(new TestDirectory(list(address(router)))));
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
         vm.deal(address(fakeRouter), 10 ether);
+        prices = new TestPriceSource();
+        prices.setPrice(address(usdc), 1e6, 1e6);
+        prices.setPrice(address(0), 1 ether, 50_000e6);
         vm.startPrank(rulesKey);
         vault.saveContact(mom);
         vault.saveContact(thief);
         vault.setDailyLimit(address(usdc), 100e6);
         vault.setDailyLimit(address(dai), 100e18);
         vault.setDailyLimit(ETH, 1 ether);
+        vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
         vm.warp(block.timestamp + 1 days);

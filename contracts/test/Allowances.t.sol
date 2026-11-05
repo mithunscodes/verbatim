@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
+import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {LeakyVault} from "./LeakyVault.sol";
 
@@ -23,7 +24,7 @@ contract AllowancesTest is Test {
 
     function setUp() public {
         usdc = new TestToken();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
         usdc.mint(address(vault), 1000e6);
         vm.deal(address(vault), 1 ether);
         vm.startPrank(rulesKey);
