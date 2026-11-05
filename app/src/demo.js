@@ -162,7 +162,7 @@ export function allowedAmount(scene) {
   return parseUnits(DEMO_ALLOWED_SEND, scene.decimals)
 }
 
-function vaultRun(scene, to, amount) {
+export function vaultRun(scene, to, amount) {
   return {
     address: scene.vault,
     abi: vaultAbi,

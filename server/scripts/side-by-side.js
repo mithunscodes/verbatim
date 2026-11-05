@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { erc20Abi, formatEther, formatUnits, parseEther, parseUnits, zeroAddress } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
@@ -18,6 +18,7 @@ import {
   sendTry,
   sentenceRequest,
   sentenceVault,
+  vaultRun,
 } from '../../app/src/demo.js'
 import { planFor } from '../../app/src/ai.js'
 import { ChangeKind } from '../../app/src/rules.js'
@@ -79,9 +80,17 @@ function makeKeys() {
   }
 }
 
+function replaceKey(name, key) {
+  const env = readFileSync(ENV_FILE, 'utf8')
+  const line = new RegExp(`^${name}=.*$`, 'm')
+  writeFileSync(ENV_FILE, line.test(env) ? env.replace(line, `${name}=${key}`) : `${env}${env.endsWith('\n') ? '' : '\n'}${name}=${key}\n`)
+  process.env[name] = key
+}
+
 function context(url, factory) {
   return {
     ...connect(url),
+    url,
     factory,
     everyday: accountFor('DEMO_EVERYDAY_PRIVATE_KEY', MAKE_KEYS),
     rules: accountFor('DEMO_RULES_PRIVATE_KEY', MAKE_KEYS),
@@ -285,6 +294,78 @@ async function reset(ctx) {
   }
   if (plan.size === 0) console.log(`  Both accounts are already in place: ${usdc(needs[1].want)} in the normal wallet, ${usdc(needs[0].want)} in the vault`)
   await Promise.all([...plan].map(([source, steps]) => sendAll(ctx, source.account, steps)))
+  await warnings(ctx, found)
+}
+
+async function isStuck(ctx, address) {
+  const [latest, pending] = await Promise.all([
+    ctx.publicClient.getTransactionCount({ address, blockTag: 'latest' }),
+    ctx.publicClient.getTransactionCount({ address, blockTag: 'pending' }),
+  ])
+  return pending > latest
+}
+
+async function warnings(ctx, found) {
+  const [left, stuck] = await Promise.all([
+    ctx.publicClient.readContract({ address: found.vault, abi: vaultAbi, functionName: 'leftToday', args: [found.token] }),
+    isStuck(ctx, ctx.everyday.address),
+  ])
+  const needed = parseUnits(DEMO_ALLOWED_SEND, found.decimals)
+  if (left < needed) console.log(`  ! Today's limit has only ${formatUnits(left, found.decimals)} ${found.symbol} left, so the allowed send will be refused. Run fresh --live for a new key and vault.`)
+  if (stuck) console.log('  ! The demo key has a transaction stuck waiting on Sepolia, so its next sends will wait too. Run fresh --live for a new key and vault.')
+}
+
+async function recover(ctx) {
+  const found = await findScene(ctx.phone.reader, ctx.everyday.address, ctx.thief.address, ctx.factory)
+  const key = ctx.everyday.address
+  if (await isStuck(ctx, key)) {
+    console.log(`  ! The old demo key ${key} has a stuck transaction, so its leftovers stay where they are.`)
+    return
+  }
+  const balanceOf = (address) => ctx.publicClient.readContract({ address: found.token, abi: erc20Abi, functionName: 'balanceOf', args: [address] })
+  const steps = []
+  if (found.vault && found.contact && found.setupFinished) {
+    const [held, left] = await Promise.all([
+      balanceOf(found.vault),
+      ctx.publicClient.readContract({ address: found.vault, abi: vaultAbi, functionName: 'leftToday', args: [found.token] }),
+    ])
+    const amount = held < left ? held : left
+    if (amount > 0n) {
+      steps.push({ label: `The old vault pays its ${formatUnits(amount, found.decimals)} ${found.symbol} back to its contact, the Builder key`, request: vaultRun(found, found.contact, amount) })
+    }
+    if (held > amount) console.log(`  ! ${formatUnits(held - amount, found.decimals)} ${found.symbol} stays in the old vault: today's limit is used up`)
+  }
+  if (found.token) {
+    const loose = await balanceOf(key)
+    if (loose > 0n) {
+      steps.push({
+        label: `The old normal wallet sends its ${formatUnits(loose, found.decimals)} ${found.symbol} back to the Builder key`,
+        request: { address: found.token, abi: erc20Abi, functionName: 'transfer', args: [ctx.builder.address, loose] },
+      })
+    }
+  }
+  for (const step of steps) {
+    try {
+      await sendAll(ctx, ctx.everyday, [step])
+    } catch (error) {
+      console.log(`  ! Skipped: ${step.label} (${error.shortMessage ?? error.message})`)
+    }
+  }
+  const [gas, fees] = await Promise.all([ctx.publicClient.getBalance({ address: key }), lowFees(ctx.publicClient)])
+  const cost = 21_000n * fees.maxFeePerGas
+  if (gas > cost * 2n) await sendAll(ctx, ctx.everyday, [{ label: `The old demo key returns ${formatEther(gas - cost)} test ETH to the Builder key`, request: { to: ctx.builder.address, value: gas - cost } }])
+}
+
+async function fresh(ctx) {
+  console.log(`A fresh demo key and vault on ${where()}`)
+  const old = ctx.everyday.address
+  await recover(ctx)
+  replaceKey('DEMO_EVERYDAY_PRIVATE_KEY', generatePrivateKey())
+  const next = context(ctx.url, ctx.factory)
+  console.log(`  New demo key in .env: ${next.everyday.address}. The old one, ${old}, is now worthless to anyone who photographed it.`)
+  await setup(next)
+  await status(next)
+  console.log('\nNext: restart the server (Ctrl+C, then npm start in server/) so the short link hands out the new key, then run screen again for the new QR code.')
 }
 
 async function status(ctx) {
@@ -515,10 +596,11 @@ async function main() {
   const ctx = context(process.env.SEPOLIA_RPC_URL, FACTORY)
   if (command === 'setup') return setup(ctx).then(() => status(ctx))
   if (command === 'reset') return reset(ctx).then(() => status(ctx))
+  if (command === 'fresh') return fresh(ctx)
   if (command === 'status') return status(ctx)
   if (command === 'run') return runTimes(ctx, Number(option('times') ?? 5))
   if (command === 'attacks') return attacksLive(ctx)
-  throw new Error('With --live, use setup, reset, status, run or attacks')
+  throw new Error('With --live, use setup, fresh, reset, status, run or attacks')
 }
 
 if (isMain(import.meta.url)) runMain(main)
