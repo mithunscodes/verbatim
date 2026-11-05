@@ -16,19 +16,35 @@ contract VerbatimVaultTest is Test {
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
 
     function setUp() public {
-        vault = new VerbatimVault(everydayKey, rulesKey);
         usdc = new TestToken();
+        vault = new VerbatimVault(everydayKey, rulesKey, watched(), noContracts());
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
+        vm.prank(rulesKey);
+        vault.saveContact(mom);
     }
 
     function sendUsdc(address to, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {
         actions = new VerbatimVault.Action[](1);
-        actions[0] = VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.transfer, (to, amount)));
+        actions[0] = VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.transfer, (to, amount)), 0);
     }
 
     function noChecks() internal pure returns (VerbatimVault.Check[] memory) {
         return new VerbatimVault.Check[](0);
+    }
+
+    function limit(address token, uint256 amount) internal pure returns (VerbatimVault.Check[] memory checks) {
+        checks = new VerbatimVault.Check[](1);
+        checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, token, address(0), amount);
+    }
+
+    function watched() internal view returns (address[] memory tokens) {
+        tokens = new address[](1);
+        tokens[0] = address(usdc);
+    }
+
+    function noContracts() internal pure returns (address[] memory) {
+        return new address[](0);
     }
 
     function test_KnowsItsKeys() public view {
@@ -38,9 +54,9 @@ contract VerbatimVaultTest is Test {
 
     function test_RevertWhen_KeysEmptyOrSame() public {
         vm.expectRevert("Keys can't be empty");
-        new VerbatimVault(address(0), rulesKey);
+        new VerbatimVault(address(0), rulesKey, watched(), noContracts());
         vm.expectRevert("The two keys must be different");
-        new VerbatimVault(everydayKey, everydayKey);
+        new VerbatimVault(everydayKey, everydayKey, watched(), noContracts());
     }
 
     function test_DepositEth() public {
@@ -62,18 +78,18 @@ contract VerbatimVaultTest is Test {
         VerbatimVault.Action[] memory actions = sendUsdc(mom, 2e6);
         uint256 deadline = block.timestamp + 5 minutes;
         vm.expectEmit(address(vault));
-        emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(noChecks())), 1, deadline);
+        emit Ran(keccak256(abi.encode(actions)), keccak256(abi.encode(limit(address(usdc), 2e6))), 1, deadline);
         vm.prank(everydayKey);
-        vault.run(actions, noChecks(), deadline);
+        vault.run(actions, limit(address(usdc), 2e6), deadline);
         assertEq(usdc.balanceOf(mom), 2e6);
         assertEq(usdc.balanceOf(address(vault)), 98e6);
     }
 
     function test_RunSendsEth() public {
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
-        actions[0] = VerbatimVault.Action(mom, 0.1 ether, "");
+        actions[0] = VerbatimVault.Action(mom, 0.1 ether, "", 0);
         vm.prank(everydayKey);
-        vault.run(actions, noChecks(), block.timestamp);
+        vault.run(actions, limit(address(0), 0.1 ether), block.timestamp);
         assertEq(mom.balance, 0.1 ether);
         assertEq(address(vault).balance, 0.9 ether);
     }

@@ -36,6 +36,10 @@ contract HackedAppTest is Test {
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
+        vm.startPrank(rulesKey);
+        vault.saveContact(mom);
+        vault.saveContact(thief);
+        vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }
 

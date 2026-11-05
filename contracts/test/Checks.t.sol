@@ -21,21 +21,31 @@ contract ChecksTest is Test {
     event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline);
 
     function setUp() public {
-        vault = new VerbatimVault(everydayKey, rulesKey);
         usdc = new TestToken();
         swap = new TestSwap();
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(swap)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(swap), 10 ether);
+        vm.startPrank(rulesKey);
+        vault.saveContact(address(swap));
+        vault.saveContact(mom);
+        vault.saveContact(thief);
+        vm.stopPrank();
         deadline = block.timestamp + 5 minutes;
     }
 
+    function list(address item) internal pure returns (address[] memory items) {
+        items = new address[](1);
+        items[0] = item;
+    }
+
     function sendUsdc(address to, uint256 amount) internal view returns (VerbatimVault.Action memory) {
-        return VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.transfer, (to, amount)));
+        return VerbatimVault.Action(address(usdc), 0, abi.encodeCall(TestToken.transfer, (to, amount)), 0);
     }
 
     function swapPays(uint256 ethOut) internal view returns (VerbatimVault.Action memory) {
-        return VerbatimVault.Action(address(swap), 0, abi.encodeCall(TestSwap.pay, (ethOut)));
+        return VerbatimVault.Action(address(swap), 0, abi.encodeCall(TestSwap.pay, (ethOut)), 0);
     }
 
     function heroActions(uint256 ethOut, address recipient, uint256 amount) internal view returns (VerbatimVault.Action[] memory actions) {
@@ -125,7 +135,7 @@ contract ChecksTest is Test {
 
     function test_EthCanBeCheckedToo() public {
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
-        actions[0] = VerbatimVault.Action(mom, 0.5 ether, "");
+        actions[0] = VerbatimVault.Action(mom, 0.5 ether, "", 0);
         VerbatimVault.Check[] memory checks = new VerbatimVault.Check[](2);
         checks[0] = VerbatimVault.Check(VerbatimVault.CheckKind.AtMostLeaves, ETH, address(0), 0.2 ether);
         checks[1] = VerbatimVault.Check(VerbatimVault.CheckKind.ExactlyTo, ETH, mom, 0.5 ether);
@@ -139,10 +149,10 @@ contract ChecksTest is Test {
 
     function test_ReentryIsBlocked() public {
         ReentryKey key = new ReentryKey();
-        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey);
+        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), list(address(key)));
         key.setVault(keyVault);
         VerbatimVault.Action[] memory actions = new VerbatimVault.Action[](1);
-        actions[0] = VerbatimVault.Action(address(key), 0, abi.encodeCall(ReentryKey.reenter, ()));
+        actions[0] = VerbatimVault.Action(address(key), 0, abi.encodeCall(ReentryKey.reenter, ()), 0);
         key.start(actions, deadline);
         assertEq(key.reason(), "Already running");
     }
