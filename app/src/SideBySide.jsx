@@ -14,7 +14,6 @@ import {
   tokenAmount,
 } from './demo.js'
 import { formatAmount, shortAddress } from './format.js'
-import { Rolling, Spinner, Words } from './Motion.jsx'
 
 const SHOWN = 3
 
@@ -95,29 +94,28 @@ function describe(entry) {
   return entry.ok ? entry.done : `Tried to ${entry.what}. Refused: "${entry.reason}". Nothing moved.`
 }
 
-function Headline({ entry }) {
-  if (!entry.ok) return <span className="pill bad">Failed</span>
-  return entry.waiting ? <span className="pill warn">Waiting for the owner's phone</span> : <span className="pill ink">Success</span>
+function headline(entry) {
+  if (!entry.ok) return '✗ Failed'
+  return entry.waiting ? "⏳ Waiting for the owner's phone" : '✓ Success'
 }
 
-function Column({ title, tagline, account, amount, scene, entries, vault }) {
+function Column({ title, tagline, account, amount, scene, entries }) {
   const shown = entries.slice(-SHOWN).reverse()
   return (
-    <section className={vault ? 'card column vault' : 'card column'} style={{ animationDelay: vault ? '350ms' : '200ms' }}>
-      <span className={vault ? 'pill ok column-tag' : 'pill plain column-tag'}>{vault ? 'With Verbatim' : 'Without Verbatim'}</span>
+    <section className="card column">
       <h2>{title}</h2>
       <p className="muted small">
         {tagline} ·{' '}
         <a className="mono" href={`${EXPLORER}/address/${account}`} target="_blank" rel="noreferrer">{shortAddress(account)}</a>
       </p>
       <p className="big-amount">
-        {amount === undefined ? '…' : <Rolling value={formatAmount(amount, scene.decimals)} />} <span className="symbol">{scene.symbol}</span>
+        {amount === undefined ? '…' : formatAmount(amount, scene.decimals)} <span className="symbol">{scene.symbol}</span>
       </p>
       {shown.length === 0 && <p className="muted">Nothing yet.</p>}
       <ul className="side-txs">
         {shown.map((entry) => (
           <li key={entry.hash} className={entry.ok ? (entry.waiting ? 'waiting-change' : 'ok') : 'failed'}>
-            <Headline entry={entry} />
+            <strong>{headline(entry)}</strong>
             <span>{describe(entry)}</span>
             <a href={`${EXPLORER}/tx/${entry.hash}`} target="_blank" rel="noreferrer">Open on Etherscan ↗</a>
           </li>
@@ -131,14 +129,12 @@ function Verdict({ scene, wallet, vault }) {
   const [blocked, setBlocked] = useState(false)
   const open = () => setBlocked(!openSideBySide(`${EXPLORER}/tx/${wallet.hash}`, `${EXPLORER}/tx/${vault.hash}`))
   return (
-    <section className="banner done verdict">
-      <h2><Words text="Same key. Same attack." step={110} /></h2>
-      <p className="word" style={{ animationDelay: '700ms' }}>
+    <section className="card verdict">
+      <h2>Same key. Same attack.</h2>
+      <p>
         The normal wallet lost <strong>{tokenAmount(scene, wallet.amount)}</strong>. The Verbatim vault lost nothing: "{vault.reason}"
       </p>
-      <div className="actions word" style={{ animationDelay: '900ms' }}>
-        <button className="secondary big" onClick={open}>Open both on Etherscan, side by side</button>
-      </div>
+      <button onClick={open}>Open both on Etherscan, side by side</button>
       {blocked && (
         <p className="small">
           Chrome blocked a page. Click the blocked pop-up icon at the right of the address bar, choose <strong>Always allow</strong>,
@@ -176,13 +172,13 @@ export default function SideBySide({ link }) {
     <main className="side">
       <header className="side-head">
         <div>
-          <h1><Words text="One key. Two accounts. One attack." step={90} /></h1>
+          <h1>One key. Two accounts. One attack.</h1>
           <p className="lead">
             The same test key controls a normal wallet and a Verbatim vault. Scan the code to take it, prove it's real, then
             steal from both.
           </p>
           {LOCAL_HOSTS.includes(window.location.hostname) && (
-            <p className="panel warn small">
+            <p className="error small">
               This screen is open on {window.location.hostname}, so phones can't reach the code's link. Open it with the script's
               screen command instead.
             </p>
@@ -190,7 +186,7 @@ export default function SideBySide({ link }) {
         </div>
         <figure className="qr">
           {qr && <img src={qr} alt="QR code that opens the attacker page with the demo key" />}
-          <figcaption>
+          <figcaption className="muted small">
             Scan to take the key · test money only
             <br />
             or type <strong className="mono">{window.location.host}/api/go</strong>
@@ -198,9 +194,9 @@ export default function SideBySide({ link }) {
         </figure>
       </header>
 
-      {pending && <p className="side-waiting"><Spinner />The phone sent a transaction. Waiting for Sepolia…</p>}
-      {error && <p className="panel warn">Can't read Sepolia right now: {error}</p>}
-      {scene && !scene.vault && <p className="panel warn">This key has no Verbatim vault yet. Run the demo setup first.</p>}
+      {pending && <p className="waiting">⏳ The phone sent a transaction. Waiting for Sepolia…</p>}
+      {error && <p className="error">Can't read Sepolia right now: {error}</p>}
+      {scene && !scene.vault && <p className="error">This key has no Verbatim vault yet. Run the demo setup first.</p>}
 
       {scene?.vault && (
         <div className="columns">
@@ -219,7 +215,6 @@ export default function SideBySide({ link }) {
             amount={balances?.vault}
             scene={scene}
             entries={vaultEntries}
-            vault
           />
         </div>
       )}

@@ -8,14 +8,19 @@ import {
   encodeFunctionData,
   encodePacked,
   erc20Abi,
+  http,
   parseAbiParameters,
+  parseUnits,
   zeroAddress,
 } from 'viem'
 import {
   BAD_ROUTE_POOL_FEE,
   chain,
   DEADLINE_SECONDS,
+  DEMO_FEE_BPS,
+  DEMO_RPC_PATH,
   DEMO_STRANGER,
+  DEMO_TIP,
   FAIR_POOL_FEE,
   FORCED_GAS,
   PERMIT2,
@@ -39,6 +44,8 @@ const ROUTER_PAYS_CALLER = '0x0000000000000000000000000000000000000001'
 const V3_SWAP_EXACT_IN = '00'
 
 const PERMIT2_TRANSFER_FROM = '02'
+
+const PAY_PORTION = '06'
 
 const UNWRAP_WETH = '0c'
 
@@ -80,7 +87,7 @@ export function swapActions({ from, amount, transaction }) {
   ]
 }
 
-function routerSwap({ from, amount, poolFee, extra }) {
+function routerSwap({ from, amount, poolFee, extra, portion }) {
   const commands = []
   const inputs = []
   if (extra) {
@@ -93,6 +100,10 @@ function routerSwap({ from, amount, poolFee, extra }) {
     parseAbiParameters('address, uint256, uint256, bytes, bool'),
     [ROUTER_PAYS_ITSELF, amount, 0n, path, true],
   ))
+  if (portion) {
+    commands.push(PAY_PORTION)
+    inputs.push(encodeAbiParameters(parseAbiParameters('address, address, uint256'), [WETH, portion.to, portion.bps]))
+  }
   commands.push(UNWRAP_WETH)
   inputs.push(encodeAbiParameters(parseAbiParameters('address, uint256'), [ROUTER_PAYS_CALLER, 0n]))
   return {
@@ -113,6 +124,32 @@ export function badRouteTransaction({ from, amount }) {
 
 export function drainTransaction({ from, amount, balance }) {
   return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: balance - amount } })
+}
+
+export function fairSwapTransaction({ from, amount }) {
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE })
+}
+
+export function divertedSwapTransaction({ from, amount, to, bps }) {
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, portion: { to, bps } })
+}
+
+export function feeTransaction({ from, amount }) {
+  const fee = (amount * DEMO_FEE_BPS) / 10_000n
+  return routerSwap({ from, amount, poolFee: FAIR_POOL_FEE, extra: { to: DEMO_STRANGER, amount: fee } })
+}
+
+export function extraActions(scenario, { from, decimals }) {
+  if (scenario === 'tip') {
+    return [{
+      target: from,
+      value: 0n,
+      data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [DEMO_STRANGER, parseUnits(DEMO_TIP, decimals)] }),
+      operation: 0,
+    }]
+  }
+  if (scenario === 'borrowed') return [{ target: DEMO_STRANGER, value: 0n, data: '0x', operation: 1 }]
+  return []
 }
 
 export function newDeadline() {
@@ -184,6 +221,25 @@ export async function measureChecks(reader, vault, checks, blockNumber) {
   }))
 }
 
+const UNREAD_REASON = "The vault refused it, but its reason couldn't be read from the network just now. Etherscan shows it."
+
+function relayReader() {
+  return createPublicClient({ chain, transport: http(new URL(DEMO_RPC_PATH, window.location.origin).href, { timeout: 30_000 }) })
+}
+
+export async function replayFailure(readers, vault, run, blockNumber) {
+  for (const reader of readers) {
+    try {
+      await reader.simulateContract({ ...runCall(vault, run), blockNumber })
+      return { reason: 'The vault refused it.' }
+    } catch (error) {
+      const failure = explainFailure(error)
+      if (!failure.network) return failure
+    }
+  }
+  return { reason: UNREAD_REASON }
+}
+
 export async function waitForResult(wallet, vault, run, hash) {
   const { reader } = clients(wallet)
   const receipt = await reader.waitForTransactionReceipt({ hash })
@@ -191,10 +247,6 @@ export async function waitForResult(wallet, vault, run, hash) {
     const moved = await measureChecks(reader, vault, run.checks, receipt.blockNumber).catch(() => null)
     return { ok: true, receipt, moved }
   }
-  try {
-    await reader.simulateContract({ ...runCall(vault, run), blockNumber: receipt.blockNumber - 1n })
-    return { ok: false, receipt, failure: { reason: 'The vault refused it.' } }
-  } catch (error) {
-    return { ok: false, receipt, failure: explainFailure(error) }
-  }
+  const failure = await replayFailure([reader, relayReader()], vault, run, receipt.blockNumber - 1n)
+  return { ok: false, receipt, failure }
 }

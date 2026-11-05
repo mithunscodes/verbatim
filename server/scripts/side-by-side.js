@@ -3,7 +3,7 @@ import { appendFileSync, readFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { erc20Abi, formatEther, formatUnits, parseEther, parseUnits, zeroAddress } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { DEMO_ALLOWED_SEND, DEMO_TIMINGS, EXPLORER, FACTORY, factoryAbi, PRICE_SOURCE, vaultAbi } from '../../app/src/config.js'
+import { DEMO_ALLOWED_SEND, DEMO_TIMINGS, EXPLORER, FACTORY, factoryAbi, PRICE_SOURCE, UNIVERSAL_ROUTER, vaultAbi } from '../../app/src/config.js'
 import { lowFees } from '../../app/src/chain.js'
 import {
   ATTACKS,
@@ -396,6 +396,12 @@ async function tryAttacks(ctx, report, { sentences }) {
       !result.ok && result.reason === attack.expected && after.vault === before.vault,
       `${attack.title}: ${result.ok ? 'it went through' : `refused, "${result.reason}"`}, the vault still holds ${usdc(after.vault)} (${link(hash)})`,
     )
+    if (attack.id === 'fakeRouter') {
+      report(
+        Boolean(found.routerName) && sameAddress(found.routerAddress, UNIVERSAL_ROUTER),
+        `…ENS, read through the vault's directory: ${found.routerName ?? 'no router name'} → ${found.routerAddress ?? 'nothing'} (the real router), the thief's address isn't listed`,
+      )
+    }
   }
   if (!sentences) return
   const balances = await readBalances(reader, found)

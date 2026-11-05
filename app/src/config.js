@@ -43,6 +43,16 @@ export const DEMO_TIMINGS = {
   allowanceMinAge: 600n,
 }
 
+export const DEMO_ALLOWED_SEND = '1'
+
+export const DEMO_RPC_PATH = '/api/rpc'
+
+export const DEMO_POLL_MS = 2_000
+
+export const DEMO_ATTACK_GAS = 3_000_000n
+
+export const DEMO_PROPOSED_LIMIT = '1000'
+
 export const EXPLORER = 'https://sepolia.etherscan.io'
 
 export const NICKNAMES = {

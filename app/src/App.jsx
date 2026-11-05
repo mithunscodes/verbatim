@@ -1,5 +1,6 @@
 import Attack from './Attack.jsx'
 import { EXPLORER } from './config.js'
+import { CopyButton } from './Copy.jsx'
 import CreateVault from './CreateVault.jsx'
 import Evidence from './Evidence.jsx'
 import { formatAmount, shortAddress } from './format.js'
@@ -58,12 +59,14 @@ function Balances({ vault, loading, onRefresh }) {
       )}
       {vault && (
         <p className="muted small">
-          Vault <AddressLink address={vault.address} name={vault.ensName} /> · read at block {vault.blockNumber.toLocaleString('en-US')}
+          Vault <AddressLink address={vault.address} name={vault.ensName} /> <CopyButton label="Copy address" text={vault.address} /> · read at block{' '}
+          {vault.blockNumber.toLocaleString('en-US')}
         </p>
       )}
       {vault && vault.holdings.every((h) => h.amount === 0n) && (
         <p className="muted small">
-          To add money, send test USDC to {vault.ensName ? <strong>{vault.ensName}</strong> : 'this address'}: <span className="mono full">{vault.address}</span>
+          To add money, send test USDC to {vault.ensName ? <strong>{vault.ensName}</strong> : 'this address'}: <span className="mono full">{vault.address}</span>{' '}
+          <CopyButton label="Copy address" text={vault.address} />
         </p>
       )}
       {vault && !vault.setupFinished && (

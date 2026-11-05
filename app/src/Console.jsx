@@ -4,7 +4,8 @@ import { planFor, understandSentence } from './ai.js'
 import { EXPLORER } from './config.js'
 import { ATTACKS, attackRequest, resultOf, sendTry, sentenceRequest, sentenceVault, tokenAmount } from './demo.js'
 import { describeCheck } from './checks.js'
-import { formatDuration } from './format.js'
+import { formatDuration, shortAddress } from './format.js'
+import { CopyButton } from './Copy.jsx'
 import Proof, { Recorded } from './Proof.jsx'
 import { FromWords, LeftOut, StepList, YourWords } from './Words.jsx'
 import { asSentence, explainRefusal, saidFor, untraced } from './words.js'
@@ -46,40 +47,17 @@ function Outcome({ attack, state, scene }) {
     return (
       <p className={`attack-outcome small ${result.reason === attack.expected || capped ? 'refused' : 'unexpected'}`}>
         ✗ Refused: "{result.reason}". Nothing moved.{capped && ' Cancel the waiting changes on the phone page to propose again.'}{' '}
+        {attack.id === 'fakeRouter' && scene.routerName && (
+          <>
+            ENS says Uniswap's router is <strong>{scene.routerName}</strong> → {shortAddress(scene.routerAddress)}, read from ENSv2 by
+            the vault itself. The thief's router isn't listed, so it was never called.{' '}
+          </>
+        )}
         <TxLink hash={result.hash} />
       </p>
     )
   }
   return <p className="attack-outcome unexpected small">⚠️ It went through. <TxLink hash={result.hash} /></p>
-}
-
-async function copy(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text)
-    return true
-  }
-  const area = document.createElement('textarea')
-  area.value = text
-  area.setAttribute('readonly', '')
-  area.style.position = 'fixed'
-  area.style.opacity = '0'
-  document.body.appendChild(area)
-  area.select()
-  const ok = document.execCommand('copy')
-  area.remove()
-  return ok
-}
-
-function CopyButton({ label, text }) {
-  const [copied, setCopied] = useState(null)
-  const onCopy = async () => setCopied(await copy(text).catch(() => false))
-  return (
-    <span className="copy">
-      <button className="secondary" onClick={onCopy}>{label}</button>
-      {copied === true && <span className="pass small"> Copied</span>}
-      {copied === false && <code className="copy-text">{text}</code>}
-    </span>
-  )
 }
 
 function Attacks({ clients, scene, balances, disabled, onBusy }) {
