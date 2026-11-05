@@ -7,7 +7,7 @@ import {
   getAddress,
   zeroAddress,
 } from 'viem'
-import { chain, NICKNAMES, priceSourceAbi, VAULT, vaultAbi } from './config.js'
+import { chain, FACTORY, factoryAbi, KNOWN_VAULTS, NICKNAMES, priceSourceAbi, SEPOLIA_TIP, vaultAbi } from './config.js'
 
 const MAX_LIST = 50
 
@@ -54,6 +54,12 @@ export async function switchToSepolia(wallet) {
       }],
     })
   }
+}
+
+export async function lowFees(client) {
+  const { baseFeePerGas } = await client.getBlock()
+  const base = baseFeePerGas ?? 0n
+  return { maxPriorityFeePerGas: SEPOLIA_TIP, maxFeePerGas: base * 2n + SEPOLIA_TIP }
 }
 
 let signing = 0
@@ -122,12 +128,12 @@ async function readFairPrice(client, priceSource, blockNumber) {
   }
 }
 
-export async function readVault(wallet) {
+export async function readVault(wallet, address) {
   const client = createPublicClient({ chain, transport: custom(wallet), batch: { multicall: true } })
   const block = await client.getBlock()
   const blockNumber = block.number
   const read = (functionName, args = []) =>
-    client.readContract({ address: VAULT, abi: vaultAbi, functionName, args, blockNumber })
+    client.readContract({ address, abi: vaultAbi, functionName, args, blockNumber })
   const readToken = (token, functionName, args = []) =>
     client.readContract({ address: token, abi: erc20Abi, functionName, args, blockNumber })
 
@@ -144,10 +150,11 @@ export async function readVault(wallet) {
     allowanceMinAge,
     looseningWait,
     changeCount,
+    setupFinished,
   ] = await Promise.all([
     read('everydayKey'),
     read('rulesKey'),
-    client.getBalance({ address: VAULT, blockNumber }),
+    client.getBalance({ address, blockNumber }),
     readList(read, 'watchedTokens'),
     readList(read, 'contacts'),
     read('newContactPeriod'),
@@ -157,6 +164,7 @@ export async function readVault(wallet) {
     read('allowanceMinAge'),
     read('looseningWait'),
     read('changeCount'),
+    read('setupFinished'),
   ])
 
   const withRules = async (holding) => {
@@ -172,7 +180,7 @@ export async function readVault(wallet) {
     const [symbol, decimals, amount] = await Promise.all([
       readToken(token, 'symbol'),
       readToken(token, 'decimals'),
-      readToken(token, 'balanceOf', [VAULT]),
+      readToken(token, 'balanceOf', [address]),
     ])
     return { token, symbol, decimals, amount }
   }))
@@ -200,6 +208,8 @@ export async function readVault(wallet) {
   ])
 
   return {
+    address,
+    setupFinished,
     blockNumber,
     timestamp: block.timestamp,
     everydayKey,
@@ -215,4 +225,25 @@ export async function readVault(wallet) {
     looseningWait,
     changes,
   }
+}
+
+export async function findVaults(wallet, account) {
+  const client = createPublicClient({ chain, transport: custom(wallet), batch: { multicall: true } })
+  const readKeys = (address) => Promise.all([
+    client.readContract({ address, abi: vaultAbi, functionName: 'everydayKey' }),
+    client.readContract({ address, abi: vaultAbi, functionName: 'rulesKey' }),
+  ])
+  const [own, guarded] = FACTORY
+    ? await Promise.all([
+        client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultOf', args: [account] }),
+        client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultsGuardedBy', args: [account] }),
+      ])
+    : [zeroAddress, []]
+  const candidates = [...new Set([own, ...guarded, ...KNOWN_VAULTS].filter((a) => a !== zeroAddress).map((a) => getAddress(a)))]
+  const found = await Promise.all(candidates.map(async (address) => {
+    const [everydayKey, rulesKey] = await readKeys(address)
+    const role = account === everydayKey ? 'Everyday key' : account === rulesKey ? 'Rules key' : null
+    return role ? { address, everydayKey, rulesKey, role } : null
+  }))
+  return found.filter(Boolean)
 }

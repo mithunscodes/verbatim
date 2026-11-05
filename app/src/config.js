@@ -3,7 +3,17 @@ import { sepolia } from 'viem/chains'
 
 export const chain = sepolia
 
-export const VAULT = '0xd03a1550f19E6b815a80a51ae40b8807c4702A69'
+export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69']
+
+export const FACTORY = '0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7'
+
+export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
+
+export const DEMO_TIMINGS = {
+  looseningWait: 120n,
+  newContactPeriod: 300n,
+  allowanceMinAge: 600n,
+}
 
 export const EXPLORER = 'https://sepolia.etherscan.io'
 
@@ -21,6 +31,8 @@ export const FORCED_GAS = 600_000n
 
 export const AUTO_REFRESH_MS = 15_000
 
+export const SEPOLIA_TIP = 1_000_000n
+
 export const vaultAbi = parseAbi([
   'function everydayKey() view returns (address)',
   'function rulesKey() view returns (address)',
@@ -33,6 +45,14 @@ export const vaultAbi = parseAbi([
   'function newContactPeriod() view returns (uint256)',
   'function tradeTolerance() view returns (uint256)',
   'function priceSource() view returns (address)',
+  'function setupFinished() view returns (bool)',
+  'function setDailyLimit(address token, uint256 amount)',
+  'function setNewContactLimit(address token, uint256 amount)',
+  'function setPriceSource(address source)',
+  'function setLooseningWait(uint256 duration)',
+  'function setNewContactPeriod(uint256 duration)',
+  'function setAllowanceMinAge(uint256 duration)',
+  'function finishSetup()',
   'function allowanceValidity() view returns (uint256)',
   'function allowanceMinAge() view returns (uint256)',
   'function looseningWait() view returns (uint256)',
@@ -53,4 +73,11 @@ export const vaultAbi = parseAbi([
 export const priceSourceAbi = parseAbi([
   'function unit() view returns (address)',
   'function valueOf(address token, uint256 amount) view returns (uint256)',
+])
+
+export const factoryAbi = parseAbi([
+  'function vaultOf(address everydayKey) view returns (address)',
+  'function vaultsGuardedBy(address rulesKey) view returns (address[])',
+  'function createVault(address rulesKey) returns (address vault)',
+  'event VaultCreated(address indexed vault, address indexed everydayKey, address indexed rulesKey)',
 ])

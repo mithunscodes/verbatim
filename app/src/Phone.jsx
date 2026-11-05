@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { getAddress, isAddress } from 'viem'
 import { nameOf } from './checks.js'
 import { formatCountdown, formatTime, shortAddress } from './format.js'
-import { useNow, useVaultTx } from './hooks.js'
+import { vaultAbi } from './config.js'
+import { useNow, useTx } from './hooks.js'
+import Setup from './Setup.jsx'
 import { canSwitchOn, describeChange, statusOf } from './rules.js'
 import TxStatus from './TxStatus.jsx'
 
 function ChangeRow({ vault, change, now, isRules, busy, send }) {
+  const target = { address: vault.address, abi: vaultAbi }
   const status = statusOf(change, now)
   const id = change.id
   return (
@@ -19,16 +22,16 @@ function ChangeRow({ vault, change, now, isRules, busy, send }) {
       {status.open && (
         <div className="row">
           {status.key === 'waiting' && (
-            <button onClick={() => send(`Approve change #${id}`, 'approve', [id])} disabled={!isRules || busy}>
+            <button onClick={() => send(`Approve change #${id}`, target, 'approve', [id])} disabled={!isRules || busy}>
               Approve
             </button>
           )}
           {canSwitchOn(change, status) && (
-            <button onClick={() => send(`Switch on change #${id}`, 'switchOn', [id])} disabled={busy}>
+            <button onClick={() => send(`Switch on change #${id}`, target, 'switchOn', [id])} disabled={busy}>
               Switch on
             </button>
           )}
-          <button className="secondary" onClick={() => send(`Cancel change #${id}`, 'cancel', [id])} disabled={!isRules || busy}>
+          <button className="secondary" onClick={() => send(`Cancel change #${id}`, target, 'cancel', [id])} disabled={!isRules || busy}>
             Cancel
           </button>
         </div>
@@ -44,7 +47,7 @@ function SaveContact({ vault, isRules, busy, send }) {
   const known = valid && vault.contacts.some((c) => c.address === getAddress(trimmed))
   const error = !trimmed ? null : !valid ? "That isn't a valid address" : known ? 'Already a saved contact' : null
   const save = () => {
-    send(`Save ${shortAddress(getAddress(trimmed))}`, 'saveContact', [getAddress(trimmed)])
+    send(`Save ${shortAddress(getAddress(trimmed))}`, { address: vault.address, abi: vaultAbi }, 'saveContact', [getAddress(trimmed)])
     setText('')
   }
   return (
@@ -79,7 +82,7 @@ function SaveContact({ vault, isRules, busy, send }) {
 
 export default function Phone({ vault, account, role, blocked, onDone }) {
   const now = useNow()
-  const { tx, send, busy: sending } = useVaultTx(account, onDone)
+  const { tx, send, busy: sending } = useTx(account, onDone)
   const busy = sending || blocked
   const isRules = role === 'Rules key'
   const newestFirst = [...vault.changes].reverse()
@@ -95,6 +98,8 @@ export default function Phone({ vault, account, role, blocked, onDone }) {
           <p>Anyone can see these changes. To approve, cancel or save contacts, switch MetaMask to the Rules key.</p>
         </section>
       )}
+
+      {!vault.setupFinished && <Setup vault={vault} isRules={isRules} tx={tx} send={send} busy={busy} />}
 
       <section className="card">
         <h2>Pending changes</h2>

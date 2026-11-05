@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getWallet } from './chain.js'
-import { sendVaultTx, txError } from './rules.js'
+import { sendContractTx, txError } from './rules.js'
 
 export function useNow() {
   const [now, setNow] = useState(() => BigInt(Math.floor(Date.now() / 1000)))
@@ -22,17 +22,20 @@ export function useHashPage() {
   return page
 }
 
-export function useVaultTx(account, onDone) {
+export function useTx(account, onDone) {
   const [tx, setTx] = useState({ status: 'idle' })
-  const send = async (label, functionName, args) => {
+  const send = async (label, target, functionName, args) => {
     setTx({ status: 'signing', label })
+    let ok = false
     try {
-      const { hash, ok } = await sendVaultTx(getWallet(), account, functionName, args)
-      setTx({ status: ok ? 'done' : 'failed', label, hash })
+      const result = await sendContractTx(getWallet(), account, target, functionName, args)
+      ok = result.ok
+      setTx({ status: ok ? 'done' : 'failed', label, hash: result.hash })
     } catch (error) {
       setTx({ status: 'error', label, error: txError(error) })
     }
-    onDone()
+    await onDone()
+    return ok
   }
   return { tx, send, busy: tx.status === 'signing' }
 }

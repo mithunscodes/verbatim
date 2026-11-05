@@ -1,4 +1,5 @@
-import { EXPLORER, VAULT } from './config.js'
+import { EXPLORER } from './config.js'
+import CreateVault from './CreateVault.jsx'
 import { formatAmount, shortAddress } from './format.js'
 import Phone from './Phone.jsx'
 import Propose from './Propose.jsx'
@@ -45,11 +46,35 @@ function Balances({ vault, loading, onRefresh }) {
       ) : (
         <p className="muted">Reading the vault…</p>
       )}
-      <p className="muted small">
-        Vault <AddressLink address={VAULT} />
-        {vault && <> · read at block {vault.blockNumber.toLocaleString('en-US')}</>}
-      </p>
+      {vault && (
+        <p className="muted small">
+          Vault <AddressLink address={vault.address} /> · read at block {vault.blockNumber.toLocaleString('en-US')}
+        </p>
+      )}
+      {vault && vault.holdings.every((h) => h.amount === 0n) && (
+        <p className="muted small">
+          To add money, send test USDC to this address: <span className="mono full">{vault.address}</span>
+        </p>
+      )}
+      {vault && !vault.setupFinished && (
+        <p className="error small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
+      )}
     </section>
+  )
+}
+
+function VaultPicker({ vaults, selected, onChoose }) {
+  return (
+    <label className="picker">
+      <span className="muted small">Vault</span>
+      <select value={selected} onChange={(e) => onChoose(e.target.value)}>
+        {vaults.map((v) => (
+          <option key={v.address} value={v.address}>
+            {shortAddress(v.address)} · you're its {v.role} · Everyday key {shortAddress(v.everydayKey)}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -113,19 +138,27 @@ export default function App() {
 
       {v.account && v.onSepolia && v.smart && <SmartAccountAlert delegate={v.delegate} />}
 
-      {v.account && v.onSepolia && (
+      {v.account && v.onSepolia && v.vaults?.length > 1 && v.vault && (
+        <VaultPicker vaults={v.vaults} selected={v.vault.address} onChoose={v.choose} />
+      )}
+
+      {v.account && v.onSepolia && v.vaults?.length === 0 && (
+        <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} />
+      )}
+
+      {v.account && v.onSepolia && v.vaults?.length !== 0 && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
 
       {ready && page === 'app' && (
-        <>
+        <div key={v.vault.address}>
           <Request vault={v.vault} role={v.role} blocked={v.smart} onDone={v.refresh} />
           <Propose vault={v.vault} role={v.role} account={v.account} blocked={v.smart} onDone={v.refresh} />
-        </>
+        </div>
       )}
 
       {ready && page === 'phone' && (
-        <Phone vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
+        <Phone key={v.vault.address} vault={v.vault} account={v.account} role={v.role} blocked={v.smart} onDone={v.refresh} />
       )}
 
       {v.error && <p className="error">{v.error}</p>}

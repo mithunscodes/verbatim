@@ -1,9 +1,9 @@
 import { createPublicClient, createWalletClient, custom, getAddress, numberToHex } from 'viem'
-import { chain, VAULT, vaultAbi } from './config.js'
+import { chain } from './config.js'
 import { holdingOf, nameOf } from './checks.js'
 import { formatAmount, formatDuration, shortAddress } from './format.js'
 import { explainFailure } from './run.js'
-import { requireNormalKey, whileSigning } from './chain.js'
+import { lowFees, requireNormalKey, whileSigning } from './chain.js'
 
 export const ChangeKind = {
   DailyLimit: 0,
@@ -98,13 +98,14 @@ export function canSwitchOn(change, status) {
   return status.key === 'ready' && change.kind !== ChangeKind.Allowance
 }
 
-export async function sendVaultTx(wallet, account, functionName, args) {
+export async function sendContractTx(wallet, account, target, functionName, args) {
   await requireNormalKey(wallet, account)
   const transport = custom(wallet)
   const reader = createPublicClient({ chain, transport })
   const signer = createWalletClient({ chain, transport, account })
-  const { request } = await reader.simulateContract({ address: VAULT, abi: vaultAbi, functionName, args, account })
-  const hash = await whileSigning(() => signer.writeContract(request))
+  const { request } = await reader.simulateContract({ ...target, functionName, args, account })
+  const fees = await lowFees(reader)
+  const hash = await whileSigning(() => signer.writeContract({ ...request, ...fees }))
   const receipt = await reader.waitForTransactionReceipt({ hash })
   return { hash, ok: receipt.status === 'success' }
 }

@@ -8,8 +8,8 @@ import {
   erc20Abi,
   zeroAddress,
 } from 'viem'
-import { chain, DEADLINE_SECONDS, FORCED_GAS, VAULT, vaultAbi } from './config.js'
-import { requireNormalKey, whileSigning } from './chain.js'
+import { chain, DEADLINE_SECONDS, FORCED_GAS, vaultAbi } from './config.js'
+import { lowFees, requireNormalKey, whileSigning } from './chain.js'
 
 const EXTRA_ETH = 10n ** 15n
 
@@ -53,7 +53,7 @@ export function explainFailure(error) {
 
 function runCall(vault, { actions, checks, deadline }) {
   return {
-    address: VAULT,
+    address: vault.address,
     abi: vaultAbi,
     functionName: 'run',
     args: [actions, checks, deadline],
@@ -76,7 +76,8 @@ export async function signAndSend(wallet, vault, run, forced) {
   const { reader, signer } = clients(wallet, vault.everydayKey)
   const call = runCall(vault, run)
   const gas = forced ? FORCED_GAS : ((await reader.estimateContractGas(call)) * 12n) / 10n
-  return whileSigning(() => signer.writeContract({ ...call, gas }))
+  const fees = await lowFees(reader)
+  return whileSigning(() => signer.writeContract({ ...call, gas, ...fees }))
 }
 
 export async function waitForResult(wallet, vault, run, hash) {

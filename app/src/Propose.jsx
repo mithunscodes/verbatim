@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
 import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration } from './format.js'
-import { useVaultTx } from './hooks.js'
+import { vaultAbi } from './config.js'
+import { useTx } from './hooks.js'
 import { ChangeKind } from './rules.js'
 import TxStatus from './TxStatus.jsx'
 
@@ -10,7 +11,7 @@ export default function Propose({ vault, role, account, blocked, onDone }) {
   const usdc = vault.holdings.find((h) => h.token !== zeroAddress)?.token ?? zeroAddress
   const [token, setToken] = useState(usdc)
   const [text, setText] = useState('')
-  const { tx, send, busy } = useVaultTx(account, onDone)
+  const { tx, send, busy } = useTx(account, onDone)
   const holding = holdingOf(vault, token)
   const trimmed = text.trim()
   const valid = amountPattern(holding.decimals).test(trimmed)
@@ -22,7 +23,7 @@ export default function Propose({ vault, role, account, blocked, onDone }) {
   const isEveryday = role === 'Everyday key'
 
   const propose = () => {
-    send(`Propose ${formatAmount(amount, holding.decimals)} ${holding.symbol} a day`, 'propose', [ChangeKind.DailyLimit, zeroAddress, token, amount])
+    send(`Propose ${formatAmount(amount, holding.decimals)} ${holding.symbol} a day`, { address: vault.address, abi: vaultAbi }, 'propose', [ChangeKind.DailyLimit, zeroAddress, token, amount])
     setText('')
   }
 

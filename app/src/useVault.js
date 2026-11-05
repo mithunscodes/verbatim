@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAddress } from 'viem'
 import { AUTO_REFRESH_MS, chain } from './config.js'
 import {
+  findVaults,
   getWallet,
   isSigning,
   readAccount,
@@ -30,6 +31,8 @@ export function useVault() {
   const [account, setAccount] = useState(null)
   const [chainId, setChainId] = useState(null)
   const [vault, setVault] = useState(null)
+  const [vaults, setVaults] = useState(null)
+  const [selected, setSelected] = useState(null)
   const [keyType, setKeyType] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -53,7 +56,7 @@ export function useVault() {
   const latest = useRef(0)
   const reading = useRef(false)
 
-  const refresh = useCallback(async ({ silent = false } = {}) => {
+  const refresh = useCallback(async ({ silent = false, wanted = null } = {}) => {
     if (!wallet || !onSepolia || !account) return
     if (silent && (reading.current || isSigning())) return
     const id = ++latest.current
@@ -63,8 +66,12 @@ export function useVault() {
       setError(null)
     }
     try {
-      const [nextVault, nextKeyType] = await Promise.all([readVault(wallet), readKeyType(wallet, account)])
+      const [found, nextKeyType] = await Promise.all([findVaults(wallet, account), readKeyType(wallet, account)])
+      const chosen = found.find((v) => v.address === (wanted ?? selected)) ?? found[0] ?? null
+      const nextVault = chosen ? await readVault(wallet, chosen.address) : null
       if (id !== latest.current) return
+      setVaults(found)
+      setSelected(chosen?.address ?? null)
       setVault(nextVault)
       setKeyType(nextKeyType)
     } catch (e) {
@@ -75,13 +82,14 @@ export function useVault() {
         if (!silent) setLoading(false)
       }
     }
-  }, [wallet, onSepolia, account])
+  }, [wallet, onSepolia, account, selected])
 
   useEffect(() => {
     setVault(null)
+    setVaults(null)
     setKeyType(null)
     if (account && onSepolia) refresh()
-  }, [account, onSepolia, refresh])
+  }, [account, onSepolia])
 
   useEffect(() => {
     if (!account || !onSepolia) return
@@ -112,6 +120,8 @@ export function useVault() {
     vault,
     loading,
     error,
+    vaults,
+    choose: (address) => refresh({ wanted: address }),
     role: roleOf(account, vault),
     smart: Boolean(keyType?.smart),
     delegate: keyType?.delegate ?? null,
