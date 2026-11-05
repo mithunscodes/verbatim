@@ -1,5 +1,6 @@
 import { EXPLORER, VAULT } from './config.js'
 import { formatAmount, shortAddress } from './format.js'
+import Request from './Request.jsx'
 import { useVault } from './useVault.js'
 
 function AddressLink({ address }) {
@@ -32,7 +33,7 @@ function Balances({ vault, loading, onRefresh }) {
       {vault ? (
         <ul className="balances">
           {vault.holdings.map((holding) => (
-            <li key={holding.token ?? 'eth'}>
+            <li key={holding.token}>
               <span className="amount">{formatAmount(holding.amount, holding.decimals)}</span>
               <span className="symbol">{holding.symbol}</span>
             </li>
@@ -85,6 +86,8 @@ export default function App() {
       {v.account && v.onSepolia && (
         <Balances vault={v.vault} loading={v.loading} onRefresh={v.refresh} />
       )}
+
+      {v.account && v.onSepolia && v.vault && <Request vault={v.vault} />}
 
       {v.error && <p className="error">{v.error}</p>}
     </main>

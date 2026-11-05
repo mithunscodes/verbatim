@@ -5,10 +5,11 @@ import {
   custom,
   erc20Abi,
   getAddress,
+  zeroAddress,
 } from 'viem'
-import { chain, VAULT, vaultAbi } from './config.js'
+import { chain, NICKNAMES, priceSourceAbi, VAULT, vaultAbi } from './config.js'
 
-const MAX_TOKENS = 20
+const MAX_LIST = 50
 
 export function getWallet() {
   return typeof window === 'undefined' ? undefined : window.ethereum
@@ -51,52 +52,94 @@ function isRevert(error) {
   return error instanceof BaseError && Boolean(error.walk((e) => e instanceof ContractFunctionRevertedError))
 }
 
-async function readWatchedTokens(client, blockNumber) {
-  const tokens = []
-  for (let i = 0n; i < MAX_TOKENS; i++) {
+async function readList(read, functionName) {
+  const items = []
+  for (let i = 0n; i < MAX_LIST; i++) {
     try {
-      tokens.push(await client.readContract({
-        address: VAULT,
-        abi: vaultAbi,
-        functionName: 'watchedTokens',
-        args: [i],
-        blockNumber,
-      }))
+      items.push(await read(functionName, [i]))
     } catch (error) {
-      if (isRevert(error)) return tokens
+      if (isRevert(error)) return items
       throw error
     }
   }
-  return tokens
+  return items
 }
 
-async function readToken(client, token, blockNumber) {
+async function readFairPrice(client, priceSource, blockNumber) {
+  if (priceSource === zeroAddress) return null
   const read = (functionName, args = []) =>
-    client.readContract({ address: token, abi: erc20Abi, functionName, args, blockNumber })
-  const [symbol, decimals, amount] = await Promise.all([
-    read('symbol'),
-    read('decimals'),
-    read('balanceOf', [VAULT]),
-  ])
-  return { token, symbol, decimals, amount }
+    client.readContract({ address: priceSource, abi: priceSourceAbi, functionName, args, blockNumber })
+  try {
+    const [unit, ethPrice] = await Promise.all([read('unit'), read('valueOf', [zeroAddress, 10n ** 18n])])
+    return { unit, ethPrice }
+  } catch (error) {
+    if (isRevert(error)) return null
+    throw error
+  }
 }
 
 export async function readVault(wallet) {
   const client = createPublicClient({ chain, transport: custom(wallet) })
-  const blockNumber = await client.getBlockNumber()
-  const readVaultField = (functionName) =>
-    client.readContract({ address: VAULT, abi: vaultAbi, functionName, blockNumber })
-  const [everydayKey, rulesKey, eth, tokens] = await Promise.all([
-    readVaultField('everydayKey'),
-    readVaultField('rulesKey'),
-    client.getBalance({ address: VAULT, blockNumber }),
-    readWatchedTokens(client, blockNumber),
+  const block = await client.getBlock()
+  const blockNumber = block.number
+  const read = (functionName, args = []) =>
+    client.readContract({ address: VAULT, abi: vaultAbi, functionName, args, blockNumber })
+  const readToken = (token, functionName, args = []) =>
+    client.readContract({ address: token, abi: erc20Abi, functionName, args, blockNumber })
+
+  const [everydayKey, rulesKey, eth, tokens, contactAddresses, newContactPeriod, tradeTolerance, priceSource] =
+    await Promise.all([
+      read('everydayKey'),
+      read('rulesKey'),
+      client.getBalance({ address: VAULT, blockNumber }),
+      readList(read, 'watchedTokens'),
+      readList(read, 'contacts'),
+      read('newContactPeriod'),
+      read('tradeTolerance'),
+      read('priceSource'),
+    ])
+
+  const withRules = async (holding) => {
+    const [dailyLimit, leftToday, newContactLimit] = await Promise.all([
+      read('dailyLimit', [holding.token]),
+      read('leftToday', [holding.token]),
+      read('newContactLimit', [holding.token]),
+    ])
+    return { ...holding, dailyLimit, leftToday, newContactLimit }
+  }
+
+  const tokenHoldings = await Promise.all(tokens.map(async (token) => {
+    const [symbol, decimals, amount] = await Promise.all([
+      readToken(token, 'symbol'),
+      readToken(token, 'decimals'),
+      readToken(token, 'balanceOf', [VAULT]),
+    ])
+    return { token, symbol, decimals, amount }
+  }))
+
+  const [holdings, contacts, fairPrice] = await Promise.all([
+    Promise.all([
+      { token: zeroAddress, symbol: 'ETH', decimals: chain.nativeCurrency.decimals, amount: eth },
+      ...tokenHoldings,
+    ].map(withRules)),
+    Promise.all(contactAddresses.map(async (address) => ({
+      address,
+      nickname: NICKNAMES[address] ?? null,
+      savedAt: await read('savedAt', [address]),
+    }))),
+    readFairPrice(client, priceSource, blockNumber),
   ])
-  const holdings = await Promise.all(tokens.map((token) => readToken(client, token, blockNumber)))
+
   return {
     blockNumber,
+    timestamp: block.timestamp,
     everydayKey,
     rulesKey,
-    holdings: [{ token: null, symbol: 'ETH', decimals: chain.nativeCurrency.decimals, amount: eth }, ...holdings],
+    holdings,
+    contacts,
+    newContactPeriod,
+    tradeTolerance,
+    priceSource,
+    fairPrice,
   }
 }
