@@ -1,8 +1,9 @@
 import { createServer } from 'node:http'
 import { HOST, PORT, TOKENS } from './config.js'
 import { quoteSwap, RequestError } from './uniswap.js'
-
-const MAX_BODY_BYTES = 10_000
+import { understand } from './understand.js'
+import { preview } from './preview.js'
+import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
 
 try {
   process.loadEnvFile(new URL('../../.env', import.meta.url))
@@ -16,17 +17,29 @@ if (!process.env.UNISWAP_API_KEY) {
   process.exit(1)
 }
 
-function hide(text) {
-  return String(text).split(process.env.UNISWAP_API_KEY).join('[hidden]')
+const OPTIONAL = {
+  ZG_ROUTER_API_KEY: 'the sealed AI (sentences and the live preview)',
+  SEPOLIA_RPC_URL: 'the live preview',
+  RECEIPTS_PRIVATE_KEY: 'receipts on 0G Storage',
 }
 
-function readJson(request) {
+for (const [name, feature] of Object.entries(OPTIONAL)) {
+  if (!process.env[name]) console.log(`${name} is missing from .env, so ${feature} won't work.`)
+}
+
+const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), process.env.RECEIPTS_PRIVATE_KEY].filter(Boolean)
+
+function hide(text) {
+  return secrets.reduce((result, secret) => result.split(secret).join('[hidden]'), String(text))
+}
+
+function readJson(request, limit) {
   return new Promise((resolve, reject) => {
     const chunks = []
     let size = 0
     request.on('data', (chunk) => {
       size += chunk.length
-      if (size > MAX_BODY_BYTES) {
+      if (size > limit) {
         reject(new RequestError('The request is too big.', 413))
         request.destroy()
         return
@@ -49,29 +62,66 @@ function send(response, status, body) {
   response.end(JSON.stringify(body))
 }
 
-function log(request, body, outcome, started) {
-  const time = new Date().toLocaleTimeString('en-GB')
-  const what = body
-    ? `quote ${body.amount ?? '?'} ${TOKENS[body.tokenIn] ?? '?'} → ${TOKENS[body.tokenOut] ?? '?'} for ${body.swapper ?? '?'}`
-    : `${request.method} ${request.url}`
-  console.log(hide(`${time} ${what}: ${outcome}, ${Date.now() - started} ms`))
+const routes = {
+  'POST /api/quote': {
+    limit: 10_000,
+    run: quoteSwap,
+    describe: (body) => `quote ${body.amount ?? '?'} ${TOKENS[body.tokenIn] ?? '?'} → ${TOKENS[body.tokenOut] ?? '?'}`,
+  },
+  'POST /api/understand': {
+    limit: 20_000,
+    run: understand,
+    describe: (body, result) => result
+      ? `understand: ${result.result.steps.length} steps, ${result.result.questions.length} questions, sealed ${result.proof.verified ? '✓' : '✗'}, ${result.latencyMs} ms`
+      : 'understand',
+  },
+  'POST /api/preview': {
+    limit: 120_000,
+    run: preview,
+    describe: (body, result) => result
+      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}${result.cached ? ' (cached)' : ''}`
+      : 'preview',
+  },
+  'POST /api/receipt': {
+    limit: 64_000,
+    run: saveReceipt,
+    describe: (body, result) => (result ? `receipt saved: ${result.root}` : 'receipt'),
+  },
+}
+
+function routeOf(request) {
+  const route = routes[`${request.method} ${request.url}`]
+  if (route) return route
+  const match = request.method === 'GET' && request.url.match(/^\/api\/receipt\/(0x[0-9a-fA-F]{64})$/)
+  if (match) return { get: true, run: () => loadReceipt(match[1]), describe: () => `receipt read: ${match[1].slice(0, 10)}…` }
+  return null
 }
 
 const server = createServer(async (request, response) => {
   const started = Date.now()
   let body = null
+  let route = null
   try {
-    if (request.method !== 'POST' || request.url !== '/api/quote') throw new RequestError('Not found.', 404)
-    if (!request.headers['content-type']?.startsWith('application/json')) throw new RequestError('Send JSON.', 415)
-    body = await readJson(request)
-    send(response, 200, await quoteSwap(body))
-    log(request, body, 'ok', started)
+    route = routeOf(request)
+    if (!route) throw new RequestError('Not found.', 404)
+    if (!route.get) {
+      if (!request.headers['content-type']?.startsWith('application/json')) throw new RequestError('Send JSON.', 415)
+      body = await readJson(request, route.limit)
+    }
+    const result = await route.run(body ?? {})
+    send(response, 200, result)
+    console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${route.describe(body ?? {}, result)}: ok, ${Date.now() - started} ms`))
   } catch (error) {
     const status = error instanceof RequestError ? error.status : 500
-    send(response, status, { error: status === 500 ? 'Something went wrong in the quote server.' : error.message })
-    if (status === 500) console.error(hide(error.stack ?? error))
-    else log(request, body, error.message, started)
+    send(response, status, { error: status === 500 ? 'Something went wrong in the Verbatim server.' : error.message })
+    const what = route ? route.describe(body ?? {}, null) : `${request.method} ${request.url}`
+    if (status === 500) console.error(hide(`${what}: ${error.stack ?? error}`))
+    else console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${what}: ${error.message}, ${Date.now() - started} ms`))
   }
 })
 
-server.listen(PORT, HOST, () => console.log(`Quote server ready on http://${HOST}:${PORT}`))
+server.listen(PORT, HOST, () => {
+  console.log(`Verbatim server ready on http://${HOST}:${PORT}`)
+  const payer = receiptAddress()
+  if (payer) console.log(`Receipts are paid for by ${payer} on 0G's Galileo test network.`)
+})

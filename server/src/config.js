@@ -22,3 +22,40 @@ export const TOKENS = {
   '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238': 'USDC',
   '0x0000000000000000000000000000000000000000': 'ETH',
 }
+
+export const ZG_ROUTER = 'https://router-api.0g.ai/v1'
+
+export const AI_MODEL = 'glm-5.3'
+
+export const AI_MAX_TOKENS = 4000
+
+export const AI_TIMEOUT_MS = 90_000
+
+export const ZG_MAINNET_RPC = 'https://evmrpc.0g.ai'
+
+export const ZG_INFERENCE = '0x47340d900bdFec2BD393c626E12ea0656F938d84'
+
+export const SIGNATURE_TRIES = 5
+
+export const SIGNATURE_WAIT_MS = 3000
+
+export const GALILEO_RPC = 'https://evmrpc-testnet.0g.ai'
+
+export const ZG_INDEXER = 'https://indexer-storage-testnet-turbo.0g.ai'
+
+export const GALILEO_EXPLORER = 'https://chainscan-galileo.0g.ai'
+
+export const MAX_RECEIPT_BYTES = 32_000
+
+export const WETH = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
+
+export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
+
+export const UNISWAP_POOL_MANAGER = '0xE03A1074c86CFeDd5C142C4F04F1a1536e203543'
+
+export const UNISWAP_V3_POOLS = [
+  '0xFeEd501c2B21D315F04946F85fC6416B640240b5',
+  '0x3289680dD4d6C10bb19b899729cda5eEF58AEfF1',
+  '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50',
+  '0x6418EEC70f50913ff0d756B48d32Ce7C02b47C47',
+]

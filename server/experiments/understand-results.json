@@ -1,0 +1,11 @@
+{
+  "ranAt": "2026-10-16T19:24:37.192Z",
+  "rows": [
+    {
+      "id": "M10",
+      "set": "messy",
+      "correct": false,
+      "reason": "call failed: The sealed AI took too long. Please rephrase, or try again."
+    }
+  ]
+}
