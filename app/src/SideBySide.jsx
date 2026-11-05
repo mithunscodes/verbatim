@@ -7,7 +7,6 @@ import {
   demoRpcUrl,
   findScene,
   findTxs,
-  nameIn,
   nextScan,
   readBalances,
   readDemoLink,
@@ -91,9 +90,13 @@ function openSideBySide(left, right) {
   return Boolean(first && second)
 }
 
-function describe(scene, entry) {
-  const moved = entry.amount !== undefined ? `${tokenAmount(scene, entry.amount)} to ${nameIn(scene, entry.to)}` : entry.what
-  return entry.ok ? `Sent ${moved}` : `Tried to send ${moved}. Refused: "${entry.reason}". Nothing moved.`
+function describe(entry) {
+  return entry.ok ? entry.done : `Tried to ${entry.what}. Refused: "${entry.reason}". Nothing moved.`
+}
+
+function headline(entry) {
+  if (!entry.ok) return '✗ Failed'
+  return entry.waiting ? "⏳ Waiting for the owner's phone" : '✓ Success'
 }
 
 function Column({ title, tagline, account, amount, scene, entries }) {
@@ -111,9 +114,9 @@ function Column({ title, tagline, account, amount, scene, entries }) {
       {shown.length === 0 && <p className="muted">Nothing yet.</p>}
       <ul className="side-txs">
         {shown.map((entry) => (
-          <li key={entry.hash} className={entry.ok ? 'ok' : 'failed'}>
-            <strong>{entry.ok ? '✓ Success' : '✗ Failed'}</strong>
-            <span>{describe(scene, entry)}</span>
+          <li key={entry.hash} className={entry.ok ? (entry.waiting ? 'waiting-change' : 'ok') : 'failed'}>
+            <strong>{headline(entry)}</strong>
+            <span>{describe(entry)}</span>
             <a href={`${EXPLORER}/tx/${entry.hash}`} target="_blank" rel="noreferrer">Open on Etherscan ↗</a>
           </li>
         ))}
@@ -183,7 +186,11 @@ export default function SideBySide({ link }) {
         </div>
         <figure className="qr">
           {qr && <img src={qr} alt="QR code that opens the attacker page with the demo key" />}
-          <figcaption className="muted small">Scan to take the key · test money only</figcaption>
+          <figcaption className="muted small">
+            Scan to take the key · test money only
+            <br />
+            or type <strong className="mono">{window.location.host}/api/go</strong>
+          </figcaption>
         </figure>
       </header>
 

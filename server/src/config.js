@@ -10,6 +10,8 @@ export const ROUTER_VERSION = '2.0'
 
 export const UNIVERSAL_ROUTER = '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b'
 
+export const V4_QUOTER = '0x68aFa8b853cAa7a2D40B0F6AEE5C4DbC147C8244'
+
 export const PROTOCOLS = ['V2', 'V3', 'V4']
 
 export const SLIPPAGE_PERCENT = 0.5
@@ -25,11 +27,17 @@ export const TOKENS = {
 
 export const ZG_ROUTER = 'https://router-api.0g.ai/v1'
 
+export const ZG_PROVIDER = '0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D'
+
 export const AI_MODEL = 'glm-5.3'
 
 export const AI_MAX_TOKENS = 4000
 
 export const AI_TIMEOUT_MS = 90_000
+
+export const ZG_BUSY_RETRIES = 2
+
+export const ZG_BUSY_WAIT_MS = 3_000
 
 export const ZG_MAINNET_RPC = 'https://evmrpc.0g.ai'
 
@@ -46,6 +54,20 @@ export const ZG_INDEXER = 'https://indexer-storage-testnet-turbo.0g.ai'
 export const GALILEO_EXPLORER = 'https://chainscan-galileo.0g.ai'
 
 export const MAX_RECEIPT_BYTES = 32_000
+
+export const IMAGE_MODEL = 'z-image-turbo'
+
+export const IMAGE_SIZE = '512x512'
+
+export const IMAGE_TIMEOUT_MS = 240_000
+
+export const IMAGE_MAX_ACTIVE = 2
+
+export const IMAGE_KEEP_MS = 1_800_000
+
+export const MAX_IMAGE_BYTES = 2_000_000
+
+export const MAX_UPLOAD_BYTES = 1_000_000
 
 export const WETH = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
 
@@ -80,3 +102,47 @@ export const RPC_METHODS = [
 export const RPC_BATCH_LIMIT = 20
 
 export const RPC_TIMEOUT_MS = 30_000
+
+export const ANVIL = `${process.env.HOME}/.foundry/bin/anvil`
+
+export const REPLAY_PORT = 8547
+
+export const REPLAY_START_TIMEOUT_MS = 30_000
+
+export const SEPOLIA_EXPLORER = 'https://sepolia.etherscan.io'
+
+export const REPLAY_PRIORITY_FEE = 100_000_000n
+
+export const REPLAY_ATTEMPT_GAS = 3_000_000n
+
+export const REPLAY_BUILDER_FLOOR = 10_000_000_000_000_000n
+
+export const REPLAY_MAX_WAITING = 2
+
+export const REPLAY_POLL_MS = 2_000
+
+export const REPLAY_KEEP_MS = 1_800_000
+
+export const PUBLIC_ROUTES = ['GET /api/go', 'POST /api/rpc']
+
+export const LAPTOP_ONLY_ROUTES = ['POST /api/upload']
+
+export const OUTSIDE_LIMITS = {
+  'GET /api/go': { count: 30, minutes: 10 },
+  'POST /api/rpc': { count: 1_200, minutes: 10 },
+  eth_sendRawTransaction: { count: 30, minutes: 10 },
+}
+
+export const LAPTOP_LIMITS = {
+  'POST /api/understand': { count: 60, minutes: 60 },
+  'POST /api/preview': { count: 60, minutes: 60 },
+  'POST /api/quote': { count: 120, minutes: 60 },
+  'POST /api/receipt': { count: 30, minutes: 60 },
+  'POST /api/replay': { count: 12, minutes: 60 },
+  'POST /api/image': { count: 10, minutes: 60 },
+  'POST /api/upload': { count: 10, minutes: 60 },
+}
+
+export const LOOPBACK = ['127.0.0.1', '::1', '::ffff:127.0.0.1']
+
+export const PROXY_HEADERS = ['cf-connecting-ip', 'cf-ray', 'x-real-ip', 'true-client-ip', 'forwarded']

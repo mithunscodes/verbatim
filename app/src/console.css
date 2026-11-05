@@ -790,13 +790,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.console-theme .recorded {
-  padding: calc(var(--space) / 2) calc(var(--space) / 1.5);
-  border-radius: calc(var(--radius) / 1.5);
-  background: var(--warn-bg);
-  color: var(--warn);
-}
-
 .console-theme .your-words {
   margin: calc(var(--space) / 2) 0;
 }

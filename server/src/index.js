@@ -1,10 +1,15 @@
 import { createServer } from 'node:http'
+import { networkInterfaces } from 'node:os'
+import { privateKeyToAccount } from 'viem/accounts'
 import { HOST, PORT, TOKENS } from './config.js'
 import { quoteSwap, RequestError } from './uniswap.js'
 import { understand } from './understand.js'
 import { preview } from './preview.js'
 import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
 import { methodsOf, relay } from './rpc.js'
+import { replayStatus, startReplay } from './replay-jobs.js'
+import { imageStatus, startImage, startUpload } from './images.js'
+import { admit, chargeRelay, isOpen, isPublic } from './gate.js'
 
 try {
   process.loadEnvFile(new URL('../../.env', import.meta.url))
@@ -22,13 +27,16 @@ const OPTIONAL = {
   ZG_ROUTER_API_KEY: 'the sealed AI (sentences and the live preview)',
   SEPOLIA_RPC_URL: 'the live preview and the demo pages',
   RECEIPTS_PRIVATE_KEY: 'receipts on 0G Storage',
+  BUILDER_PRIVATE_KEY: 'the live replays (it pays for them)',
 }
 
 for (const [name, feature] of Object.entries(OPTIONAL)) {
   if (!process.env[name]) console.log(`${name} is missing from .env, so ${feature} won't work.`)
 }
 
-const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), process.env.RECEIPTS_PRIVATE_KEY].filter(Boolean)
+const privateKeys = Object.entries(process.env).filter(([name]) => name.endsWith('_PRIVATE_KEY')).map(([, value]) => value)
+
+const secrets = [process.env.UNISWAP_API_KEY, process.env.ZG_ROUTER_API_KEY, process.env.SEPOLIA_RPC_URL, process.env.SEPOLIA_RPC_URL?.split('/').pop(), ...privateKeys].filter(Boolean)
 
 function hide(text) {
   return secrets.reduce((result, secret) => result.split(secret).join('[hidden]'), String(text))
@@ -60,7 +68,7 @@ function readJson(request, limit) {
 
 function send(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-  response.end(JSON.stringify(body))
+  response.end(JSON.stringify(body, (key, value) => (typeof value === 'bigint' ? value.toString() : value)))
 }
 
 const routes = {
@@ -80,7 +88,7 @@ const routes = {
     limit: 120_000,
     run: preview,
     describe: (body, result) => result
-      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}${result.cached ? ' (cached)' : ''}`
+      ? `preview: ${result.facts.length} facts, ${result.verdict ? (result.verdict.matches ? 'matches' : `${result.verdict.differences.length} differences`) : 'no verdict'}`
       : 'preview',
   },
   'POST /api/receipt': {
@@ -94,6 +102,26 @@ const routes = {
     quiet: (body) => !methodsOf(body).includes('eth_sendRawTransaction'),
     describe: (body) => `demo relay: ${methodsOf(body).join(', ')}`,
   },
+  'POST /api/image': {
+    limit: 2_000,
+    run: startImage,
+    describe: (body, result) => (result ? 'image: started on 0G' : 'image'),
+  },
+  'POST /api/upload': {
+    limit: 1_500_000,
+    run: startUpload,
+    describe: (body, result) => (result ? 'upload: your picture, to 0G Storage' : 'upload'),
+  },
+  'POST /api/replay': {
+    limit: 1_000,
+    run: startReplay,
+    describe: (body, result) => (result ? `replay ${body.name}: started on Sepolia${result.ahead ? `, ${result.ahead} ahead` : ''}` : `replay ${body.name ?? '?'}`),
+  },
+}
+
+function sessionOf(request) {
+  const session = request.headers['x-0g-session']
+  return typeof session === 'string' && /^[\x21-\x7e]{20,4096}$/.test(session) ? session : null
 }
 
 function routeOf(request) {
@@ -101,7 +129,29 @@ function routeOf(request) {
   if (route) return route
   const match = request.method === 'GET' && request.url.match(/^\/api\/receipt\/(0x[0-9a-fA-F]{64})$/)
   if (match) return { get: true, run: () => loadReceipt(match[1]), describe: () => `receipt read: ${match[1].slice(0, 10)}…` }
+  const replay = request.method === 'GET' && request.url.match(/^\/api\/replay\/([0-9a-f-]{36})$/)
+  if (replay) return { get: true, quiet: () => true, run: () => replayStatus(replay[1]), describe: () => 'replay status' }
+  const image = request.method === 'GET' && request.url.match(/^\/api\/image\/([0-9a-f-]{36})$/)
+  if (image) return { get: true, quiet: () => true, run: () => imageStatus(image[1]), describe: () => 'image status' }
   return null
+}
+
+function lanAddress() {
+  const interfaces = networkInterfaces()
+  const candidates = [...(interfaces.en0 ?? []), ...Object.values(interfaces).flat()]
+  return candidates.find((net) => net?.family === 'IPv4' && !net.internal)?.address ?? null
+}
+
+function goToDemo(response) {
+  const key = process.env.DEMO_EVERYDAY_PRIVATE_KEY
+  const thiefKey = process.env.DEMO_THIEF_PRIVATE_KEY
+  if (!key || !thiefKey) {
+    send(response, 503, { error: 'The demo keys are missing from .env. Run scripts/side-by-side.js keys.' })
+    return
+  }
+  response.writeHead(302, { location: `/#attack/${key}/${privateKeyToAccount(thiefKey).address}`, 'cache-control': 'no-store' })
+  response.end()
+  console.log(`${new Date().toLocaleTimeString('en-GB')} short link: a phone opened the attacker page`)
 }
 
 const server = createServer(async (request, response) => {
@@ -109,13 +159,17 @@ const server = createServer(async (request, response) => {
   let body = null
   let route = null
   try {
+    const outside = admit(request)
+    if (request.method === 'GET' && request.url === '/api/go') return goToDemo(response)
+    if (request.method === 'GET' && request.url === '/api/lan') return send(response, 200, { address: lanAddress() })
     route = routeOf(request)
     if (!route) throw new RequestError('Not found.', 404)
     if (!route.get) {
       if (!request.headers['content-type']?.startsWith('application/json')) throw new RequestError('Send JSON.', 415)
       body = await readJson(request, route.limit)
     }
-    const result = await route.run(body ?? {})
+    if (outside) chargeRelay(body)
+    const result = await route.run(body ?? {}, { session: sessionOf(request), hide })
     send(response, 200, result)
     if (!route.quiet?.(body ?? {})) console.log(hide(`${new Date().toLocaleTimeString('en-GB')} ${route.describe(body ?? {}, result)}: ok, ${Date.now() - started} ms`))
   } catch (error) {
@@ -129,6 +183,8 @@ const server = createServer(async (request, response) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Verbatim server ready on http://${HOST}:${PORT}`)
+  if (isPublic) console.log('Public mode is on: phones and the live link reach only the short link and the relay, with limits. The laptop keeps everything, with limits on the paid parts.')
+  if (isOpen) console.log('Open mode is on: everyone reaches every part of Verbatim, with limits on the paid parts. Switch the server off when it is not needed.')
   const payer = receiptAddress()
   if (payer) console.log(`Receipts are paid for by ${payer} on 0G's Galileo test network.`)
 })

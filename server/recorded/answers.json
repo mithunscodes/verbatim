@@ -1,0 +1,82 @@
+{
+  "[\"send 1 usdc to builder\",[\"builder\"],[\"USDC\"],[]]": {
+    "sentence": "send 1 usdc to builder",
+    "result": {
+      "steps": [
+        {
+          "type": "send",
+          "token": "USDC",
+          "amount": {
+            "kind": "exact",
+            "value": "1"
+          },
+          "to": "Builder"
+        }
+      ],
+      "questions": [],
+      "riskLimitPercent": null,
+      "nothingElse": false
+    },
+    "understood": true,
+    "model": "glm-5.3",
+    "latencyMs": 8770,
+    "costUsdMicro": 2121,
+    "proof": {
+      "chatId": "2b04daee-2d94-4d96-a977-2432c466c8d1",
+      "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+      "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+      "checkedAt": "2026-10-17T19:34:05.540Z",
+      "verified": true,
+      "model": "glm-5.3",
+      "verifiability": "TeeML",
+      "signerAcknowledged": true,
+      "registeredSigner": "0xb58C60748e89D995d9E6410ac361B6aA2bC94CA1",
+      "recoveredSigner": "0xb58C60748e89D995d9E6410ac361B6aA2bC94CA1",
+      "imageDigest": "sha256:da6e1481217c836ca9a75ebbb48535e8cc5088f35ede31a702c414021c673336",
+      "signedText": "zg-sig-v1/e2ee-ct:c0fc718c884a0f0ad839ffad1cbbbbc692ae279ee163db6fa2778cbc2de3fe44:ef81ef3c3ae61a4a9adfe6fa773c13954335d0838e8524b72e152eb4b2b7f9aa",
+      "signature": "0xff6861207915c8c527e6ab8e07b4f72cece3ccaeb2f3e57f074aa006952ea4fc6c9159191814355829bbf6ea05fefb19f9259550122f56fc85c7875a9fd9292d1c",
+      "registry": {
+        "chain": "0G mainnet",
+        "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+      },
+      "problem": null
+    },
+    "recordedAt": "2026-10-17T19:34:06.195Z"
+  },
+  "[\"send all my usdc to 0x000000000000000000000000000000000000dead\",[\"builder\"],[\"USDC\"],[]]": {
+    "sentence": "send all my usdc to 0x000000000000000000000000000000000000dEaD",
+    "result": {
+      "steps": [],
+      "questions": [
+        "You gave a raw address (0x000000000000000000000000000000000000dEaD), but I can only send to saved names. That address is a burn address, so sending to it would permanently destroy the USDC. Did you mean Builder, your only saved name, or something else?"
+      ],
+      "riskLimitPercent": null,
+      "nothingElse": false
+    },
+    "understood": true,
+    "model": "glm-5.3",
+    "latencyMs": 11712,
+    "costUsdMicro": 3056,
+    "proof": {
+      "chatId": "6e69a320-359d-4e76-a458-32f65ab5574a",
+      "provider": "0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D",
+      "note": "0G's Router passes the chat to sealed hardware in an encrypted form, and the signature covers that encrypted chat. It proves a genuine sealed model answered. Through the Router it can't tie this exact text to the signature.",
+      "checkedAt": "2026-10-17T17:30:46.764Z",
+      "verified": true,
+      "model": "glm-5.3",
+      "verifiability": "TeeML",
+      "signerAcknowledged": true,
+      "registeredSigner": "0xb58C60748e89D995d9E6410ac361B6aA2bC94CA1",
+      "recoveredSigner": "0xb58C60748e89D995d9E6410ac361B6aA2bC94CA1",
+      "imageDigest": "sha256:da6e1481217c836ca9a75ebbb48535e8cc5088f35ede31a702c414021c673336",
+      "signedText": "zg-sig-v1/e2ee-ct:6d9df64a377d73425aeed1458f34f4d4a3c58ddd7da4122000b16c928b7494d3:f7c254f820500bd701032cf4260718c13d98797d3d032d591ecc73a2dc4fee68",
+      "signature": "0xccef02cf38866f75c3acf532b08d739bd460c9ebe074a72ad59308ac1a442bd84a8520f2e93bcf0145401a983fbc3f0d5ff04d6dd89226f33320f4822373dc091c",
+      "registry": {
+        "chain": "0G mainnet",
+        "contract": "0x47340d900bdFec2BD393c626E12ea0656F938d84"
+      },
+      "problem": null
+    },
+    "recordedAt": "2026-10-17T17:30:47.045Z"
+  }
+}

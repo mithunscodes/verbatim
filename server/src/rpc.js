@@ -19,8 +19,9 @@ export async function relay(body) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
     })
-  } catch {
-    throw new RequestError("Couldn't reach Sepolia's node in time.", 504)
+  } catch (error) {
+    if (error.name === 'TimeoutError') throw new RequestError("Sepolia's node didn't answer in time.", 504)
+    throw new RequestError("Couldn't reach Sepolia's node. Check the laptop's internet connection.", 502)
   }
   const answer = await response.json().catch(() => null)
   if (!answer) throw new RequestError(`Sepolia's node answered ${response.status} without a result.`, 502)

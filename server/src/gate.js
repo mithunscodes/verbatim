@@ -5,8 +5,6 @@ import { RequestError } from './uniswap.js'
 
 export const isPublic = process.env.VERBATIM_PUBLIC === 'on'
 
-export const isOpen = process.env.VERBATIM_PUBLIC === 'open'
-
 const windows = new Map()
 
 export function routeName(request) {
@@ -47,11 +45,6 @@ export function take(name, rule, amount = 1, now = Date.now()) {
 }
 
 export function admit(request) {
-  if (isOpen) {
-    const name = routeName(request)
-    if (LAPTOP_LIMITS[name]) take(`open ${name}`, LAPTOP_LIMITS[name])
-    return false
-  }
   if (!isPublic) return false
   const name = routeName(request)
   const outside = !fromLaptop(request)

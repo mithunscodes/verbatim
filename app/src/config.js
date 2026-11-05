@@ -5,7 +5,7 @@ export const chain = sepolia
 
 export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69']
 
-export const FACTORY = '0xFe61f5Eb31505232eC7a0BADFb70F1d35d7E7ee7'
+export const FACTORY = '0x8eF83334CE142d09e1fF47ee3DB5e434affd88E6'
 
 export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
 
@@ -48,6 +48,10 @@ export const DEMO_ALLOWED_SEND = '1'
 export const DEMO_RPC_PATH = '/api/rpc'
 
 export const DEMO_POLL_MS = 2_000
+
+export const DEMO_ATTACK_GAS = 3_000_000n
+
+export const DEMO_PROPOSED_LIMIT = '1000'
 
 export const EXPLORER = 'https://sepolia.etherscan.io'
 
@@ -110,6 +114,7 @@ export const vaultAbi = parseAbi([
   'struct Action { address target; uint256 value; bytes data; uint8 operation; }',
   'struct Check { uint8 kind; address token; address to; uint256 amount; }',
   'function run(Action[] actions, Check[] checks, uint256 deadline)',
+  'event Ran(bytes32 indexed actionsHash, bytes32 indexed checksHash, uint256 actionCount, uint256 deadline)',
   'error CheckFailed(uint256 checkNumber, string check, uint256 expected, uint256 actual)',
 ])
 

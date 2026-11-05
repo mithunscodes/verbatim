@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process'
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { erc20Abi, formatEther, formatUnits, parseEther, parseUnits, zeroAddress } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { DEMO_ALLOWED_SEND, DEMO_TIMINGS, EXPLORER, FACTORY, factoryAbi, PRICE_SOURCE, UNIVERSAL_ROUTER, vaultAbi } from '../../app/src/config.js'
+import { DEMO_ALLOWED_SEND, DEMO_TIMINGS, EXPLORER, FACTORY, factoryAbi, PRICE_SOURCE, vaultAbi } from '../../app/src/config.js'
 import { lowFees } from '../../app/src/chain.js'
 import {
   ATTACKS,
@@ -18,11 +18,9 @@ import {
   sendTry,
   sentenceRequest,
   sentenceVault,
-  vaultRun,
 } from '../../app/src/demo.js'
 import { planFor } from '../../app/src/ai.js'
 import { ChangeKind } from '../../app/src/rules.js'
-import { explainRefusal, saidFor } from '../../app/src/words.js'
 import {
   RESOLVER_IMPL,
   UNIVERSAL_RESOLVER,
@@ -80,17 +78,9 @@ function makeKeys() {
   }
 }
 
-function replaceKey(name, key) {
-  const env = readFileSync(ENV_FILE, 'utf8')
-  const line = new RegExp(`^${name}=.*$`, 'm')
-  writeFileSync(ENV_FILE, line.test(env) ? env.replace(line, `${name}=${key}`) : `${env}${env.endsWith('\n') ? '' : '\n'}${name}=${key}\n`)
-  process.env[name] = key
-}
-
 function context(url, factory) {
   return {
     ...connect(url),
-    url,
     factory,
     everyday: accountFor('DEMO_EVERYDAY_PRIVATE_KEY', MAKE_KEYS),
     rules: accountFor('DEMO_RULES_PRIVATE_KEY', MAKE_KEYS),
@@ -237,7 +227,6 @@ async function matchDailyLimit(ctx, target) {
     if (Number(kind) === ChangeKind.DailyLimit && sameAddress(changeToken, token) && value === want && !cancelled && !done && usable) id = i
   }
   if (id === null) {
-    await cancelOpenChanges(ctx, target.address)
     id = count
     await sendAll(ctx, ctx.everyday, [{
       label: `Propose a daily limit of ${DAILY_LIMIT} USDC, instead of ${formatUnits(current, decimals)} (raising one needs a proposal)`,
@@ -294,78 +283,6 @@ async function reset(ctx) {
   }
   if (plan.size === 0) console.log(`  Both accounts are already in place: ${usdc(needs[1].want)} in the normal wallet, ${usdc(needs[0].want)} in the vault`)
   await Promise.all([...plan].map(([source, steps]) => sendAll(ctx, source.account, steps)))
-  await warnings(ctx, found)
-}
-
-async function isStuck(ctx, address) {
-  const [latest, pending] = await Promise.all([
-    ctx.publicClient.getTransactionCount({ address, blockTag: 'latest' }),
-    ctx.publicClient.getTransactionCount({ address, blockTag: 'pending' }),
-  ])
-  return pending > latest
-}
-
-async function warnings(ctx, found) {
-  const [left, stuck] = await Promise.all([
-    ctx.publicClient.readContract({ address: found.vault, abi: vaultAbi, functionName: 'leftToday', args: [found.token] }),
-    isStuck(ctx, ctx.everyday.address),
-  ])
-  const needed = parseUnits(DEMO_ALLOWED_SEND, found.decimals)
-  if (left < needed) console.log(`  ! Today's limit has only ${formatUnits(left, found.decimals)} ${found.symbol} left, so the allowed send will be refused. Run fresh --live for a new key and vault.`)
-  if (stuck) console.log('  ! The demo key has a transaction stuck waiting on Sepolia, so its next sends will wait too. Run fresh --live for a new key and vault.')
-}
-
-async function recover(ctx) {
-  const found = await findScene(ctx.phone.reader, ctx.everyday.address, ctx.thief.address, ctx.factory)
-  const key = ctx.everyday.address
-  if (await isStuck(ctx, key)) {
-    console.log(`  ! The old demo key ${key} has a stuck transaction, so its leftovers stay where they are.`)
-    return
-  }
-  const balanceOf = (address) => ctx.publicClient.readContract({ address: found.token, abi: erc20Abi, functionName: 'balanceOf', args: [address] })
-  const steps = []
-  if (found.vault && found.contact && found.setupFinished) {
-    const [held, left] = await Promise.all([
-      balanceOf(found.vault),
-      ctx.publicClient.readContract({ address: found.vault, abi: vaultAbi, functionName: 'leftToday', args: [found.token] }),
-    ])
-    const amount = held < left ? held : left
-    if (amount > 0n) {
-      steps.push({ label: `The old vault pays its ${formatUnits(amount, found.decimals)} ${found.symbol} back to its contact, the Builder key`, request: vaultRun(found, found.contact, amount) })
-    }
-    if (held > amount) console.log(`  ! ${formatUnits(held - amount, found.decimals)} ${found.symbol} stays in the old vault: today's limit is used up`)
-  }
-  if (found.token) {
-    const loose = await balanceOf(key)
-    if (loose > 0n) {
-      steps.push({
-        label: `The old normal wallet sends its ${formatUnits(loose, found.decimals)} ${found.symbol} back to the Builder key`,
-        request: { address: found.token, abi: erc20Abi, functionName: 'transfer', args: [ctx.builder.address, loose] },
-      })
-    }
-  }
-  for (const step of steps) {
-    try {
-      await sendAll(ctx, ctx.everyday, [step])
-    } catch (error) {
-      console.log(`  ! Skipped: ${step.label} (${error.shortMessage ?? error.message})`)
-    }
-  }
-  const [gas, fees] = await Promise.all([ctx.publicClient.getBalance({ address: key }), lowFees(ctx.publicClient)])
-  const cost = 21_000n * fees.maxFeePerGas
-  if (gas > cost * 2n) await sendAll(ctx, ctx.everyday, [{ label: `The old demo key returns ${formatEther(gas - cost)} test ETH to the Builder key`, request: { to: ctx.builder.address, value: gas - cost } }])
-}
-
-async function fresh(ctx) {
-  console.log(`A fresh demo key and vault on ${where()}`)
-  const old = ctx.everyday.address
-  await recover(ctx)
-  replaceKey('DEMO_EVERYDAY_PRIVATE_KEY', generatePrivateKey())
-  const next = context(ctx.url, ctx.factory)
-  console.log(`  New demo key in .env: ${next.everyday.address}. The old one, ${old}, is now worthless to anyone who photographed it.`)
-  await setup(next)
-  await status(next)
-  console.log('\nNext: restart the server (Ctrl+C, then npm start in server/) so the short link hands out the new key, then run screen again for the new QR code.')
 }
 
 async function status(ctx) {
@@ -477,12 +394,6 @@ async function tryAttacks(ctx, report, { sentences }) {
       !result.ok && result.reason === attack.expected && after.vault === before.vault,
       `${attack.title}: ${result.ok ? 'it went through' : `refused, "${result.reason}"`}, the vault still holds ${usdc(after.vault)} (${link(hash)})`,
     )
-    if (attack.id === 'fakeRouter') {
-      report(
-        Boolean(found.routerName) && sameAddress(found.routerAddress, UNIVERSAL_ROUTER),
-        `…ENS, read through the vault's directory: ${found.routerName ?? 'no router name'} → ${found.routerAddress ?? 'nothing'} (the real router), the thief's address isn't listed`,
-      )
-    }
   }
   if (!sentences) return
   const balances = await readBalances(reader, found)
@@ -496,13 +407,6 @@ async function tryAttacks(ctx, report, { sentences }) {
     const { hash } = await sendTry(ctx.phone, sentenceRequest(found, plan))
     const result = await resultOf(reader, hash)
     report(result.ok, `…sent, and the standing rules allowed it: ${result.ok ? 'Success' : `refused, "${result.reason}"`} (${link(hash)})`)
-    const said = saidFor(answer.result, plan.origins)
-    const hacked = await resultOf(reader, (await sendTry(ctx.phone, sentenceRequest(found, plan, true))).hash)
-    const why = hacked.failure ? explainRefusal(hacked.failure, sentenceVault(found, balances), plan.checks, said) : hacked.reason
-    report(
-      !hacked.ok && why.startsWith('You said “'),
-      `…the same words through a hacked app that sends 1 ${found.symbol} more: ${hacked.ok ? 'it went through' : `refused, "${why}"`} (${link(hacked.hash)})`,
-    )
   }
   const sneaky = 'send all my usdc to 0x000000000000000000000000000000000000dEaD'
   const refused = await ask(sneaky)
@@ -552,7 +456,7 @@ async function rehearse() {
     const vault = await vaultOf(ctx)
     report(sameAddress(await ctx.publicClient.readContract({ address: vault, abi: vaultAbi, functionName: 'directory' }), directory), 'The demo vault is version 3: it reads the ENS directory')
     for (let i = 1; i <= REHEARSAL_RUNS; i++) await runOnce(ctx, i, report)
-    await tryAttacks(ctx, report, { sentences: process.argv.includes('--sentences') })
+    await tryAttacks(ctx, report, { sentences: false })
     finish()
   } finally {
     clearInterval(ticker)
@@ -596,11 +500,10 @@ async function main() {
   const ctx = context(process.env.SEPOLIA_RPC_URL, FACTORY)
   if (command === 'setup') return setup(ctx).then(() => status(ctx))
   if (command === 'reset') return reset(ctx).then(() => status(ctx))
-  if (command === 'fresh') return fresh(ctx)
   if (command === 'status') return status(ctx)
   if (command === 'run') return runTimes(ctx, Number(option('times') ?? 5))
   if (command === 'attacks') return attacksLive(ctx)
-  throw new Error('With --live, use setup, fresh, reset, status, run or attacks')
+  throw new Error('With --live, use setup, reset, status, run or attacks')
 }
 
 if (isMain(import.meta.url)) runMain(main)
