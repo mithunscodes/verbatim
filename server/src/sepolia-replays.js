@@ -3,8 +3,10 @@ import {
   BaseError,
   ContractFunctionRevertedError,
   concat,
+  encodeDeployData,
   encodeFunctionData,
   encodePacked,
+  erc20Abi,
   formatEther,
   getAddress,
   getContractAddress,
@@ -12,6 +14,7 @@ import {
   pad,
   parseAbi,
   parseEther,
+  parseEventLogs,
   size,
   toHex,
   zeroAddress,
@@ -19,7 +22,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { DEMO_ATTACK_GAS, DEMO_PRIORITY_FEE, FACTORY, factoryAbi, vaultAbi } from '../../app/src/config.js'
-import { BYBIT } from './replays.js'
+import { AAVE, BYBIT, artifact } from './replays.js'
 
 export const SAFE = {
   version: '1.1.1',
@@ -34,9 +37,26 @@ export const DEPLOYER = getAddress('0x4e59b44847b379578588920cA78FbF26c0B4956C')
 
 export const HELD = parseEther('0.001')
 
-export const GAS_MONEY = { everyday: parseEther('0.006'), rules: parseEther('0.001'), thief: parseEther('0.003') }
+export const GAS_MONEY = { everyday: parseEther('0.01'), rules: parseEther('0.001'), thief: parseEther('0.003') }
 
 export const BYBIT_REASON = 'Borrowed code would run in your account'
+
+export const AAVE_REASON = 'Unfair trade'
+
+export const UNISWAP = {
+  v3Factory: getAddress('0x0227628f3F023bb0B980b67D528571c95c6DaC1c'),
+  v2Factory: getAddress('0xF62c03E08ada871A0bEb309762E260a7a6a880E6'),
+}
+
+const AAVE_TOKENS = [
+  ['aave', 'Test AAVE (Verbatim replay)', 'tAAVE', 18],
+  ['weth', 'Test WETH (Verbatim replay)', 'tWETH', 18],
+  ['usdt', 'Test USDT (Verbatim replay)', 'tUSDT', 6],
+]
+const LOW_ADDRESS = 2n ** 158n
+const MAX_SALTS = 100_000n
+const ATTEMPT_GAS_EXTRA = 1_000_000n
+const CheckKind = { AtMostLeaves: 0, AtLeastArrives: 1 }
 
 export const REPLAY_KEYS = {
   REPLAY_EVERYDAY_PRIVATE_KEY: "Replay vaults' everyday key",
@@ -49,6 +69,7 @@ export const REPLAY_KEYS = {
 
 const MAKE_KEYS = 'scripts/sepolia-replays.js keys'
 const CODE = new URL('./bybit-code.json', import.meta.url)
+const POOLS = new URL('./aave-pools.json', import.meta.url)
 const SWEEP_GAS = 200_000n
 const DEADLINE_SECONDS = 600n
 const RECEIPT_TIMEOUT_MS = 540_000
@@ -119,22 +140,29 @@ export async function reasonOf(publicClient, request) {
   }
 }
 
+const sent = ({ transactionHash, status, blockNumber, gasUsed, effectiveGasPrice }) => ({
+  hash: transactionHash,
+  status,
+  block: blockNumber,
+  fee: gasUsed * effectiveGasPrice,
+})
+
 export function bybitCode() {
   return JSON.parse(readFileSync(CODE, 'utf8'))
 }
 
 const creationCode = (runtime) => concat(['0x61', toHex(size(runtime), { size: 2 }), '0x80600c6000396000f3', runtime])
 
+const viaDeployer = (bytecode, salt = zeroHash) => ({
+  deploy: concat([salt, bytecode]),
+  address: getContractAddress({ opcode: 'CREATE2', from: DEPLOYER, salt, bytecode }),
+})
+
 export function copies(thief) {
   const code = bybitCode()
   const attacker = BYBIT.attacker.slice(2).toLowerCase()
   const runtimes = { trojan: code.trojan, backdoor: code.backdoor.toLowerCase().split(attacker).join(thief.slice(2).toLowerCase()) }
-  return Object.fromEntries(
-    Object.entries(runtimes).map(([name, runtime]) => {
-      const bytecode = creationCode(runtime)
-      return [name, { runtime, deploy: concat([zeroHash, bytecode]), address: getContractAddress({ opcode: 'CREATE2', from: DEPLOYER, salt: zeroHash, bytecode }) }]
-    }),
-  )
+  return Object.fromEntries(Object.entries(runtimes).map(([name, runtime]) => [name, { runtime, ...viaDeployer(creationCode(runtime)) }]))
 }
 
 let proxyCode = null
@@ -251,7 +279,6 @@ export async function runBybit({ publicClient, wallet }, accounts) {
   ])
   const receipts = await Promise.all(hashes.map((hash) => publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS })))
   const [codeAfter, safeAfter, vaultAfter] = await Promise.all([codeOf(publicClient, scene.safe), balance(scene.safe), balance(scene.vault)])
-  const sent = ({ transactionHash, status, blockNumber, gasUsed, effectiveGasPrice }) => ({ hash: transactionHash, status, block: blockNumber, fee: gasUsed * effectiveGasPrice })
   const [takeoverSent, sweepSent, attemptSent] = receipts.map(sent)
   return {
     run: scene.run,
@@ -268,6 +295,148 @@ export async function runBybit({ publicClient, wallet }, accounts) {
     takeover: takeoverSent,
     sweep: sweepSent,
     attempt: attemptSent,
+    ms: Date.now() - started,
+  }
+}
+
+const built = (file, name, args) => {
+  const { abi, bytecode } = artifact(file, name)
+  return encodeDeployData({ abi, bytecode, args })
+}
+
+export const abiOf = (file, name) => artifact(file, name).abi
+
+export function aavePools() {
+  return JSON.parse(readFileSync(POOLS, 'utf8'))
+}
+
+function aaveTokens(helper) {
+  const tokens = {}
+  let floor = 0n
+  for (const [key, name, symbol, decimals] of AAVE_TOKENS) {
+    const bytecode = built('ReplayToken.sol', 'ReplayToken', [name, symbol, decimals, helper])
+    for (let salt = 0n; !tokens[key]; salt++) {
+      if (salt === MAX_SALTS) throw new Error(`No salt puts ${symbol} in mainnet's token order`)
+      const candidate = viaDeployer(bytecode, pad(toHex(salt)))
+      const value = BigInt(candidate.address)
+      if (value > floor && (floor > 0n || value < LOW_ADDRESS)) tokens[key] = { ...candidate, symbol, decimals }
+    }
+    floor = BigInt(tokens[key].address)
+  }
+  return tokens
+}
+
+export async function aaveScene(publicClient, owner, accounts) {
+  const data = aavePools()
+  const helper = viaDeployer(built('ReplayPools.sol', 'ReplayPools', [owner, UNISWAP.v3Factory, UNISWAP.v2Factory]))
+  const tokens = aaveTokens(helper.address)
+  const read = (functionName) =>
+    publicClient.readContract({ address: helper.address, abi: abiOf('ReplayPools.sol', 'ReplayPools'), functionName }).catch(() => zeroAddress)
+  const [pool, pair] = await Promise.all([read('pool'), read('pair')])
+  const coins = [tokens.usdt, tokens.aave]
+  const route = viaDeployer(built('ReplayRoute.sol', 'ReplayRoute', [tokens.usdt.address, tokens.weth.address, pool, pair]))
+  const source = viaDeployer(
+    built('FixedPriceSource.sol', 'FixedPriceSource', [
+      coins.map((token) => token.address),
+      [BigInt(data.prices.usdt), BigInt(data.prices.aave)],
+      coins.map((token) => token.decimals),
+      data.prices.decimals,
+    ]),
+  )
+  const directory = viaDeployer(built('ReplayDirectory.sol', 'ReplayDirectory', [[route.address]]))
+  const vault = viaDeployer(
+    built('VerbatimVault.sol', 'VerbatimVault', [accounts.everyday.address, accounts.rules.address, coins.map((token) => token.address), directory.address]),
+  )
+  return { data, helper, tokens, pool, pair, route, source, directory, vault, holders: [accounts.everyday.address, vault.address] }
+}
+
+export async function aaveReady(publicClient, scene) {
+  return publicClient
+    .readContract({ address: scene.helper.address, abi: abiOf('ReplayPools.sol', 'ReplayPools'), functionName: 'isReset', args: [scene.holders] })
+    .catch(() => false)
+}
+
+export async function resetAave(ctx, accounts, log) {
+  const scene = await aaveScene(ctx.publicClient, ctx.builder.address, accounts)
+  if (await aaveReady(ctx.publicClient, scene)) return scene
+  const data = encodeFunctionData({ abi: abiOf('ReplayPools.sol', 'ReplayPools'), functionName: 'reset', args: [scene.holders] })
+  await sendSteps(ctx, ctx.builder, [{ label: 'Put both pools and the tUSDT back exactly', request: { to: scene.helper.address, data } }], log)
+  return scene
+}
+
+export async function runAave({ publicClient, wallet, builder }, accounts) {
+  const started = Date.now()
+  const scene = await aaveScene(publicClient, builder.address, accounts)
+  const { usdt, aave } = scene.tokens
+  const owner = accounts.everyday
+  const vault = scene.vault.address
+  const holdings = () =>
+    publicClient.multicall({
+      allowFailure: false,
+      contracts: [
+        [usdt, owner.address],
+        [aave, owner.address],
+        [usdt, vault],
+        [aave, vault],
+      ].map(([token, holder]) => ({ address: token.address, abi: erc20Abi, functionName: 'balanceOf', args: [holder] })),
+    })
+  const [ready, nonce, fees, block, before] = await Promise.all([
+    aaveReady(publicClient, scene),
+    publicClient.getTransactionCount({ address: owner.address, blockTag: 'pending' }),
+    demoFees(publicClient),
+    publicClient.getBlock(),
+    holdings(),
+  ])
+  if (!ready) throw new Error("The Aave replay's pools are still being put back. Try again in a few seconds, or run setup.")
+  const amount = BigInt(scene.data.trade.usdtIn)
+  const routeAbi = abiOf('ReplayRoute.sol', 'ReplayRoute')
+  const trade = { address: scene.route.address, abi: routeAbi, functionName: 'swap', args: [amount] }
+  const attempt = {
+    address: vault,
+    abi: vaultAbi,
+    functionName: 'run',
+    args: [
+      [
+        { target: usdt.address, value: 0n, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [scene.route.address, amount] }), operation: 0 },
+        { target: scene.route.address, value: 0n, data: encodeFunctionData(trade), operation: 0 },
+      ],
+      [
+        { kind: CheckKind.AtMostLeaves, token: usdt.address, to: zeroAddress, amount },
+        { kind: CheckKind.AtLeastArrives, token: aave.address, to: zeroAddress, amount: AAVE.quoted },
+      ],
+      block.timestamp + DEADLINE_SECONDS,
+    ],
+  }
+  const [reason, tradeGas] = await Promise.all([
+    reasonOf(publicClient, { ...attempt, account: owner }),
+    publicClient.estimateContractGas({ ...trade, account: owner }),
+  ])
+  const attemptHash = await wallet(owner).writeContract({ ...attempt, ...fees, gas: tradeGas * 2n + ATTEMPT_GAS_EXTRA, nonce })
+  const tradeHash = await wallet(owner).writeContract({ ...trade, ...fees, gas: (tradeGas * BUFFER) / 10n, nonce: nonce + 1 })
+  const [attemptReceipt, tradeReceipt] = await Promise.all(
+    [attemptHash, tradeHash].map((hash) => publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS })),
+  )
+  const [done] = parseEventLogs({ abi: routeAbi, eventName: 'RouteDone', logs: tradeReceipt.logs })
+  const after = await holdings()
+  const prices = { usdt: BigInt(scene.data.prices.usdt), aave: BigInt(scene.data.prices.aave), decimals: scene.data.prices.decimals }
+  const usdtIn = done?.args.usdtIn ?? 0n
+  const aaveOut = done?.args.aaveOut ?? 0n
+  const fair = (usdtIn * 10n ** BigInt(aave.decimals - usdt.decimals) * prices.usdt) / prices.aave
+  return {
+    tokens: { usdt: usdt.address, weth: scene.tokens.weth.address, aave: aave.address },
+    pools: { v3: scene.pool, v2: scene.pair },
+    route: scene.route.address,
+    source: scene.source.address,
+    owner: owner.address,
+    trade: { ...sent(tradeReceipt), usdtIn, wethOut: done?.args.wethOut ?? 0n, aaveOut },
+    attempt: { ...sent(attemptReceipt), reason },
+    wallet: { usdtBefore: before[0], usdtAfter: after[0], aaveBefore: before[1], aaveAfter: after[1] },
+    vault: { address: vault, usdtBefore: before[2], usdtAfter: after[2], aaveBefore: before[3], aaveAfter: after[3] },
+    real: scene.data.trade,
+    prices,
+    quoted: AAVE.quoted,
+    fair,
+    lessBps: fair > 0n ? ((fair - aaveOut) * 10_000n + fair / 2n) / fair : 0n,
     ms: Date.now() - started,
   }
 }
