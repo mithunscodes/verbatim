@@ -139,6 +139,7 @@ function contactError(vault, trimmed, asName, name, lookup) {
   if (!trimmed) return null
   if (!asName) {
     if (!isAddress(trimmed, { strict: false })) return "That isn't a valid address or ENS name"
+    if (getAddress(trimmed) === getAddress(vault.address)) return "Your account can't be its own contact"
     return vault.contacts.some((c) => c.address === getAddress(trimmed)) ? 'Already a saved contact' : null
   }
   if (!name) return "That isn't a valid ENS name"
@@ -146,6 +147,7 @@ function contactError(vault, trimmed, asName, name, lookup) {
   if (vault.contacts.some((c) => c.ensName === name)) return 'This name is already saved'
   if (lookup.status === 'failed') return "Couldn't read this name. Try again."
   if (lookup.status === 'done' && !lookup.address) return 'This name has no address'
+  if (lookup.address && getAddress(lookup.address) === getAddress(vault.address)) return "This name points to your own account, which can't be its own contact"
   if (lookup.address && vault.contacts.some((c) => c.address === lookup.address)) return 'That address is already a saved contact'
   return null
 }

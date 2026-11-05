@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter, IPermit2Pull} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -64,7 +63,7 @@ contract AlwaysOnTest is Test {
         dai = new TestToken();
         router = new TestRouter();
         fakeRouter = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), address(new TestDirectory(list(address(router)))));
+        vault = new VerbatimVault(everydayKey, rulesKey, tokens(), list(address(router)));
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);

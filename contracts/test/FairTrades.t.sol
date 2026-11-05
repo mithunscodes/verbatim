@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -41,7 +40,7 @@ contract FairTradesTest is Test {
     }
 
     function newVault() internal returns (VerbatimVault fresh) {
-        fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
+        fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(fresh), 10_000e6);
         usdc.mint(address(router), 10_000e6);
         vm.deal(address(fresh), 1 ether);
@@ -253,7 +252,7 @@ contract FairTradesTest is Test {
     }
 
     function test_TokensAndTrustedContractsCantBeContacts() public {
-        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
+        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         vm.startPrank(rulesKey);
         vm.expectRevert("A token or trusted contract can't be a contact");
         fresh.saveContact(address(router));

@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -29,7 +28,7 @@ contract StolenKeyTest is Test {
         prices = new TestPriceSource();
         prices.setPrice(address(usdc), 1e6, 1e6);
         prices.setPrice(ETH, 1 ether, 50_000e6);
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(vault), ALL_USDC);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);

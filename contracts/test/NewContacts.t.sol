@@ -47,7 +47,7 @@ contract NewContactsTest is Test {
         vault.setPriceSource(address(prices));
         vault.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 30 days);
+        vm.warp(vm.getBlockTimestamp() + 30 days);
     }
 
     function list(address item) internal pure returns (address[] memory items) {
@@ -79,7 +79,7 @@ contract NewContactsTest is Test {
         actions[1] = VerbatimVault.Action(
             PERMIT2,
             0,
-            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amountIn), uint48(block.timestamp))),
+            abi.encodeCall(IPermit2.approve, (address(usdc), address(router), uint160(amountIn), uint48(vm.getBlockTimestamp()))),
             0
         );
         actions[2] = VerbatimVault.Action(
@@ -90,17 +90,17 @@ contract NewContactsTest is Test {
     function saveVendor() internal returns (uint256 savedTime) {
         vm.prank(rulesKey);
         vault.saveContact(vendor);
-        return block.timestamp;
+        return vm.getBlockTimestamp();
     }
 
     function pay(address to, uint256 amount) internal {
         vm.prank(everydayKey);
-        vault.run(only(sendUsdc(to, amount)), atMost(address(usdc), amount), block.timestamp);
+        vault.run(only(sendUsdc(to, amount)), atMost(address(usdc), amount), vm.getBlockTimestamp());
     }
 
     function payEth(address to, uint256 amount) internal {
         vm.prank(everydayKey);
-        vault.run(only(VerbatimVault.Action(to, amount, "", 0)), atMost(ETH, amount), block.timestamp);
+        vault.run(only(VerbatimVault.Action(to, amount, "", 0)), atMost(ETH, amount), vm.getBlockTimestamp());
     }
 
     function proposeAllowance(address contact, uint256 amount) internal returns (uint256 id) {
@@ -116,7 +116,7 @@ contract NewContactsTest is Test {
         emit ContactSaved(vendor);
         vm.prank(rulesKey);
         vault.saveContact(vendor);
-        assertEq(vault.savedAt(vendor), block.timestamp);
+        assertEq(vault.savedAt(vendor), vm.getBlockTimestamp());
     }
 
     function test_NewContactCanBePaidAtOnce() public {
@@ -142,7 +142,7 @@ contract NewContactsTest is Test {
         actions[1] = sendUsdc(vendor, 30e6);
         vm.prank(everydayKey);
         vm.expectRevert("Over the new-contact limit");
-        vault.run(actions, atMost(address(usdc), 60e6), block.timestamp);
+        vault.run(actions, atMost(address(usdc), 60e6), vm.getBlockTimestamp());
         assertEq(usdc.balanceOf(vendor), 0);
     }
 
@@ -157,14 +157,14 @@ contract NewContactsTest is Test {
         assertEq(usdc.balanceOf(vendor), 550e6);
     }
 
-    function test_SwapOutputSentToANewContactCounts() public {
+    function test_SwapOutputSentToANewContactIsRefused() public {
         saveVendor();
         vm.prank(everydayKey);
-        vm.expectRevert("Over the new-contact limit");
-        vault.run(swapTo(vendor, 5e6, 0.03 ether), atMost(address(usdc), 5e6), block.timestamp);
+        vm.expectRevert("Unfair trade");
+        vault.run(swapTo(vendor, 5e6, 0.03 ether), atMost(address(usdc), 5e6), vm.getBlockTimestamp());
         vm.prank(everydayKey);
         vm.expectRevert("Unfair trade");
-        vault.run(swapTo(vendor, 5e6, 0.02 ether), atMost(address(usdc), 5e6), block.timestamp);
+        vault.run(swapTo(vendor, 5e6, 0.02 ether), atMost(address(usdc), 5e6), vm.getBlockTimestamp());
         assertEq(vendor.balance, 0);
     }
 
@@ -200,11 +200,11 @@ contract NewContactsTest is Test {
 
     function test_AllowanceToAn8DayOldContactWorks() public {
         saveVendor();
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(vm.getBlockTimestamp() + 8 days);
         uint256 id = proposeAllowance(vendor, 600e6);
         vm.prank(rulesKey);
         vault.approve(id);
-        vm.warp(block.timestamp + 24 hours);
+        vm.warp(vm.getBlockTimestamp() + 24 hours);
         vm.prank(everydayKey);
         vault.payWithAllowance(vendor, 600e6);
         assertEq(usdc.balanceOf(vendor), 600e6);
@@ -212,7 +212,7 @@ contract NewContactsTest is Test {
 
     function test_AllowanceToA3DayOldContactFails() public {
         saveVendor();
-        vm.warp(block.timestamp + 3 days);
+        vm.warp(vm.getBlockTimestamp() + 3 days);
         uint256 id = proposeAllowance(vendor, 600e6);
         vm.prank(rulesKey);
         vm.expectRevert("Contact too new for big payments");
@@ -238,9 +238,9 @@ contract NewContactsTest is Test {
         leaky.saveContact(vendor);
         leaky.finishSetup();
         vm.stopPrank();
-        vm.warp(block.timestamp + 3 days);
+        vm.warp(vm.getBlockTimestamp() + 3 days);
         leaky.giveAllowance(
-            vendor, VerbatimVault.Allowance(address(usdc), 600e6, block.timestamp, block.timestamp + 2 days, false)
+            vendor, VerbatimVault.Allowance(address(usdc), 600e6, vm.getBlockTimestamp(), vm.getBlockTimestamp() + 2 days, false)
         );
         vm.prank(everydayKey);
         vm.expectRevert("Contact too new for big payments");
@@ -305,7 +305,7 @@ contract NewContactsTest is Test {
             VerbatimVault.Action[] memory actions = only(VerbatimVault.Action(address(leaky), 0, sneaky[i], 0));
             vm.prank(everydayKey);
             vm.expectRevert("Your account would change");
-            leaky.run(actions, new VerbatimVault.Check[](0), block.timestamp);
+            leaky.run(actions, new VerbatimVault.Check[](0), vm.getBlockTimestamp());
         }
     }
 }

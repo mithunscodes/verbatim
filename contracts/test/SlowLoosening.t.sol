@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestMultisig} from "./TestMultisig.sol";
 import {LeakyVault} from "./LeakyVault.sol";
@@ -27,7 +26,7 @@ contract SlowLooseningTest is Test {
 
     function setUp() public {
         usdc = new TestToken();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
         usdc.mint(address(vault), 2 * MILLION);
         vm.startPrank(rulesKey);
         vault.saveContact(warmWallet);
@@ -427,7 +426,7 @@ contract SlowLooseningTest is Test {
     }
 
     function test_NothingMovesBeforeSetupIsFinished() public {
-        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(new address[](0))));
+        VerbatimVault fresh = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), new address[](0));
         usdc.mint(address(fresh), 100e6);
         vm.startPrank(rulesKey);
         fresh.setNewContactPeriod(0);
@@ -463,7 +462,7 @@ contract SlowLooseningTest is Test {
         address firstManager = makeAddr("firstManager");
         address secondManager = makeAddr("secondManager");
         TestMultisig managers = new TestMultisig(firstManager, secondManager);
-        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), address(new TestDirectory(new address[](0))));
+        VerbatimVault team = new VerbatimVault(everydayKey, address(managers), list(address(usdc)), new address[](0));
         bytes memory finish = abi.encodeCall(VerbatimVault.finishSetup, ());
         vm.prank(firstManager);
         managers.submit(address(team), finish);

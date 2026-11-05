@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestSwap} from "./TestSwap.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -26,7 +25,7 @@ contract ChecksTest is Test {
     function setUp() public {
         usdc = new TestToken();
         swap = new TestSwap();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(swap)))));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(swap)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(swap), 10 ether);
@@ -159,7 +158,7 @@ contract ChecksTest is Test {
 
     function test_ReentryIsBlocked() public {
         ReentryKey key = new ReentryKey();
-        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), address(new TestDirectory(list(address(key)))));
+        VerbatimVault keyVault = new VerbatimVault(address(key), rulesKey, new address[](0), list(address(key)));
         key.setVault(keyVault);
         vm.prank(rulesKey);
         keyVault.finishSetup();

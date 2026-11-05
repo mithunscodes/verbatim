@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -34,7 +33,7 @@ contract HackedAppTest is Test {
         watched[1] = address(dai);
         address[] memory trusted = new address[](1);
         trusted[0] = address(router);
-        vault = new VerbatimVault(everydayKey, rulesKey, watched, address(new TestDirectory(trusted)));
+        vault = new VerbatimVault(everydayKey, rulesKey, watched, trusted);
         usdc.mint(address(vault), 100e6);
         dai.mint(address(vault), 100e18);
         vm.deal(address(vault), 1 ether);

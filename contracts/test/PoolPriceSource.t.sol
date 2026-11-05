@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {PoolPriceSource} from "../src/PoolPriceSource.sol";
 import {MockPool} from "./MockPool.sol";
 import {TestToken} from "./TestToken.sol";
@@ -163,7 +162,7 @@ contract PoolPriceSourceTest is Test {
         watched[0] = address(token);
         address[] memory trusted = new address[](1);
         trusted[0] = address(router);
-        VerbatimVault vault = new VerbatimVault(everydayKey, rulesKey, watched, address(new TestDirectory(trusted)));
+        VerbatimVault vault = new VerbatimVault(everydayKey, rulesKey, watched, trusted);
         token.mint(address(vault), 1000e6);
         vm.startPrank(rulesKey);
         vault.setDailyLimit(address(token), 1000e6);

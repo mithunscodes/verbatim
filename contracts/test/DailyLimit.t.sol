@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {VerbatimVault, IPermit2} from "../src/VerbatimVault.sol";
-import {TestDirectory} from "./TestDirectory.sol";
 import {TestToken} from "./TestToken.sol";
 import {TestRouter} from "./TestRouter.sol";
 import {TestPriceSource} from "./TestPriceSource.sol";
@@ -28,7 +27,7 @@ contract DailyLimitTest is Test {
         vm.etch(PERMIT2, vm.parseJsonBytes(vm.readFile("test/fixtures/permit2-sepolia.json"), ".code"));
         usdc = new TestToken();
         router = new TestRouter();
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.deal(address(router), 10 ether);
@@ -168,7 +167,7 @@ contract DailyLimitTest is Test {
     }
 
     function test_NoLimitSetMeansNothingCanLeave() public {
-        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), address(new TestDirectory(list(address(router)))));
+        vault = new VerbatimVault(everydayKey, rulesKey, list(address(usdc)), list(address(router)));
         usdc.mint(address(vault), 100e6);
         vm.deal(address(vault), 1 ether);
         vm.startPrank(rulesKey);
