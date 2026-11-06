@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
-import { checkEnsName, getWallet, normalName } from './chain.js'
 import { DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
+import { Link } from './Replays.jsx'
+import { NAME_ACTIVE, useVaultName } from './vaultName.js'
 import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
 import { Check } from './Motion.jsx'
@@ -33,50 +34,28 @@ function LimitStep({ title, note, holding, current, onSet, disabled }) {
   )
 }
 
-function EnsNameStep({ vault, disabled, onSet }) {
-  const [text, setText] = useState('')
-  const [check, setCheck] = useState({ name: null, status: 'idle' })
-  const name = text.trim() ? normalName(text) : null
-  useEffect(() => {
-    if (!name) return undefined
-    let current = true
-    setCheck({ name, status: 'reading' })
-    const timer = setTimeout(() => {
-      checkEnsName(getWallet(), vault, name)
-        .then((result) => current && setCheck({ name, status: 'done', ...result }))
-        .catch(() => current && setCheck({ name, status: 'failed' }))
-    }, 400)
-    return () => {
-      current = false
-      clearTimeout(timer)
-    }
-  }, [name, vault])
-  const result = check.name === name ? check : { status: 'reading' }
-  const message = !text.trim() ? null
-    : !name ? "That isn't a valid ENS name"
-    : result.status === 'reading' ? `Reading ${name}…`
-    : result.status === 'failed' ? "Couldn't read this name. Try again."
-    : !result.resolver ? 'This name has no genuine ENS resolver'
-    : !result.canWrite ? "Your vault can't write to this name yet. Set the name up for this vault first (to-do.md, step J2)."
-    : `Your vault will write your rules, pending changes and contacts to ${name}.`
-  const ready = result.status === 'done' && result.canWrite
+function NameStep({ vault, job }) {
+  const done = Boolean(vault.ensName)
+  const busy = NAME_ACTIVE.includes(job?.status)
   return (
-    <li className={vault.ensName ? 'step is-done' : 'step'}>
+    <li className={done ? 'step is-done' : 'step'}>
       <div className="step-head">
-        <span><Mark done={Boolean(vault.ensName)} />Your ENS name (recommended, first)</span>
-        <span className="muted small">{vault.ensName ? `Now: ${vault.ensName}` : 'Not set'}</span>
+        <span><Mark done={done} />Your ENS name</span>
+        <span className="muted small">{vault.ensName ?? job?.name ?? 'Picking the next free name…'}</span>
       </div>
-      <p className="muted small">
-        Your vault then publishes your rules on this name, where anyone can check them, and only your vault can write there.
-        Set it before the other steps, so they're published too.
-      </p>
-      {!vault.ensName && (
-        <div className="row">
-          <input className="address" placeholder="yourname.eth" value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="secondary" disabled={disabled || !ready} onClick={() => onSet(name)}>Set</button>
+      {!done && job?.status === 'done' && (
+        <div className="panel ok small">
+          <h3>✓ {job.name} is ready</h3>
+          <p>Your Rules key owns it. <strong>Finish setup</strong> links it to your vault.</p>
         </div>
       )}
-      {message && !vault.ensName && <p className={ready ? 'panel ok small' : 'panel warn small'}>{message}</p>}
+      {!done && busy && <p className="muted small">Making {job.name ?? 'your name'} live on Sepolia, about 3 minutes. Do the other steps meanwhile.</p>}
+      {!done && job?.status === 'failed' && <p className="panel warn small">{job.error} You can finish setup without a name.</p>}
+      {!done && busy && job.steps?.length > 0 && (
+        <ol className="muted small">
+          {job.steps.map((step, i) => <li key={`${i}-${step.label}`}>{step.tx ? <Link tx={step.tx}>{step.label} ↗</Link> : step.label}</li>)}
+        </ol>
+      )}
     </li>
   )
 }
@@ -92,6 +71,13 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
     vault.allowanceMinAge === DEMO_TIMINGS.allowanceMinAge
   const priceSet = vault.priceSource.toLowerCase() === PRICE_SOURCE.toLowerCase()
   const hasPrice = vault.priceSource !== zeroAddress
+  const job = useVaultName(vault)
+
+  const naming = NAME_ACTIVE.includes(job?.status)
+  const finish = async () => {
+    if (job?.status === 'done' && !vault.ensName && !(await send(`Your ENS name: ${job.name}`, target, 'setEnsName', [job.name]))) return
+    await send('Finish setup', target, 'finishSetup', [])
+  }
 
   const setDemoTimings = async () => {
     if (!(await send('Demo wait (1 of 3)', target, 'setLooseningWait', [DEMO_TIMINGS.looseningWait]))) return
@@ -107,9 +93,7 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
       </p>
       <TxStatus tx={tx} />
       <ol className="steps">
-        {vault.directory && (
-          <EnsNameStep vault={vault} disabled={disabled} onSet={(name) => send(`Your ENS name: ${name}`, target, 'setEnsName', [name])} />
-        )}
+        {vault.directory && <NameStep vault={vault} job={job} />}
         {usdc && (
           <LimitStep
             title={`Daily limit for ${usdc.symbol} (needed)`}
@@ -169,7 +153,8 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
             After this, your phone can only tighten rules straight away. Loosening them needs a proposal, your approval
             and a wait.
           </p>
-          <button className="big" disabled={disabled || (usdc && usdc.dailyLimit === 0n) || !hasPrice} onClick={() => send('Finish setup', target, 'finishSetup', [])}>
+          {naming && <p className="muted small">Waiting for your name to be ready…</p>}
+          <button className="big" disabled={disabled || naming || (usdc && usdc.dailyLimit === 0n) || !hasPrice} onClick={finish}>
             Finish setup
           </button>
         </li>

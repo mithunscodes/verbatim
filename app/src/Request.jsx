@@ -503,7 +503,7 @@ function Result({ result, vault, receipt, said, actions, onReset }) {
             <span className="mark-bad"><Cross size={56} delay={200} /></span>
             <h2><Words text="This never happens." delay={300} step={110} /></h2>
           </div>
-          <p className="lead-in">Your vault refused it. {explainRefusal(result.failure, vault, result.checks, said)}</p>
+          <p className="lead-in">Your vault refused it. {explainRefusal(result.failure, vault, result.checks, said, actions)}</p>
           <p className="muted">Nothing left your vault, only the network fee.</p>
         </section>
       )}
@@ -633,7 +633,7 @@ export default function Request({ vault, role, blocked, onDone }) {
           checks: run.checks,
           checksInWords: run.checks.map((check) => describeCheck(vault, check).text),
           said,
-          result: { hash, ok: outcome.ok, outside: Boolean(outcome.failure?.outside), reason: outcome.ok ? null : explainRefusal(outcome.failure, vault, run.checks, said) },
+          result: { hash, ok: outcome.ok, outside: Boolean(outcome.failure?.outside), reason: outcome.ok ? null : explainRefusal(outcome.failure, vault, run.checks, said, run.actions) },
         },
       })
     } catch (error) {

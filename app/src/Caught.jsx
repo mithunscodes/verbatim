@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { decodeAbiParameters, decodeFunctionData, encodeFunctionData, erc20Abi, parseAbiParameters, zeroAddress } from 'viem'
 import { getWallet } from './chain.js'
-import { CheckKind, describeAction, describeCheck, describeFailure, holdingOf, nameOf } from './checks.js'
+import { CheckKind, describeAction, describeCheck, describeFailure, holdingOf, nameOf, shortfallOf } from './checks.js'
 import { EXPLORER, PERMIT2, permit2Abi, routerAbi, UNIVERSAL_ROUTER, vaultAbi, WETH } from './config.js'
 import { formatAmount, formatDuration, shortAddress } from './format.js'
 import { Cross } from './Motion.jsx'
@@ -243,12 +243,13 @@ const RULES = {
   'Contact too new for big payments': newContactRule,
   'Over the daily limit': (vault) => `At most ${limits(vault, 'dailyLimit')} can leave your vault each day`,
   "This contact's address changed": () => "A contact's name must still point to the address your vault saved",
+  'An action failed': shortfallOf,
 }
 
 export function brokenRule(vault, actions, checks, failure) {
   const rule = failure && !failure.checkNumber ? RULES[failure.reason] : null
   if (!rule || plainSteps(vault, actions, checks).some((step) => step.flag)) return null
-  return rule(vault)
+  return rule(vault, actions)
 }
 
 function whatYouSaid(vault, checks, failure, said) {

@@ -123,6 +123,11 @@ export default function Say({ vault, onUse, busy }) {
               value={text}
               disabled={thinking || busy}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
+                e.preventDefault()
+                if (text.trim() && !busy) start()
+              }}
             />
           </div>
         )}
@@ -171,7 +176,13 @@ export default function Say({ vault, onUse, busy }) {
               </ul>
               {state.turns.length < MAX_ANSWERS ? (
                 <div className="row">
-                  <input placeholder="Your answer" value={reply} onChange={(e) => setReply(e.target.value)} disabled={thinking} />
+                  <input
+                    placeholder="Your answer"
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && reply.trim() && !thinking && answerQuestions()}
+                    disabled={thinking}
+                  />
                   <button className="secondary" onClick={answerQuestions} disabled={!reply.trim() || thinking}>Answer</button>
                 </div>
               ) : (

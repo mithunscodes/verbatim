@@ -53,7 +53,7 @@ export const DEMO_TIP = '0.1'
 
 export const DEMO_TIMINGS = {
   looseningWait: 120n,
-  newContactPeriod: 300n,
+  newContactPeriod: 60n,
   allowanceMinAge: 600n,
 }
 

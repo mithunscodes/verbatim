@@ -1189,6 +1189,8 @@ body {
 
 .vb .quote-tile {
   max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   line-height: 1.12;
   position: relative;
   z-index: 2;
@@ -1211,6 +1213,7 @@ body {
 }
 
 .vb .check-text {
+  overflow-wrap: anywhere;
   font-family: var(--display);
   font-size: 21px;
   font-weight: 700;

@@ -271,6 +271,18 @@ contract VerbatimVault {
         emit SetupFinished();
     }
 
+    function multicall(bytes[] calldata calls) external {
+        require(msg.sender == rulesKey, "Only the rules key can make several changes at once");
+        for (uint256 i = 0; i < calls.length; i++) {
+            (bool ok, bytes memory result) = address(this).delegatecall(calls[i]);
+            if (!ok) {
+                assembly {
+                    revert(add(result, 32), mload(result))
+                }
+            }
+        }
+    }
+
     function propose(ChangeKind kind, address contact, address token, uint256 value) external returns (uint256 id) {
         require(msg.sender == everydayKey, "Only the everyday key can propose");
         if (kind == ChangeKind.Allowance || kind == ChangeKind.DailyLimit || kind == ChangeKind.NewContactLimit) {

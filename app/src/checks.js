@@ -35,6 +35,25 @@ export function holdingOf(vault, token) {
   return vault.holdings.find((holding) => holding.token === token)
 }
 
+export function shortfallOf(vault, actions) {
+  const needs = new Map()
+  const add = (token, amount) => needs.set(token, (needs.get(token) ?? 0n) + amount)
+  for (const action of actions ?? []) {
+    if (BigInt(action.value ?? 0)) add(zeroAddress, BigInt(action.value))
+    const holding = isAddress(action.target) && vault.holdings.find((h) => h.token.toLowerCase() === action.target.toLowerCase())
+    if (!holding || !action.data || action.data === '0x') continue
+    try {
+      const call = decodeFunctionData({ abi: erc20Abi, data: action.data })
+      if (call.functionName === 'transfer') add(holding.token, call.args[1])
+    } catch {}
+  }
+  for (const [token, needed] of needs) {
+    const holding = holdingOf(vault, token)
+    if (holding && holding.amount < needed) return `Your vault holds ${show(vault, token, holding.amount)}, but this sends ${show(vault, token, needed)}`
+  }
+  return null
+}
+
 export function nameOf(vault, address) {
   const contact = vault.contacts.find((c) => c.address === address)
   return vault.names?.[address] ?? contact?.nickname ?? shortAddress(address)

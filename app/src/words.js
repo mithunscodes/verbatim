@@ -1,4 +1,4 @@
-import { describeCheck, describeFailure } from './checks.js'
+import { describeCheck, describeFailure, shortfallOf } from './checks.js'
 
 const HINTS = {
   'An action failed': 'For example, the vault may not hold enough, or a swap price moved.',
@@ -46,14 +46,15 @@ export function asSentence(text) {
   return /[.!?]$/.test(text) ? text : `${text}.`
 }
 
-export function explainRefusal(failure, vault, checks, said) {
+export function explainRefusal(failure, vault, checks, said, actions) {
   const check = failure.checkNumber ? checks?.[failure.checkNumber - 1] : null
   if (check && vault) {
     const plain = `${describeCheck(vault, check).text}, ${describeFailure(vault, check, failure.actual)}`
     const words = said?.perCheck?.[failure.checkNumber - 1] ?? []
     return words.length ? `You said ${quoteWords(words)}. ${asSentence(plain)}` : plain
   }
-  const hint = HINTS[failure.reason]
+  const short = failure.reason === 'An action failed' && vault ? shortfallOf(vault, actions) : null
+  const hint = short ? `${short}.` : HINTS[failure.reason]
   const plain = hint ? `${failure.reason}. ${hint}` : failure.reason
   const words = failure.reason === SOMETHING_ELSE && said?.nothingElse
     ? [said.nothingElse]

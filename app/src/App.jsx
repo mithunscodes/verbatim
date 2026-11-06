@@ -17,6 +17,7 @@ import SideBySide from './SideBySide.jsx'
 import { useHashPage } from './hooks.js'
 import { useVault } from './useVault.js'
 import { canSignIn } from './credits.js'
+import { useVaultName } from './vaultName.js'
 
 const ZeroG = lazy(() => import('./ZeroG.jsx'))
 
@@ -43,6 +44,7 @@ function Notice({ title, children, action, onAction }) {
 }
 
 function Balances({ vault, loading, onRefresh }) {
+  const name = useVaultName(vault)
   return (
     <section className="card vault-card">
       <div className="card-head">
@@ -76,7 +78,10 @@ function Balances({ vault, loading, onRefresh }) {
         </p>
       )}
       {vault && !vault.setupFinished && (
-        <p className="panel warn small">Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.</p>
+        <p className="panel warn small">
+          Not set up yet, so nothing can be sent. Open the <a href="#phone">phone page</a> with the Rules key.
+          {name?.name && name.status !== 'failed' && <> Your name, <strong>{name.name}</strong>, {name.status === 'done' ? 'is ready' : 'is being made on Sepolia'}.</>}
+        </p>
       )}
     </section>
   )

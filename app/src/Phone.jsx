@@ -200,6 +200,8 @@ const NAME_LENGTHS = [DAY, 7n * DAY, 30n * DAY]
 
 const DEMO_NAME_LENGTH = 300n
 
+const DEMO_NAME_LENGTHS = [120n, DEMO_NAME_LENGTH]
+
 const CUSTOM = 'custom'
 
 const MAX_DAYS = 365n
@@ -223,8 +225,8 @@ function labelId(label) {
 function ContactRow({ vault, contact, index, isRules, busy, send }) {
   const newUntil = contact.savedAt + vault.newContactPeriod
   const { end } = contact
-  const renewFor = usesDemoTimes(vault) ? DEMO_NAME_LENGTH : DAY
-  const renewTo = end ? capped((end.endsAt > nowSeconds() ? end.endsAt : nowSeconds()) + renewFor, end.parentEnd) : 0n
+  const renewLengths = usesDemoTimes(vault) ? DEMO_NAME_LENGTHS : [DAY]
+  const renewTo = (length) => (end ? capped((end.endsAt > nowSeconds() ? end.endsAt : nowSeconds()) + length, end.parentEnd) : 0n)
   const manage = (label, functionName, args) => send(label, { address: end.registry, abi: ensRegistryAbi }, functionName, args)
   const point = async (to, label) => {
     const resolver = await nameResolver(getWallet(), vault.directory, contact.ensName)
@@ -249,11 +251,11 @@ function ContactRow({ vault, contact, index, isRules, busy, send }) {
       {isRules && contact.ensName && (
         <span className="name-demo">
           {contact.ended ? (
-            contact.canManage && renewTo > end.endsAt && (
-              <button className="secondary" disabled={busy} onClick={() => manage(`Renew ${contact.ensName} for ${formatDuration(renewFor)}`, 'renew', [labelId(end.label), renewTo])}>
-                Renew for {formatDuration(renewFor)}
+            contact.canManage && renewLengths.filter((length) => renewTo(length) > end.endsAt).map((length) => (
+              <button key={String(length)} className="secondary" disabled={busy} onClick={() => manage(`Renew ${contact.ensName} for ${formatDuration(length)}`, 'renew', [labelId(end.label), renewTo(length)])}>
+                Renew for {formatDuration(length)}
               </button>
-            )
+            ))
           ) : contact.moved ? (
             <button className="secondary" disabled={busy} onClick={() => point(contact.address, `Put ${contact.ensName} back`)}>
               Put it back
@@ -340,7 +342,7 @@ function SaveContact({ vault, account, isRules, busy, send }) {
   const [label, setLabel] = useState('')
   const [choice, setChoice] = useState(null)
   const [days, setDays] = useState('')
-  const lengths = usesDemoTimes(vault) ? [null, DEMO_NAME_LENGTH, ...NAME_LENGTHS, CUSTOM] : [null, ...NAME_LENGTHS, CUSTOM]
+  const lengths = usesDemoTimes(vault) ? [null, ...DEMO_NAME_LENGTHS, ...NAME_LENGTHS, CUSTOM] : [null, ...NAME_LENGTHS, CUSTOM]
   const trimmed = text.trim()
   const asName = trimmed.includes('.') && !trimmed.startsWith('0x')
   const name = asName ? normalName(trimmed) : null
@@ -412,7 +414,7 @@ function SaveContact({ vault, account, isRules, busy, send }) {
               <div className="name-length" role="group" aria-label="How long?">
                 {lengths.map((option) => (
                   <button key={String(option)} className={choice === option ? 'tab active' : 'tab'} onClick={() => setChoice(option)} disabled={busy}>
-                    {option === null ? 'Keep' : option === CUSTOM ? 'Custom' : `${formatDuration(option)}${option === DEMO_NAME_LENGTH ? ' (demo)' : ''}`}
+                    {option === null ? 'Keep' : option === CUSTOM ? 'Custom' : `${formatDuration(option)}${DEMO_NAME_LENGTHS.includes(option) ? ' (demo)' : ''}`}
                   </button>
                 ))}
               </div>
