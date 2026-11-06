@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { parseUnits, zeroAddress } from 'viem'
 import { checkEnsName, getWallet, normalName } from './chain.js'
-import { DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
+import { DEMO_POLL_MS, DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
 import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
 import { Check } from './Motion.jsx'
+import { Link, ask } from './Replays.jsx'
 import TxStatus from './TxStatus.jsx'
 
 function Mark({ done }) {
@@ -33,10 +34,56 @@ function LimitStep({ title, note, holding, current, onSet, disabled }) {
   )
 }
 
+const ACTIVE = ['waiting', 'running']
+const MISSES_ALLOWED = 3
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function makeName(label, vault, onUpdate) {
+  let job = await ask('/api/name', { label, vault })
+  let misses = 0
+  onUpdate(job)
+  while (ACTIVE.includes(job.status)) {
+    await sleep(DEMO_POLL_MS)
+    try {
+      job = await ask(`/api/name/${job.id}`)
+      misses = 0
+    } catch (error) {
+      if (error.status === 404 || ++misses > MISSES_ALLOWED) throw error
+    }
+    onUpdate(job)
+  }
+  if (job.status === 'failed') throw new Error(job.error)
+  return job
+}
+
+function NameProgress({ job }) {
+  const busy = ACTIVE.includes(job.status)
+  return (
+    <div className={job.status === 'failed' ? 'panel warn small' : 'panel ok small'}>
+      {job.status === 'done' ? (
+        <>
+          <h3>✓ {job.name} is made</h3>
+          <p>Your Rules key owns it. Now click <strong>Set</strong>.</p>
+        </>
+      ) : (
+        <p>{busy ? `Making ${job.name} on Sepolia. It takes about 2 minutes: ENS makes everyone wait about 75 seconds between two steps.` : job.error}</p>
+      )}
+      {job.steps?.length > 0 && (
+        <ol>
+          {job.steps.map((step, i) => <li key={`${i}-${step.label}`}>{step.tx ? <Link tx={step.tx}>{step.label} ↗</Link> : step.label}</li>)}
+        </ol>
+      )}
+    </div>
+  )
+}
+
 function EnsNameStep({ vault, disabled, onSet }) {
   const [text, setText] = useState('')
   const [check, setCheck] = useState({ name: null, status: 'idle' })
-  const name = text.trim() ? normalName(text) : null
+  const [making, setMaking] = useState(null)
+  const [round, setRound] = useState(0)
+  const typed = text.trim()
+  const name = typed ? normalName(typed.includes('.') ? typed : `${typed}.eth`) : null
   useEffect(() => {
     if (!name) return undefined
     let current = true
@@ -50,16 +97,27 @@ function EnsNameStep({ vault, disabled, onSet }) {
       current = false
       clearTimeout(timer)
     }
-  }, [name, vault])
+  }, [name, vault, round])
   const result = check.name === name ? check : { status: 'reading' }
   const message = !text.trim() ? null
     : !name ? "That isn't a valid ENS name"
     : result.status === 'reading' ? `Reading ${name}…`
     : result.status === 'failed' ? "Couldn't read this name. Try again."
-    : !result.resolver ? 'This name has no genuine ENS resolver'
-    : !result.canWrite ? "Your vault can't write to this name yet. Set the name up for this vault first (to-do.md, step J2)."
+    : !result.resolver ? `${name} isn't made yet.`
+    : !result.canWrite ? `Your vault can't write to ${name}.`
     : `Your vault will write your rules, pending changes and contacts to ${name}.`
   const ready = result.status === 'done' && result.canWrite
+  const canMake = result.status === 'done' && !result.canWrite && /^[a-z0-9-]+\.eth$/.test(name ?? '')
+  const make = async () => {
+    const label = name.slice(0, -'.eth'.length)
+    setMaking({ name, status: 'waiting', steps: [] })
+    try {
+      await makeName(label, vault.address, setMaking)
+      setRound((n) => n + 1)
+    } catch (error) {
+      setMaking((job) => ({ ...job, status: 'failed', error: error.message }))
+    }
+  }
   return (
     <li className={vault.ensName ? 'step is-done' : 'step'}>
       <div className="step-head">
@@ -72,11 +130,15 @@ function EnsNameStep({ vault, disabled, onSet }) {
       </p>
       {!vault.ensName && (
         <div className="row">
-          <input className="address" placeholder="yourname.eth" value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="secondary" disabled={disabled || !ready} onClick={() => onSet(name)}>Set</button>
+          <input className="address" placeholder="yourname.eth" value={text} onChange={(e) => setText(e.target.value)} disabled={making && ACTIVE.includes(making.status)} />
+          <button className={ready ? 'big' : 'secondary'} disabled={disabled || !ready} onClick={() => onSet(name)}>Set</button>
         </div>
       )}
       {message && !vault.ensName && <p className={ready ? 'panel ok small' : 'panel warn small'}>{message}</p>}
+      {canMake && !vault.ensName && (!making || making.status === 'failed' || making.name !== name) && (
+        <button className="secondary" disabled={disabled} onClick={make}>Make {name} for my vault</button>
+      )}
+      {making && !vault.ensName && <NameProgress job={making} />}
     </li>
   )
 }

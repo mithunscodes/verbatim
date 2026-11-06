@@ -152,7 +152,7 @@ export function connect(url) {
   return { publicClient, testClient, wallet, builder: accountFor('BUILDER_PRIVATE_KEY') }
 }
 
-export function ensTools({ publicClient, testClient, wallet, builder }) {
+export function ensTools({ publicClient, testClient, wallet, builder, onStep }) {
   const read = (address, abi, functionName, args = []) => publicClient.readContract({ address, abi, functionName, args })
   const hasCode = async (address) => Boolean(await publicClient.getCode({ address }))
 
@@ -168,7 +168,8 @@ export function ensTools({ publicClient, testClient, wallet, builder }) {
     }
     const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 600_000 })
     if (receipt.status !== 'success') throw new Error(`Transaction failed: ${hash}`)
-    console.log(`    ${live ? `${EXPLORER}${hash}` : 'done on the local copy'}, gas ${receipt.gasUsed}`)
+    console.log(`    ${testClient ? 'done on the local copy' : `${EXPLORER}${hash}`}, gas ${receipt.gasUsed}`)
+    onStep?.(label, hash)
     return receipt
   }
 
@@ -179,6 +180,7 @@ export function ensTools({ publicClient, testClient, wallet, builder }) {
       return
     }
     console.log(`  Waiting ${seconds} seconds, as ENS requires`)
+    onStep?.(`Waiting ${seconds} seconds, as ENS requires`)
     await new Promise((resolve) => setTimeout(resolve, seconds * 1000))
   }
 
