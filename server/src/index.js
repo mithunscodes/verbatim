@@ -9,7 +9,6 @@ import { loadReceipt, receiptAddress, saveReceipt } from './receipts.js'
 import { methodsOf, relay } from './rpc.js'
 import { replayStatus, startReplay } from './replay-jobs.js'
 import { imageStatus, startImage, startUpload } from './images.js'
-import { nameStatus, startName } from './names.js'
 import { admit, chargeRelay, isOpen, isPublic } from './gate.js'
 
 try {
@@ -118,11 +117,6 @@ const routes = {
     run: startReplay,
     describe: (body, result) => (result ? `replay ${body.name}: started on Sepolia${result.ahead ? `, ${result.ahead} ahead` : ''}` : `replay ${body.name ?? '?'}`),
   },
-  'POST /api/name': {
-    limit: 1_000,
-    run: startName,
-    describe: (body, result) => (result ? `name ${result.name}: started on Sepolia` : `name ${body.label ?? '?'}`),
-  },
 }
 
 function sessionOf(request) {
@@ -139,8 +133,6 @@ function routeOf(request) {
   if (replay) return { get: true, quiet: () => true, run: () => replayStatus(replay[1]), describe: () => 'replay status' }
   const image = request.method === 'GET' && request.url.match(/^\/api\/image\/([0-9a-f-]{36})$/)
   if (image) return { get: true, quiet: () => true, run: () => imageStatus(image[1]), describe: () => 'image status' }
-  const name = request.method === 'GET' && request.url.match(/^\/api\/name\/([0-9a-f-]{36})$/)
-  if (name) return { get: true, quiet: () => true, run: () => nameStatus(name[1]), describe: () => 'name status' }
   return null
 }
 

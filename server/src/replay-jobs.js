@@ -126,10 +126,6 @@ export function startReplay(body, { hide = String } = {}) {
   return view(job)
 }
 
-export function inBuilderLine(task) {
-  line = line.then(task)
-}
-
 export function replayStatus(id) {
   const job = jobs.get(id)
   if (!job) throw new RequestError('This replay has expired. Run it again.', 404)

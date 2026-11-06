@@ -1,4 +1,4 @@
-import { encodeFunctionData, getAddress, isAddress, keccak256, parseAbi, parseEther, stringToBytes, zeroAddress } from 'viem'
+import { encodeFunctionData, getAddress, isAddress, keccak256, parseEther, stringToBytes, zeroAddress } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   ALL_ROLES,
@@ -33,7 +33,6 @@ const DEFAULT_LABEL = 'verbatimalice'
 const USDC = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'
 const BUILDER_SETUP_ROLES = ROLE_REGISTRAR | ROLE_SET_PARENT | admin(ROLE_REGISTRAR | ROLE_SET_PARENT)
 const vaultArtifact = () => artifact('VerbatimVault.sol', 'VerbatimVault')
-const keysAbi = parseAbi(['function everydayKey() view returns (address)', 'function rulesKey() view returns (address)'])
 
 function settings() {
   const label = option('label') ?? DEFAULT_LABEL
@@ -48,8 +47,9 @@ function settings() {
 export async function setupName(clients, { label, vault, contacts }) {
   const { builder } = clients
   const { read, send, deployResolver, deployRegistry, registerEthName } = ensTools(clients)
+  const { abi } = vaultArtifact()
   const name = `${label}.eth`
-  const [everydayKey, rulesKey] = await Promise.all([read(vault, keysAbi, 'everydayKey'), read(vault, keysAbi, 'rulesKey')])
+  const [everydayKey, rulesKey] = await Promise.all([read(vault, abi, 'everydayKey'), read(vault, abi, 'rulesKey')])
   console.log(`Your name: ${name}, owned by the Rules key ${rulesKey}, for the vault ${vault}`)
 
   const records = [

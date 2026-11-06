@@ -123,10 +123,6 @@ export const REPLAY_POLL_MS = 2_000
 
 export const REPLAY_KEEP_MS = 1_800_000
 
-export const VAULT_FACTORY = '0x6FF1413856DC74CfD038bC8B24129a449418fC3e'
-
-export const NAME_MAX_WAITING = 3
-
 export const PUBLIC_ROUTES = ['GET /api/go', 'POST /api/rpc']
 
 export const LAPTOP_ONLY_ROUTES = ['POST /api/upload']
@@ -143,7 +139,6 @@ export const LAPTOP_LIMITS = {
   'POST /api/quote': { count: 120, minutes: 60 },
   'POST /api/receipt': { count: 30, minutes: 60 },
   'POST /api/replay': { count: 12, minutes: 60 },
-  'POST /api/name': { count: 6, minutes: 60 },
   'POST /api/image': { count: 10, minutes: 60 },
   'POST /api/upload': { count: 10, minutes: 60 },
 }
