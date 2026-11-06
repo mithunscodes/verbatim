@@ -7,7 +7,7 @@ import {EnsSettings} from "./EnsSettings.sol";
 import {VaultFactory} from "../src/VaultFactory.sol";
 
 contract DeployFactory is Script {
-    address constant BUILDER_KEY = 0xc0bF91f3BD0d479D5104d975B08885A73b032ce2;
+    address constant BUILDER_KEY = 0x81f65B53Cbe72AbCa6a6BDe4bE79d838770D9FC0;
     address constant USDC = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
 
     function run() external returns (VaultFactory factory) {

@@ -91,7 +91,7 @@ contract EnsDirectoryTest is DirectoryFork {
     function test_DirectoryReadsTheTrustedNames() public view {
         assertEq(directory.nameCount(), 2);
         assertEq(directory.names(0), nameOf("router", "uniswap"));
-        assertEq(directory.names(1), nameOf("prints", "verbatim"));
+        assertEq(directory.names(1), nameOf("prints", "studio"));
         address[] memory listed = directory.listed();
         assertEq(listed.length, 1);
         assertEq(listed[0], UNIVERSAL_ROUTER);

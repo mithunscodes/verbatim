@@ -1,9 +1,9 @@
 {
   "from": "Chainlink's ETH/USD and USDC/USD on Ethereum mainnet. The hook replay's pool starts at this price, and its price source uses it, so refresh it only before a fresh setup",
   "decimals": 8,
-  "ethUsd": "224502596259",
-  "usdcUsd": "99976000",
-  "readAt": "2026-10-31T12:08:59.000Z",
+  "ethUsd": "223160473374",
+  "usdcUsd": "99973000",
+  "readAt": "2026-11-06T11:14:47.000Z",
   "feeds": {
     "ethUsd": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
     "usdcUsd": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6"

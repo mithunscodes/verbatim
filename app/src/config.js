@@ -3,15 +3,15 @@ import { sepolia } from 'viem/chains'
 
 export const chain = sepolia
 
-export const FACTORY = '0x5BC4F28E35B05e7541FB191D143D9ce1C5163770'
+export const FACTORY = '0x6FF1413856DC74CfD038bC8B24129a449418fC3e'
 
-export const PRINTS = '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab'
+export const PRINTS = '0xF81489BDeD06e68969b350E739bc3f2773Dd750E'
 
 export const SNAP_ID = 'npm:verbatim-checks-snap'
 
 export const PRINT_PRICE = 100000000000000n
 
-export const PRICE_SOURCE = '0xC751D9a4bF3195BebEF18F3FFA7E2A1E0ae605a3'
+export const PRICE_SOURCE = '0x3F687Ad6c5bb36A1ED07F3f5a64c6F568C101D12'
 
 export const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 
@@ -28,9 +28,9 @@ export const ETH_COIN_TYPE = 60n
 export const DEMO_ENS_NAME = 'verbatimalice.eth'
 
 export const DIRECTORY_NAMES = [
-  'router.uniswap.verbatimdirectory.eth',
-  'permit2.uniswap.verbatimdirectory.eth',
-  'usdc.circle.verbatimdirectory.eth',
+  'router.uniswap.verbatim.eth',
+  'permit2.uniswap.verbatim.eth',
+  'usdc.circle.verbatim.eth',
 ]
 
 export const RESOLVER_SET_TEXT = 16n
@@ -78,7 +78,7 @@ export const ZG_PRIVY_APP_ID = 'cmn5w697g01xp0bl80c8dskc8'
 export const ZG_SIGN_IN_ORIGINS = ['http://localhost:5173', 'http://localhost:3000']
 
 export const NICKNAMES = {
-  '0xc0bF91f3BD0d479D5104d975B08885A73b032ce2': 'Builder',
+  '0x81f65B53Cbe72AbCa6a6BDe4bE79d838770D9FC0': 'Builder',
 }
 
 export const SWAP_SLIPPAGE_BPS = 100n

@@ -12,7 +12,7 @@ library EnsSettings {
     address internal constant ETH_REGISTRY = 0xD4eBcbBdF463C9c45784603Db0dDD499BC44A8B4;
     address internal constant MOCK_USDC = 0x240b0316Df57887DBBE58b586508b19e633a14aa;
 
-    string internal constant DIRECTORY_LABEL = "verbatimdirectory";
+    string internal constant DIRECTORY_LABEL = "verbatim";
 
     function directoryName() internal pure returns (string memory) {
         return string.concat(DIRECTORY_LABEL, ".eth");
@@ -21,7 +21,7 @@ library EnsSettings {
     function trustedNames() internal pure returns (string[] memory names) {
         names = new string[](2);
         names[0] = string.concat("router.uniswap.", directoryName());
-        names[1] = string.concat("prints.verbatim.", directoryName());
+        names[1] = string.concat("prints.studio.", directoryName());
     }
 
     function deployDirectory() internal returns (EnsDirectory) {
