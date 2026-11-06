@@ -158,6 +158,7 @@ export default function Names({ name }) {
             <a href="#replays">Replays</a>
             <a href="#mint">Mint</a>
             <a href="#names" className="active">Names</a>
+            <a href="/api/go">Attack it yourself</a>
           </nav>
         </div>
       </header>

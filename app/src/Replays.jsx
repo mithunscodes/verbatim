@@ -278,6 +278,7 @@ export default function Replays() {
             <a href="#replays" className="active">Replays</a>
             <a href="#mint">Mint</a>
             <a href="#names">Names</a>
+            <a href="/api/go">Attack it yourself</a>
           </nav>
         </div>
       </header>

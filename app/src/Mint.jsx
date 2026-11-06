@@ -453,6 +453,7 @@ export default function Mint() {
             <a href="#replays">Replays</a>
             <a href="#mint" className="active">Mint</a>
             <a href="#names">Names</a>
+            <a href="/api/go">Attack it yourself</a>
           </nav>
         </div>
       </header>

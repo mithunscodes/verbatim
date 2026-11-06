@@ -297,7 +297,7 @@ function useScene(clients, demo, hold) {
 function Story() {
   return (
     <header className="story">
-      <span className="brand">Verbatim</span>
+      <a className="brand" href="/">Verbatim</a>
       <MarkerNote>You're the attacker</MarkerNote>
       <h1>You have the owner's key.</h1>
       <p>This phone signs with it. Our server only passes it on.</p>

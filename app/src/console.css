@@ -1012,6 +1012,7 @@ body:has(.case),
   background: var(--white);
   box-shadow: 0 3px 0 var(--paper-soft);
   color: var(--ink);
+  text-decoration: none;
   font-family: var(--display);
   font-size: 18px;
   font-weight: 800;
