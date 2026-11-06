@@ -9,7 +9,7 @@ interface IUniswapV3Factory {
 }
 
 contract DeployPriceSource is Script {
-    address constant BUILDER_KEY = 0xc0bF91f3BD0d479D5104d975B08885A73b032ce2;
+    address constant BUILDER_KEY = 0x81f65B53Cbe72AbCa6a6BDe4bE79d838770D9FC0;
     address constant FACTORY = 0x0227628f3F023bb0B980b67D528571c95c6DaC1c;
     address constant USDC = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
     address constant WETH = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;

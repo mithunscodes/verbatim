@@ -29,7 +29,7 @@ import {
   universalResolverAbi,
 } from './ens.js'
 
-export const DIRECTORY_LABEL = 'verbatimdirectory'
+export const DIRECTORY_LABEL = 'verbatim'
 export const ORGANIZATIONS = [
   {
     label: 'uniswap',
@@ -47,14 +47,14 @@ export const ORGANIZATIONS = [
     },
   },
   {
-    label: 'verbatim',
+    label: 'studio',
     keyName: 'VERBATIM_ORG_PRIVATE_KEY',
     contracts: {
-      prints: '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab',
+      prints: '0xF81489BDeD06e68969b350E739bc3f2773Dd750E',
     },
   },
 ]
-export const TRUSTED_NAMES = [`router.uniswap.${DIRECTORY_LABEL}.eth`, `prints.verbatim.${DIRECTORY_LABEL}.eth`]
+export const TRUSTED_NAMES = [`router.uniswap.${DIRECTORY_LABEL}.eth`, `prints.studio.${DIRECTORY_LABEL}.eth`]
 
 const OPERATOR_ROLES = ROLE_REGISTRAR | ROLE_RENEW | ROLE_SET_PARENT | admin(ROLE_REGISTRAR | ROLE_RENEW | ROLE_SET_PARENT)
 const ORGANIZATION_GAS = 6_000_000n

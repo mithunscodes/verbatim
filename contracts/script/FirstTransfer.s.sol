@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {VerbatimVault, IERC20} from "../src/VerbatimVault.sol";
 
 contract FirstTransfer is Script {
-    address constant EVERYDAY_KEY = 0xe20366e072D4240031033DD271588f2bCb5D57BF;
+    address constant EVERYDAY_KEY = 0xbf346C0160331af57e0CB3da52d3D82C829e699B;
     address constant USDC = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
     uint256 constant AMOUNT = 1e6;
 
