@@ -32,7 +32,6 @@ export function useVault() {
   const [chainId, setChainId] = useState(null)
   const [vault, setVault] = useState(null)
   const [vaults, setVaults] = useState(null)
-  const [selected, setSelected] = useState(null)
   const [keyType, setKeyType] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -56,7 +55,7 @@ export function useVault() {
   const latest = useRef(0)
   const reading = useRef(false)
 
-  const refresh = useCallback(async ({ silent = false, wanted = null } = {}) => {
+  const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!wallet || !onSepolia || !account) return
     if (silent && (reading.current || isSigning())) return
     const id = ++latest.current
@@ -67,11 +66,9 @@ export function useVault() {
     }
     try {
       const [found, nextKeyType] = await Promise.all([findVaults(wallet, account), readKeyType(wallet, account)])
-      const chosen = found.find((v) => v.address === (wanted ?? selected)) ?? found[0] ?? null
-      const nextVault = chosen ? await readVault(wallet, chosen.address) : null
+      const nextVault = found[0] ? await readVault(wallet, found[0].address) : null
       if (id !== latest.current) return
       setVaults(found)
-      setSelected(chosen?.address ?? null)
       setVault(nextVault)
       setKeyType(nextKeyType)
     } catch (e) {
@@ -82,7 +79,7 @@ export function useVault() {
         if (!silent) setLoading(false)
       }
     }
-  }, [wallet, onSepolia, account, selected])
+  }, [wallet, onSepolia, account])
 
   useEffect(() => {
     setVault(null)
@@ -121,7 +118,6 @@ export function useVault() {
     loading,
     error,
     vaults,
-    choose: (address) => refresh({ wanted: address }),
     role: roleOf(account, vault),
     smart: Boolean(keyType?.smart),
     delegate: keyType?.delegate ?? null,

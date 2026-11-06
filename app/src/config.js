@@ -3,8 +3,6 @@ import { sepolia } from 'viem/chains'
 
 export const chain = sepolia
 
-export const KNOWN_VAULTS = ['0xd03a1550f19E6b815a80a51ae40b8807c4702A69', '0x7f2bb9a7779B44e5F6926d186CE521981AdbAc20']
-
 export const FACTORY = '0x5BC4F28E35B05e7541FB191D143D9ce1C5163770'
 
 export const PRINTS = '0x465B8D10e72293513f7FCB77A91A23408d2ed8Ab'

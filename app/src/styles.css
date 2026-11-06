@@ -443,16 +443,6 @@ body {
   font-size: 0.95rem;
 }
 
-.vb .picker {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.vb .picker select {
-  width: 100%;
-}
-
 .vb .vault-card .balances {
   display: flex;
   flex-wrap: wrap;

@@ -82,21 +82,6 @@ function Balances({ vault, loading, onRefresh }) {
   )
 }
 
-function VaultPicker({ vaults, selected, onChoose }) {
-  return (
-    <label className="picker card">
-      <span className="eyebrow">Vault</span>
-      <select value={selected} onChange={(e) => onChoose(e.target.value)}>
-        {vaults.map((v) => (
-          <option key={v.address} value={v.address}>
-            {v.ensName ?? shortAddress(v.address)} · you're its {v.role} · Everyday key {v.everydayName ?? shortAddress(v.everydayKey)}
-          </option>
-        ))}
-      </select>
-    </label>
-  )
-}
-
 function SmartAccountAlert({ delegate }) {
   return (
     <section className="card alert">
@@ -222,10 +207,6 @@ function WalletApp({ page }) {
       )}
 
       {v.account && v.onSepolia && v.smart && <SmartAccountAlert delegate={v.delegate} />}
-
-      {v.account && v.onSepolia && v.vaults?.length > 1 && v.vault && (
-        <VaultPicker vaults={v.vaults} selected={v.vault.address} onChoose={v.choose} />
-      )}
 
       {v.account && v.onSepolia && v.vaults?.length === 0 && (
         <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} />

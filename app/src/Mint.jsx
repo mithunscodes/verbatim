@@ -6,7 +6,6 @@ import { chain, DEMO_POLL_MS, DEMO_STRANGER, EXPLORER, PRINT_PRICE, PRINTS } fro
 import { zeroGSession, ZG_SPENT } from './credits.js'
 import { formatAmount, shortAddress } from './format.js'
 import { Dots, Words } from './Motion.jsx'
-import CreateVault from './CreateVault.jsx'
 import { ReceiptBox } from './Receipt.jsx'
 import { Link, ask } from './Replays.jsx'
 import { newDeadline, practiceRun, signAndSend, waitForResult } from './run.js'
@@ -398,21 +397,8 @@ function MintIt({ picture }) {
         <div className="actions"><button className="big" onClick={v.switchNetwork}>Switch to Sepolia</button></div>
       )}
       {v.account && v.onSepolia && v.vaults?.length === 0 && <p className="panel warn">This key has no vault yet. Create one on the <a href="#">Pay page</a>.</p>}
-      {v.vaults?.length > 1 && vault && (
-        <label className="scenario">
-          <span>Mint with</span>
-          <select value={vault.address} onChange={(e) => v.choose(e.target.value)} disabled={busy}>
-            {v.vaults.map((option) => (
-              <option key={option.address} value={option.address}>{option.ensName ?? shortAddress(option.address)} · {option.role}</option>
-            ))}
-          </select>
-        </label>
-      )}
       {vault && trusted === false && (
-        <p className="panel warn">This vault can't mint: it was made before version 4, so it doesn't trust the print contract. Pick or create a version 4 vault.</p>
-      )}
-      {vault && trusted === false && isEveryday && (
-        <CreateVault account={v.account} blocked={v.smart} loading={v.loading} onDone={v.refresh} upgrade />
+        <p className="panel warn">This vault can't mint: it doesn't trust the print contract.</p>
       )}
       {vault && trusted && ethHeld < PRINT_PRICE && (
         <p className="panel warn small">

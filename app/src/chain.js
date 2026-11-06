@@ -20,7 +20,6 @@ import {
   ensRegistryAbi,
   FACTORY,
   factoryAbi,
-  KNOWN_VAULTS,
   NICKNAMES,
   priceSourceAbi,
   RESOLVER_SET_TEXT,
@@ -396,16 +395,11 @@ export async function findVaults(wallet, account) {
         client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultsGuardedBy', args: [account] }),
       ])
     : [zeroAddress, []]
-  const candidates = [...new Set([own, ...guarded, ...KNOWN_VAULTS].filter((a) => a !== zeroAddress).map((a) => getAddress(a)))]
+  const candidates = [...new Set([own, ...guarded].filter((a) => a !== zeroAddress).map((a) => getAddress(a)))]
   const found = await Promise.all(candidates.map(async (address) => {
     const [everydayKey, rulesKey] = await readKeys(address)
     const role = account === everydayKey ? 'Everyday key' : account === rulesKey ? 'Rules key' : null
-    if (!role) return null
-    const [ensName, everydayName] = await Promise.all([
-      optional(client.readContract({ address, abi: vaultAbi, functionName: 'ensName' })),
-      primaryName(client, everydayKey),
-    ])
-    return { address, everydayKey, rulesKey, role, ensName: ensName || null, everydayName }
+    return role ? { address, everydayKey, rulesKey, role } : null
   }))
   return found.filter(Boolean)
 }
