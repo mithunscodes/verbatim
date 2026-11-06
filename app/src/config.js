@@ -3,7 +3,9 @@ import { sepolia } from 'viem/chains'
 
 export const chain = sepolia
 
-export const FACTORY = '0x6FF1413856DC74CfD038bC8B24129a449418fC3e'
+export const FACTORY = '0xD6407b5A51c7E2AB9A5DF81D712D69d236AbD76b'
+
+export const EARLIER_FACTORIES = ['0x6FF1413856DC74CfD038bC8B24129a449418fC3e']
 
 export const PRINTS = '0xF81489BDeD06e68969b350E739bc3f2773Dd750E'
 
@@ -98,6 +100,7 @@ export const QUOTE_DELAY_MS = 500
 export const QUOTE_REFRESH_MS = 30_000
 
 export const vaultAbi = parseAbi([
+  'function multicall(bytes[] calls)',
   'function everydayKey() view returns (address)',
   'function rulesKey() view returns (address)',
   'function watchedTokens(uint256) view returns (address)',

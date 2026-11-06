@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { parseUnits, zeroAddress } from 'viem'
+import { encodeFunctionData, parseUnits, zeroAddress } from 'viem'
 import { DEMO_TIMINGS, PRICE_SOURCE, vaultAbi } from './config.js'
 import { Link } from './Replays.jsx'
 import { NAME_ACTIVE, useVaultName } from './vaultName.js'
@@ -7,6 +7,8 @@ import { holdingOf } from './checks.js'
 import { amountPattern, formatAmount, formatDuration, shortAddress } from './format.js'
 import { Check } from './Motion.jsx'
 import TxStatus from './TxStatus.jsx'
+
+const ONE_CLICK = { usdcDaily: '100', ethDaily: '0.01', newContact: '50' }
 
 function Mark({ done }) {
   return done ? <Check size={26} /> : <span className="circle" />
@@ -79,6 +81,25 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
     await send('Finish setup', target, 'finishSetup', [])
   }
 
+  const call = (functionName, args = []) => encodeFunctionData({ abi: vaultAbi, functionName, args })
+  const everything = async (withName = true) => {
+    const calls = []
+    if (withName && job?.status === 'done' && !vault.ensName) calls.push(call('setEnsName', [job.name]))
+    if (usdc) {
+      calls.push(call('setDailyLimit', [usdc.token, parseUnits(ONE_CLICK.usdcDaily, usdc.decimals)]))
+      calls.push(call('setNewContactLimit', [usdc.token, parseUnits(ONE_CLICK.newContact, usdc.decimals)]))
+    }
+    calls.push(
+      call('setDailyLimit', [zeroAddress, parseUnits(ONE_CLICK.ethDaily, eth.decimals)]),
+      call('setPriceSource', [PRICE_SOURCE]),
+      call('setLooseningWait', [DEMO_TIMINGS.looseningWait]),
+      call('setNewContactPeriod', [DEMO_TIMINGS.newContactPeriod]),
+      call('setAllowanceMinAge', [DEMO_TIMINGS.allowanceMinAge]),
+      call('finishSetup'),
+    )
+    await send('Set up everything', target, 'multicall', [calls])
+  }
+
   const setDemoTimings = async () => {
     if (!(await send('Demo wait (1 of 3)', target, 'setLooseningWait', [DEMO_TIMINGS.looseningWait]))) return
     if (!(await send('Demo new-contact time (2 of 3)', target, 'setNewContactPeriod', [DEMO_TIMINGS.newContactPeriod]))) return
@@ -92,6 +113,23 @@ export default function Setup({ vault, isRules, tx, send, busy }) {
         Until setup is finished, nothing can be sent. Each step is one confirm in MetaMask. Leave its "Added protection" switch off.
       </p>
       <TxStatus tx={tx} />
+      {vault.batch && (
+        <div className="panel ok small">
+          <h3>Set up everything in one go</h3>
+          <ul>
+            {usdc && <li>Daily limits: {ONE_CLICK.usdcDaily} {usdc.symbol} and {ONE_CLICK.ethDaily} ETH</li>}
+            {usdc && <li>New contacts: up to {ONE_CLICK.newContact} {usdc.symbol} in their first {formatDuration(DEMO_TIMINGS.newContactPeriod)}</li>}
+            <li>Every swap checked against Verbatim's price reader</li>
+            <li>Demo waiting times</li>
+            {vault.directory && <li>Your name: {vault.ensName ?? (job?.status === 'done' ? job.name : naming ? `${job.name ?? 'your name'}, still being made` : 'none')}</li>}
+          </ul>
+          <div className="actions">
+            <button className="big" disabled={disabled || naming} onClick={() => everything()}>Set up everything</button>
+            {naming && <button className="secondary" disabled={disabled} onClick={() => everything(false)}>Set up now, without a name</button>}
+          </div>
+          <p className="muted small">One confirm in MetaMask. Or set each rule yourself below.</p>
+        </div>
+      )}
       <ol className="steps">
         {vault.directory && <NameStep vault={vault} job={job} />}
         {usdc && (

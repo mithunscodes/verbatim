@@ -14,7 +14,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
-import { NAME_MAX_WAITING, NAME_PREFIX, REPLAY_BUILDER_FLOOR, REPLAY_KEEP_MS, REPLAY_POLL_MS, VAULT_FACTORY } from './config.js'
+import { NAME_MAX_WAITING, NAME_PREFIX, REPLAY_BUILDER_FLOOR, REPLAY_KEEP_MS, REPLAY_POLL_MS, VAULT_FACTORIES } from './config.js'
 import { inBuilderLine } from './replay-jobs.js'
 import { RequestError } from './uniswap.js'
 import { ETH_REGISTRAR, ETH_REGISTRY, ensTools, registrarAbi, registryAbi } from '../scripts/ens.js'
@@ -106,7 +106,8 @@ export async function startName(body, { hide = String } = {}) {
   const { read, hasCode, predictResolver } = ensTools(ctx)
   const [everydayKey, rulesKey] = await Promise.all([read(vault, vaultAbi, 'everydayKey'), read(vault, vaultAbi, 'rulesKey')])
     .catch(() => { throw new RequestError("That isn't a Verbatim vault.") })
-  if (getAddress(await read(VAULT_FACTORY, factoryAbi, 'vaultOf', [everydayKey])) !== vault) {
+  const made = await Promise.all(VAULT_FACTORIES.map((factory) => read(factory, factoryAbi, 'vaultOf', [everydayKey])))
+  if (!made.some((address) => getAddress(address) === vault)) {
     throw new RequestError("That vault wasn't made by Verbatim's factory.")
   }
   const { own } = await scan(ctx, vault, rulesKey)

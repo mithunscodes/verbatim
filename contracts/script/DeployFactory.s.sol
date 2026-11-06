@@ -15,8 +15,9 @@ contract DeployFactory is Script {
         require(vm.addr(builderPrivateKey) == BUILDER_KEY, "BUILDER_PRIVATE_KEY is not the Builder key");
         address[] memory watchedTokens = new address[](1);
         watchedTokens[0] = USDC;
+        address existing = vm.envOr("DIRECTORY", address(0));
         vm.startBroadcast(builderPrivateKey);
-        EnsDirectory directory = EnsSettings.deployDirectory();
+        EnsDirectory directory = existing == address(0) ? EnsSettings.deployDirectory() : EnsDirectory(existing);
         factory = new VaultFactory(watchedTokens, address(directory));
         vm.stopBroadcast();
         console.log("Directory:", address(directory));

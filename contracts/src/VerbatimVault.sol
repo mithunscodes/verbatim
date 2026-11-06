@@ -274,12 +274,8 @@ contract VerbatimVault {
     function multicall(bytes[] calldata calls) external {
         require(msg.sender == rulesKey, "Only the rules key can make several changes at once");
         for (uint256 i = 0; i < calls.length; i++) {
-            (bool ok, bytes memory result) = address(this).delegatecall(calls[i]);
-            if (!ok) {
-                assembly {
-                    revert(add(result, 32), mload(result))
-                }
-            }
+            (bool ok,) = address(this).delegatecall(calls[i]);
+            require(ok, "One of the changes failed");
         }
     }
 

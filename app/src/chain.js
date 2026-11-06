@@ -18,6 +18,7 @@ import {
   ENS_ROLE_UNREGISTER,
   ENS_UNIVERSAL_RESOLVER,
   ensRegistryAbi,
+  EARLIER_FACTORIES,
   FACTORY,
   factoryAbi,
   NICKNAMES,
@@ -284,6 +285,10 @@ export async function readVault(wallet, address) {
     optional(read('ensName')),
   ])
 
+  const madeByFactory = FACTORY
+    ? optional(client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultOf', args: [everydayKey], blockNumber }))
+    : Promise.resolve(null)
+
   const withRules = async (holding) => {
     const [dailyLimit, leftToday, newContactLimit] = await Promise.all([
       read('dailyLimit', [holding.token]),
@@ -380,6 +385,7 @@ export async function readVault(wallet, address) {
     changes,
     directory,
     trusted: found.map(([account]) => account),
+    batch: (await madeByFactory) === address,
   }
 }
 
@@ -389,13 +395,14 @@ export async function findVaults(wallet, account) {
     client.readContract({ address, abi: vaultAbi, functionName: 'everydayKey' }),
     client.readContract({ address, abi: vaultAbi, functionName: 'rulesKey' }),
   ])
-  const [own, guarded] = FACTORY
-    ? await Promise.all([
-        client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultOf', args: [account] }),
-        client.readContract({ address: FACTORY, abi: factoryAbi, functionName: 'vaultsGuardedBy', args: [account] }),
-      ])
-    : [zeroAddress, []]
-  const candidates = [...new Set([own, ...guarded].filter((a) => a !== zeroAddress).map((a) => getAddress(a)))]
+  const factories = FACTORY ? [FACTORY, ...EARLIER_FACTORIES] : []
+  const lists = await Promise.all(factories.map((factory) => Promise.all([
+    client.readContract({ address: factory, abi: factoryAbi, functionName: 'vaultOf', args: [account] }),
+    client.readContract({ address: factory, abi: factoryAbi, functionName: 'vaultsGuardedBy', args: [account] }),
+  ])))
+  const owned = lists.map(([own]) => own)
+  const guarded = lists.flatMap(([, list]) => list)
+  const candidates = [...new Set([...owned, ...guarded].filter((a) => a !== zeroAddress).map((a) => getAddress(a)))]
   const found = await Promise.all(candidates.map(async (address) => {
     const [everydayKey, rulesKey] = await readKeys(address)
     const role = account === everydayKey ? 'Everyday key' : account === rulesKey ? 'Rules key' : null
