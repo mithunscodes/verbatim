@@ -180,6 +180,7 @@ function WalletApp({ page }) {
             <a href="#replays">Replays</a>
             <a href="#mint">Mint</a>
             <a href="#names">Names</a>
+            <a href="/api/go">Attack it yourself</a>
           </nav>
         </div>
         {v.account && (

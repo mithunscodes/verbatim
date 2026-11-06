@@ -4,6 +4,7 @@ import {
   IMAGE_KEEP_MS,
   IMAGE_MAX_ACTIVE,
   IMAGE_MODEL,
+  IMAGE_POLL_MS,
   IMAGE_SIZE,
   IMAGE_TIMEOUT_MS,
   MAX_IMAGE_BYTES,
@@ -27,13 +28,12 @@ function readPrompt(body) {
   return prompt
 }
 
-async function draw(prompt, session) {
-  if (!session && !process.env.ZG_ROUTER_API_KEY) throw new Error('The 0G image model is not set up: ZG_ROUTER_API_KEY is missing from .env.')
-  const response = await fetch(`${ZG_ROUTER}/images/generations`, {
-    method: 'POST',
+async function router(path, session, deadline, body) {
+  const response = await fetch(`${ZG_ROUTER}${path}`, {
+    method: body ? 'POST' : 'GET',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${session ?? process.env.ZG_ROUTER_API_KEY}` },
-    body: JSON.stringify({ model: IMAGE_MODEL, prompt, n: 1, size: IMAGE_SIZE, response_format: 'b64_json' }),
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
   }).catch((error) => {
     throw new Error(error.name === 'TimeoutError' ? "0G's image model took over 4 minutes. Try again." : "Couldn't reach 0G's image model. Check the internet connection.")
   })
@@ -43,15 +43,47 @@ async function draw(prompt, session) {
     if (response.status === 429) throw new Error("0G's image model is busy. Try again in a minute.")
     throw new Error(`0G's image model said: ${json.error?.message ?? `error ${response.status}`}`)
   }
-  const base64 = json.data?.[0]?.b64_json
+  return { json, response }
+}
+
+function pictureIn(json) {
+  const images = Array.isArray(json.data) ? json.data : json.data?.data
+  const base64 = images?.[0]?.b64_json
   const bytes = base64 ? Buffer.from(base64, 'base64') : null
-  if (!bytes || !PNG.every((byte, i) => bytes[i] === byte)) throw new Error("0G's image model didn't send back a picture.")
-  if (bytes.length > MAX_IMAGE_BYTES) throw new Error('The picture is too big to store.')
+  const type = !bytes ? null : PNG.every((byte, i) => bytes[i] === byte) ? 'png' : JPEG.every((byte, i) => bytes[i] === byte) ? 'jpeg' : null
+  return type ? { base64, bytes, type } : null
+}
+
+async function draw(prompt, session, note) {
+  if (!session && !process.env.ZG_ROUTER_API_KEY) throw new Error('The 0G image model is not set up: ZG_ROUTER_API_KEY is missing from .env.')
+  const deadline = Date.now() + IMAGE_TIMEOUT_MS
+  const submitted = await router('/async/images/generations', session, deadline, {
+    model: IMAGE_MODEL,
+    prompt,
+    n: 1,
+    size: IMAGE_SIZE,
+    response_format: 'b64_json',
+  })
+  const jobId = submitted.json.jobId ?? submitted.json.job_id
+  const provider = submitted.json.provider_address
+  if (jobId) note(`0G job ${jobId} on provider ${provider}`)
+  let reply = submitted
+  let picture = pictureIn(reply.json)
+  while (!picture && jobId && !['failed', 'error'].includes(reply.json.status)) {
+    await new Promise((resolve) => setTimeout(resolve, IMAGE_POLL_MS))
+    reply = await router(`/async/jobs/${encodeURIComponent(jobId)}?provider_address=${encodeURIComponent(provider ?? '')}`, session, deadline)
+    picture = pictureIn(reply.json)
+  }
+  const { json, response } = reply
+  if (!picture) {
+    note(`no picture from 0G: status ${json.status ?? 'none'}, fields ${Object.keys(json).join(', ')}`)
+    throw new Error(json.error?.message ? `0G's image model said: ${json.error.message}` : "0G's image model didn't send back a picture.")
+  }
+  if (picture.bytes.length > MAX_IMAGE_BYTES) throw new Error('The picture is too big to store.')
   return {
-    bytes,
-    base64,
-    provider: json.x_0g_trace?.provider ?? response.headers.get('x-provider'),
-    requestId: json.x_0g_trace?.request_id ?? response.headers.get('zg-res-key'),
+    ...picture,
+    provider: json.x_0g_trace?.provider ?? provider ?? response.headers.get('x-provider'),
+    requestId: json.x_0g_trace?.request_id ?? jobId ?? response.headers.get('zg-res-key'),
     costUsd: Number(json.x_0g_trace?.billing?.total_cost_usd_micro ?? 0) / 1e6,
   }
 }
@@ -61,7 +93,7 @@ async function work(job, prompt, session, hide) {
   const started = Date.now()
   try {
     job.status = 'drawing'
-    const picture = await draw(prompt, session)
+    const picture = await draw(prompt, session, note)
     note(`drawn by ${IMAGE_MODEL} in ${((Date.now() - started) / 1000).toFixed(1)} s, ${picture.bytes.length} bytes`)
     job.status = 'storing'
     const stored = await saveBytes(picture.bytes)
@@ -70,7 +102,7 @@ async function work(job, prompt, session, hide) {
       source: 'drawn',
       prompt,
       model: IMAGE_MODEL,
-      image: `data:image/png;base64,${picture.base64}`,
+      image: `data:image/${picture.type};base64,${picture.base64}`,
       bytes: picture.bytes.length,
       provider: picture.provider,
       requestId: picture.requestId,

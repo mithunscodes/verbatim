@@ -61,6 +61,8 @@ export const IMAGE_SIZE = '512x512'
 
 export const IMAGE_TIMEOUT_MS = 240_000
 
+export const IMAGE_POLL_MS = 2_000
+
 export const IMAGE_MAX_ACTIVE = 2
 
 export const IMAGE_KEEP_MS = 1_800_000
