@@ -27,7 +27,7 @@ export const TOKENS = {
 
 export const ZG_ROUTER = 'https://router-api.0g.ai/v1'
 
-export const ZG_PROVIDER = '0x7DCFe6AEa70350C2090041524c9B4A9262DCe87D'
+export const ZG_PROVIDER = '0xD179F4526064846dE9a9E9D93683AF75CB72E503'
 
 export const AI_MODEL = 'glm-5.3'
 
