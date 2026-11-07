@@ -175,6 +175,139 @@
   @media (prefers-reduced-motion: reduce) {
     .w, .caption.out .w { animation-duration: 1ms; animation-delay: 0ms; }
   }
+  .film { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; overflow: hidden; }
+  body.film-mode .film { display: block; }
+  body.film-mode .hud { display: none; }
+  body.film-mode.rolling { cursor: none; }
+  body.film-mode #stage { transition: filter 900ms ease; }
+  body.film-mode.dim #stage { filter: blur(9px) saturate(0.85) brightness(1.02); }
+  .f-start { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: auto; cursor: pointer; }
+  .f-start p { margin: 0; padding: 0.7em 1.2em; border: 2.5px solid var(--ink); border-radius: 14px; background: var(--white); box-shadow: 0 4px 0 var(--ink); font: 700 22px var(--display); }
+  .f-start b { font: 800 clamp(140px, 20vw, 300px)/1 var(--display); color: var(--cobalt); letter-spacing: -0.04em; animation: word-in 700ms var(--spring) both; }
+  .f-tab {
+    position: absolute; top: 4.4vh; left: 3.4vw;
+    display: flex; align-items: center; gap: 0.6em;
+    padding: 0.5em 1em 0.55em;
+    background: var(--white); border: 2.5px solid var(--ink); border-radius: 14px 14px 14px 4px;
+    box-shadow: 0 4px 0 var(--ink);
+    font: 700 clamp(15px, 1.3vw, 24px) var(--display); letter-spacing: -0.01em;
+    opacity: 0; transform: translateY(-260%) rotate(-1.5deg);
+    transition: transform 800ms var(--spring), opacity 300ms ease;
+  }
+  .f-tab.on { opacity: 1; transform: translateY(0) rotate(-1.5deg); }
+  .f-tab i { width: 0.95em; height: 0.62em; border: 2px solid var(--ink); border-radius: 4px; background: var(--cobalt); box-shadow: 0 2px 0 var(--ink); }
+  .f-tab span { color: var(--muted); font-weight: 600; }
+  .f-tab b { color: var(--cobalt); }
+  .f-sub {
+    position: absolute; left: 3.4vw; bottom: 5.2vh;
+    max-width: min(60vw, 1080px);
+    padding: 0.42em 0.8em 0.5em;
+    background: rgba(255, 255, 255, 0.95); border: 2.5px solid var(--ink); border-radius: 14px;
+    box-shadow: 0 4px 0 var(--ink);
+    font: 600 clamp(19px, 1.95vw, 36px)/1.28 var(--body); letter-spacing: -0.005em; color: var(--ink);
+    opacity: 0; transform: translateY(16px) rotate(-0.4deg);
+    transition: opacity 260ms ease, transform 420ms var(--spring);
+  }
+  .f-sub.on { opacity: 1; transform: rotate(-0.4deg); }
+  .f-sub .w { animation-duration: 620ms; animation-delay: calc(var(--i) * 34ms); }
+  .f-sub .c { color: var(--cobalt); }
+  .f-sub .t { color: var(--tangerine); }
+  .f-sheet {
+    position: absolute; left: 50%; top: 46%;
+    width: min(var(--w, 76vw), calc(70vh * var(--ar) + 24px));
+    padding: 11px; background: var(--white); border: 3px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 10px 0 var(--ink), 0 40px 80px rgba(22, 21, 28, 0.16);
+    opacity: 0; transform: translate(-50%, -50%) translateY(70px) rotate(calc(var(--r, -1deg) * 3)) scale(0.94);
+    transition: transform 1000ms var(--spring), opacity 380ms ease;
+  }
+  .f-sheet.on { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r, -1deg)); }
+  .f-sheet.off { opacity: 0; transform: translate(-50%, -50%) translateY(-60px) rotate(calc(var(--r, -1deg) * -2)) scale(0.96); transition: transform 700ms ease-in, opacity 500ms ease; }
+  .f-frame { position: relative; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; aspect-ratio: var(--ar); background: var(--paper); }
+  .f-zoom { position: absolute; inset: 0; transform: scale(var(--z0, 1)); transition-property: transform; transition-timing-function: cubic-bezier(0.42, 0, 0.25, 1); }
+  .f-sheet.zoom .f-zoom { transform: scale(var(--z1, 1.06)); }
+  .f-zoom > video, .f-zoom > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .f-ink { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .f-ink ellipse { fill: none; stroke: var(--cobalt); stroke-width: 0.42px; stroke-linecap: round; stroke-dasharray: var(--len) var(--len); stroke-dashoffset: var(--len); transform-box: fill-box; transform-origin: center; transform: rotate(-2.5deg); }
+  .f-sheet.inked .f-ink ellipse { stroke-dashoffset: 0; transition: stroke-dashoffset 900ms cubic-bezier(0.5, 0, 0.2, 1); transition-delay: var(--d, 0s); }
+  .f-note { position: absolute; left: 22px; bottom: -46px; margin: 0; padding: 0.3em 0.7em; background: var(--paper); border: 2px solid var(--ink); border-radius: 9px; font: 600 clamp(13px, 1vw, 18px) var(--body); color: var(--ink); transform: rotate(0.8deg); white-space: nowrap; }
+  .f-live { position: absolute; right: -16px; top: -20px; padding: 0.28em 0.75em 0.34em; background: var(--white); border: 2.5px solid var(--cobalt); border-radius: 10px; color: var(--cobalt); font: 800 clamp(13px, 1vw, 18px) var(--display); transform: rotate(4deg); box-shadow: 0 3px 0 var(--cobalt); }
+  .f-live::before { content: ""; display: inline-block; width: 0.55em; height: 0.55em; margin-right: 0.45em; border-radius: 50%; background: var(--tangerine); vertical-align: 0.06em; }
+  .f-dia { position: absolute; left: 50%; top: 45%; width: min(88vw, 1500px); transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 4.2vh; opacity: 0; transition: opacity 500ms ease; }
+  .f-dia.on { opacity: 1; }
+  .f-dia.off { opacity: 0; transition: opacity 600ms ease; }
+  .f-words, .f-checks { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6vw; }
+  .f-tile { padding: 0.32em 0.62em 0.4em; border: 2.5px solid var(--ink); border-radius: 10px; background: var(--cobalt); color: var(--white); box-shadow: 0 4px 0 var(--ink); font: 700 clamp(16px, 1.6vw, 30px) var(--display); letter-spacing: -0.01em; opacity: 0; }
+  .f-dia.on .f-tile { animation: f-pop 620ms var(--spring) both; animation-delay: calc(var(--i) * 110ms); }
+  .f-box { position: relative; display: grid; justify-items: center; gap: 4px; padding: 0.9em 2.4em 1em; border: 3px solid var(--ink); border-radius: 16px; background: var(--ink); color: var(--white); box-shadow: 0 6px 0 rgba(22, 21, 28, 0.35); opacity: 0; z-index: 1; }
+  .f-box b { font: 800 clamp(20px, 2vw, 38px) var(--display); letter-spacing: -0.02em; }
+  .f-box small { font: 500 clamp(12px, 0.95vw, 17px) var(--body); color: rgba(255, 255, 255, 0.72); }
+  .f-dia.on .f-box { animation: f-pop 700ms var(--spring) both; animation-delay: 0.9s; }
+  .f-seal { position: absolute; right: -26px; top: -24px; width: 62px; height: 62px; display: grid; place-items: center; border-radius: 50%; background: var(--tangerine); border: 3px solid var(--ink); color: var(--white); font: 800 13px var(--display); transform: rotate(14deg) scale(0); }
+  .f-dia.on .f-seal { animation: f-stamp 520ms var(--spring) both; animation-delay: 1.5s; }
+  .f-check { display: grid; gap: 0.35em; width: clamp(180px, 19vw, 330px); padding: 0.75em 0.9em 0.85em; border: 2.5px solid var(--cobalt); border-radius: 12px; background: var(--white); box-shadow: 0 4px 0 var(--cobalt); opacity: 0; }
+  .f-check b { font: 700 clamp(14px, 1.2vw, 22px)/1.18 var(--display); }
+  .f-check span { font: 500 clamp(12px, 0.95vw, 17px)/1.3 var(--body); color: var(--cobalt); }
+  .f-dia.on .f-check { animation: f-pop 640ms var(--spring) both; animation-delay: calc(2.9s + var(--i) * 0.28s); }
+  .f-vault { padding: 0.55em 1.1em 0.62em; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--paper); box-shadow: 0 4px 0 var(--ink); font: 500 clamp(15px, 1.3vw, 24px) var(--body); opacity: 0; }
+  .f-vault b { font-family: var(--display); }
+  .f-dia.on .f-vault { animation: f-pop 640ms var(--spring) both; animation-delay: 4.7s; }
+  .f-threads { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; z-index: 0; }
+  .f-threads path { fill: none; stroke: var(--cobalt); stroke-width: 3px; stroke-linecap: round; stroke-dasharray: 1.02 1.02; stroke-dashoffset: 1.02; opacity: 0.85; }
+  .f-dia.drawn .f-threads path { stroke-dashoffset: 0; transition: stroke-dashoffset 1100ms cubic-bezier(0.5, 0, 0.2, 1) var(--d, 0s); }
+  .f-tree { position: absolute; inset: 9vh 3vw 15vh; opacity: 0; transition: opacity 500ms ease; }
+  .f-tree.on { opacity: 1; }
+  .f-tree svg { width: 100%; height: 100%; overflow: visible; }
+  .f-tree .pop { opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .f-tree.on .pop { animation: f-pop 620ms var(--spring) both; animation-delay: var(--d); }
+  .f-tree rect { fill: var(--white); stroke: var(--ink); stroke-width: 3px; }
+  .f-tree .org rect { fill: var(--white); }
+  .f-tree .leaf rect { fill: var(--paper); stroke-width: 2px; }
+  .f-tree .you rect { fill: #e3e8ff; stroke: var(--cobalt); }
+  .f-tree .temp rect { fill: #fff1ea; stroke: var(--tangerine); stroke-dasharray: 9 6; }
+  .f-tree .vault rect { fill: var(--cobalt); stroke: var(--ink); }
+  .f-tree .vault text { fill: var(--white); }
+  .f-tree .hit rect { animation: f-hit 900ms ease-out; }
+  .f-tree .nt { font: 700 27px "Bricolage Grotesque", system-ui, sans-serif; fill: var(--ink); letter-spacing: -0.01em; }
+  .f-tree .ns { font: 500 18px "DM Sans", system-ui, sans-serif; fill: var(--muted); }
+  .f-tree .vault .ns { fill: rgba(255, 255, 255, 0.8); }
+  .f-tree path.e { fill: none; stroke: var(--ink); stroke-width: 3px; stroke-dasharray: 1.02 1.02; stroke-dashoffset: 1.02; }
+  .f-tree path.e.live { stroke: var(--cobalt); stroke-width: 3.5px; }
+  .f-tree.on path.e { stroke-dashoffset: 0; transition: stroke-dashoffset 700ms ease var(--d); }
+  .f-tree .badge { opacity: 0; transform-box: fill-box; transform-origin: center; }
+  .f-tree .badge rect { fill: var(--white); stroke: var(--cobalt); stroke-width: 2.5px; }
+  .f-tree .badge text { font: 700 17px "Bricolage Grotesque", system-ui, sans-serif; fill: var(--cobalt); }
+  .f-tree.on .badge { animation: f-badge 520ms var(--spring) both; animation-delay: var(--d); }
+  .f-tree .pulse { fill: var(--cobalt); stroke: var(--white); stroke-width: 4px; opacity: 0; }
+  .f-flip { position: absolute; left: 50%; top: 45%; width: min(64vw, 1000px); aspect-ratio: 2.3; transform: translate(-50%, -50%) translateY(60px) rotate(-1.5deg); opacity: 0; perspective: 1800px; transition: transform 900ms var(--spring), opacity 400ms ease; }
+  .f-flip.on { opacity: 1; transform: translate(-50%, -50%) rotate(-1.5deg); }
+  .f-flip.off { opacity: 0; transform: translate(-50%, -50%) translateY(-50px) rotate(1deg) scale(0.96); }
+  .f-flip-in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 1100ms cubic-bezier(0.6, 0, 0.2, 1); }
+  .f-flip.turned .f-flip-in { transform: rotateY(180deg); }
+  .f-face { position: absolute; inset: 0; display: grid; align-content: center; gap: 0.5em; padding: 1.4em 2em; border: 3px solid var(--ink); border-radius: 20px; background: var(--white); box-shadow: 0 10px 0 var(--ink); backface-visibility: hidden; }
+  .f-face.back { transform: rotateY(180deg); background: var(--ink); color: var(--white); border-color: var(--ink); box-shadow: 0 10px 0 var(--tangerine); }
+  .f-face span { font: 700 clamp(14px, 1.2vw, 22px) var(--body); color: var(--muted); }
+  .f-face.back span { color: rgba(255, 255, 255, 0.7); }
+  .f-face p { margin: 0; font: 800 clamp(28px, 3.3vw, 62px)/1.06 var(--display); letter-spacing: -0.025em; }
+  .f-face em { font: 800 clamp(14px, 1.15vw, 21px) var(--display); font-style: normal; justify-self: start; padding: 0.28em 0.7em; border-radius: 9px; }
+  .f-face.front em { color: var(--cobalt); border: 2.5px solid var(--cobalt); }
+  .f-face.back em { color: var(--white); background: var(--tangerine); border: 2.5px solid var(--white); transform: rotate(-3deg); }
+  .f-title { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; justify-items: center; opacity: 0; transition: opacity 500ms ease; }
+  .f-title.on { opacity: 1; }
+  .f-title b { font: 800 clamp(90px, 13vw, 240px)/0.95 var(--display); letter-spacing: -0.045em; color: var(--ink); text-shadow: 0 0 40px var(--glow); }
+  .f-title.on b { animation: f-slam 700ms var(--spring) both; }
+  .f-title i { display: block; height: clamp(10px, 1.2vw, 20px); width: 100%; margin-top: 0.4vh; border-radius: 99px; background: var(--cobalt); transform-origin: left; transform: scaleX(0); }
+  .f-title.on i { transition: transform 900ms cubic-bezier(0.6, 0, 0.2, 1) 450ms; transform: scaleX(1); }
+  .f-end { position: absolute; left: 50%; bottom: 17vh; transform: translateX(-50%) translateY(30px); display: flex; flex-wrap: wrap; justify-content: center; gap: 0.8em; opacity: 0; transition: opacity 600ms ease, transform 800ms var(--spring); }
+  .f-end.on { opacity: 1; transform: translateX(-50%); }
+  .f-end span { padding: 0.4em 0.85em 0.48em; border: 2.5px solid var(--ink); border-radius: 12px; background: var(--white); box-shadow: 0 4px 0 var(--ink); font: 700 clamp(14px, 1.25vw, 23px) var(--display); white-space: nowrap; }
+  .f-end span.c { border-color: var(--cobalt); color: var(--cobalt); box-shadow: 0 4px 0 var(--cobalt); }
+  .f-fade { position: absolute; inset: 0; background: var(--paper); opacity: 0; transition: opacity 1200ms ease; }
+  .f-fade.on { opacity: 1; }
+  @keyframes f-pop { from { opacity: 0; transform: translateY(18px) scale(0.86); } to { opacity: 1; transform: none; } }
+  @keyframes f-stamp { from { opacity: 0; transform: rotate(14deg) scale(2.2); } to { opacity: 1; transform: rotate(14deg) scale(1); } }
+  @keyframes f-badge { from { opacity: 0; transform: rotate(-2deg) scale(1.8); } to { opacity: 1; transform: rotate(-2deg) scale(1); } }
+  @keyframes f-slam { from { opacity: 0; transform: scale(1.5); filter: blur(14px); } to { opacity: 1; transform: none; filter: blur(0); } }
+  @keyframes f-hit { 0% { stroke-width: 9px; } 100% { stroke-width: 3px; } }
 </style>
 </head>
 <body>
@@ -197,6 +330,7 @@
     </nav>
   </div>
 </div>
+<div class="film" id="film" aria-hidden="true"></div>
 
 <script type="importmap">
 {
@@ -230,6 +364,8 @@ const PPU = 200;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const $ = (id) => document.getElementById(id);
+const FILM = /^#film(@\d+(\.\d+)?)?$/.test(location.hash);
+const FILM_FROM = FILM && location.hash.includes('@') ? Number(location.hash.split('@')[1]) : null;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const c01 = (x) => clamp(x, 0, 1);
@@ -588,7 +724,7 @@ function buildS1() {
   const g = new THREE.Group();
   g.position.copy(C1);
   scene.add(g);
-  const rows = [['Swap 10 USDC', 'for ETH', 'at a fair price,'], ['send 2 USDC', 'to mom.eth,', 'and nothing else.']];
+  const rows = [['Swap 10 USDC', 'for ETH', 'at a fair price,'], ['send 2 USDC', 'to mom.verbatim2.eth,', 'and nothing else.']];
   const items = [];
   rows.forEach((row, r) => {
     const tiles = row.map((t) => tile(t, { sweep: true }));
@@ -1240,6 +1376,7 @@ function reset() {
 addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key;
+  if (FILM && k !== 'f' && k !== 'F') return;
   if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') { e.preventDefault(); go(index + 1); }
   else if (k === 'ArrowLeft' || k === 'PageUp') { e.preventDefault(); if (index > 0) go(index - 1); }
   else if (k === 'h' || k === 'H') document.body.classList.toggle('no-chrome');
@@ -1348,6 +1485,441 @@ function frame() {
   composer.render();
 }
 
+const NS = 'http://www.w3.org/2000/svg';
+const filmEl = $('film');
+function mk(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function svgEl(tag, attrs = {}) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+let dimmers = 0;
+function dim(on) {
+  const apply = () => {
+    dimmers = Math.max(0, dimmers + (on ? 1 : -1));
+    document.body.classList.toggle('dim', dimmers > 0);
+  };
+  if (on) apply();
+  else setTimeout(apply, 650);
+}
+const later = (s, fn) => setTimeout(fn, s * 1000);
+const nextFrame = (fn) => requestAnimationFrame(() => requestAnimationFrame(fn));
+
+const MM = 1408 / 1072, WIDE = 1920 / 1088;
+const SHEETS = {
+  s_bybit: { src: 's_bybit.jpg', ar: 2152 / 530, w: 84, r: -0.6, note: 'The real attack, on Ethereum · 21 Feb 2025', zoom: [1, 1.04, 40, 40], ink: [[30, 16, 23, 11, 0.4], [31, 56, 5.5, 10, 1.1], [49, 88, 12.5, 10, 1.8]] },
+  p_reading: { src: 'p_reading.mp4', ar: MM, live: true, zoom: [1.02, 1.12, 50, 72] },
+  p_checks: { src: 'p_checks.mp4', ar: MM, r: 0.8, live: true, zoom: [1.02, 1.14, 38, 30] },
+  s_iai: { src: 's_iai.jpg', ar: 2236 / 370, w: 86, note: 'iai.finance · the iAI we staked', zoom: [1, 1.03, 25, 50], ink: [[8, 50, 7.5, 26, 0.4], [42, 50, 7.5, 26, 1.0]] },
+  s_pc0: { src: 's_pc0.jpg', ar: 1125 / 375, w: 64, r: 0.7, note: "pc.0g.ai, 0G's own console · before", zoom: [1, 1.04, 80, 40], ink: [[91, 14.5, 7.5, 9, 0.4], [80.5, 47.5, 18.5, 11, 1.0]] },
+  p_done: { src: 'p_done.mp4', ar: MM, live: true, zoom: [1.02, 1.12, 40, 38] },
+  s_pc1: { src: 's_pc1.jpg', ar: 1125 / 375, w: 64, r: -0.7, note: 'pc.0g.ai · after one sentence', zoom: [1, 1.04, 80, 40], ink: [[91, 14.5, 7.5, 9, 0.4], [80.5, 47.5, 18.5, 11, 0.9, CSS.tang]] },
+  n_free: { src: 'n_free.mp4', ar: MM, live: true, zoom: [1.02, 1.16, 45, 45] },
+  n_end: { src: 'n_end.mp4', ar: MM, r: 0.8, live: true, zoom: [1.04, 1.32, 42, 38] },
+  a_fake: { src: 'a_fake.mp4', ar: WIDE, w: 80, live: true, zoom: [1.04, 1.18, 28, 32] },
+  a_bybit: { src: 'a_bybit.mp4', ar: WIDE, w: 80, r: 0.7, live: true, zoom: [1.04, 1.18, 28, 32] },
+  a_swap: { src: 'a_swap.mp4', ar: WIDE, w: 80, live: true, zoom: [1.04, 1.18, 28, 32] },
+  a_all: { src: 'a_all.mp4', ar: WIDE, w: 82, r: -0.5, live: true, zoom: [1, 1.1, 40, 38] },
+  h_hook: { src: 'h_hook.mp4', ar: WIDE, w: 82, r: 0.6, live: true, zoom: [1.02, 1.3, 52, 68] },
+  b_bybit: { src: 'b_bybit.mp4', ar: MM, live: true, zoom: [1.02, 1.2, 30, 52] },
+  h_fail: { src: 'h_fail.mp4', ar: WIDE, w: 78, r: -0.8, live: true, zoom: [1.04, 1.36, 30, 34] },
+  m_draw: { src: 'm_draw.mp4', ar: MM, live: true, zoom: [1.02, 1.22, 18, 72] },
+  m_mint: { src: 'm_mint.mp4', ar: MM, r: 0.8, live: true, zoom: [1.02, 1.2, 62, 48] }
+};
+
+function makeSheet(id) {
+  const c = SHEETS[id];
+  const root = mk('div', 'f-sheet');
+  root.style.setProperty('--ar', c.ar);
+  root.style.setProperty('--w', (c.w ?? 76) + 'vw');
+  root.style.setProperty('--r', (c.r ?? -0.8) + 'deg');
+  const frame = mk('div', 'f-frame');
+  const zoom = mk('div', 'f-zoom');
+  const [, z1, ox, oy] = c.zoom ?? [1, 1.05, 50, 50];
+  zoom.style.setProperty('--z0', 1);
+  zoom.style.setProperty('--z1', Math.min(z1, 1.05));
+  zoom.style.transformOrigin = `${ox}% ${oy}%`;
+  const video = c.src.endsWith('.mp4');
+  const media = mk(video ? 'video' : 'img');
+  if (video) { media.muted = true; media.playsInline = true; media.preload = 'auto'; media.poster = 'film/' + c.src.replace('.mp4', '.jpg'); }
+  media.src = 'film/' + c.src;
+  zoom.append(media);
+  if (c.ink) {
+    const h = 100 / c.ar;
+    const svg = svgEl('svg', { class: 'f-ink', viewBox: `0 0 100 ${h}`, preserveAspectRatio: 'none' });
+    for (const [cx, cy, rx, ry, d, color] of c.ink) {
+      const e = svgEl('ellipse', { cx, cy: (cy * h) / 100, rx, ry: (ry * h) / 100 });
+      e.style.setProperty('--d', d + 's');
+      if (color) e.style.stroke = color;
+      svg.append(e);
+    }
+    zoom.append(svg);
+  }
+  frame.append(zoom);
+  root.append(frame);
+  filmEl.append(root);
+  root.querySelectorAll('.f-ink ellipse').forEach((e) => e.style.setProperty('--len', (e.getTotalLength() * 1.05).toFixed(2)));
+  if (c.note) root.append(mk('p', 'f-note', c.note));
+  if (c.live) root.append(mk('span', 'f-live', 'Live on Sepolia'));
+  return {
+    show(dur) {
+      dim(true);
+      zoom.style.transitionDuration = dur + 's';
+      root.classList.remove('off', 'zoom', 'inked');
+      if (video) { media.currentTime = 0; media.play().catch(() => {}); }
+      root.classList.add('on');
+      nextFrame(() => root.classList.add('zoom', 'inked'));
+    },
+    hide() {
+      dim(false);
+      root.classList.remove('on');
+      root.classList.add('off');
+      later(1, () => { root.classList.remove('off', 'zoom', 'inked'); if (video) media.pause(); });
+    }
+  };
+}
+
+function buildDiagram() {
+  const root = mk('div', 'f-dia');
+  const words = mk('div', 'f-words');
+  const WORDS = ['Swap 10 USDC', 'for ETH', 'at a fair price,', 'send 2 USDC', 'to mom.verbatim2.eth,', 'and nothing else.'];
+  const tiles = WORDS.map((w, i) => {
+    const t = mk('span', 'f-tile', w);
+    t.style.setProperty('--i', i);
+    words.append(t);
+    return t;
+  });
+  const box = mk('div', 'f-box');
+  box.append(mk('span', 'f-seal', 'Sealed'), mk('b', null, "0G's sealed AI"), mk('small', null, 'Private computer · every answer signed'));
+  const checks = mk('div', 'f-checks');
+  const CHECKS = [
+    ['At most 12 USDC leaves your vault', '“Swap 10 USDC … send 2 USDC”', [0, 3]],
+    ['At least 0.000383 ETH arrives', '“for ETH at a fair price”', [1, 2]],
+    ['Exactly 2 USDC goes to mom.verbatim2.eth', '“send 2 USDC to mom.verbatim2.eth”', [3, 4]],
+    ['Everything else stays exactly as it is', '“and nothing else”', [5]]
+  ];
+  const cards = CHECKS.map(([h, q], i) => {
+    const c = mk('div', 'f-check');
+    c.style.setProperty('--i', i);
+    c.append(mk('b', null, h), mk('span', null, q));
+    checks.append(c);
+    return c;
+  });
+  const vault = mk('div', 'f-vault');
+  vault.append(mk('b', null, 'Your vault on Sepolia'), document.createTextNode(' runs it and checks the real result. No app can skip it.'));
+  const svg = svgEl('svg', { class: 'f-threads' });
+  root.append(svg, words, box, checks, vault);
+  filmEl.append(root);
+  const at = (el) => {
+    let x = 0, y = 0, n = el;
+    while (n && n !== root) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return { x, y, w: el.offsetWidth, h: el.offsetHeight };
+  };
+  function threads() {
+    svg.textContent = '';
+    svg.setAttribute('viewBox', `0 0 ${root.offsetWidth} ${root.offsetHeight}`);
+    const b = at(box);
+    CHECKS.forEach(([, , from], ci) => {
+      const c = at(cards[ci]);
+      from.forEach((ti, k) => {
+        const t = at(tiles[ti]);
+        const x1 = t.x + t.w / 2, y1 = t.y + t.h + 4;
+        const x2 = c.x + c.w / 2, y2 = c.y - 4;
+        const xm = b.x + b.w * (0.18 + 0.64 * (ci + 0.5) / CHECKS.length), ym = b.y + b.h / 2;
+        const p = svgEl('path', { d: `M${x1} ${y1} C${x1} ${y1 + 60} ${xm} ${ym - 70} ${xm} ${ym} S${x2} ${y2 - 60} ${x2} ${y2}`, pathLength: 1 });
+        p.style.setProperty('--d', (2.1 + ci * 0.26 + k * 0.12) + 's');
+        svg.append(p);
+      });
+    });
+  }
+  return {
+    show() {
+      dim(true);
+      root.classList.remove('off');
+      root.classList.add('on');
+      nextFrame(() => { threads(); nextFrame(() => root.classList.add('drawn')); });
+    },
+    hide() {
+      dim(false);
+      root.classList.add('off');
+      later(0.7, () => root.classList.remove('on', 'off', 'drawn'));
+    }
+  };
+}
+
+function buildTree() {
+  const root = mk('div', 'f-tree');
+  const svg = svgEl('svg', { viewBox: '0 0 1600 900', preserveAspectRatio: 'xMidYMid meet' });
+  root.append(svg);
+  filmEl.append(root);
+  const N = [
+    ['vault', 60, 455, 'Your vault', 'reads ENS in every payment', 'vault', 0.2],
+    ['v', 470, 250, 'verbatim.eth', 'a directory with no parent control', 'org', 0.7],
+    ['u', 900, 115, 'uniswap.verbatim.eth', "owned by Uniswap's own key", 'org', 1.1],
+    ['ur', 1330, 115, 'router', 'Universal Router', 'leaf', 1.5],
+    ['c', 900, 255, 'circle.verbatim.eth', '', 'org', 1.3],
+    ['cu', 1330, 255, 'usdc', 'USDC on Sepolia', 'leaf', 1.7],
+    ['s', 900, 390, 'studio.verbatim.eth', '', 'org', 1.5],
+    ['sp', 1330, 390, 'prints', 'Verbatim Prints', 'leaf', 1.9],
+    ['me', 470, 670, 'verbatim2.eth', 'your name', 'you', 2.6],
+    ['mom', 900, 600, 'mom.verbatim2.eth', 'a contact you own', 'you', 3.0],
+    ['fr', 900, 765, 'freelance.verbatim2.eth', 'ends when the job does', 'temp', 3.4]
+  ];
+  const P = {};
+  for (const [id, x, y, title, sub, kind, d] of N) {
+    const w = Math.max(190, title.length * 15.6 + 46, sub.length * 9.6 + 46), h = sub ? 86 : 62;
+    P[id] = { x, y, w, h, l: x, r: x + w, title, sub, kind, d };
+  }
+  const E = [['vault', 'v', 1], ['v', 'u'], ['u', 'ur'], ['v', 'c'], ['c', 'cu'], ['v', 's'], ['s', 'sp'], ['vault', 'me', 1], ['me', 'mom'], ['me', 'fr']];
+  const seg = (a, b) => `C${a.r + 80} ${a.y} ${b.l - 80} ${b.y} ${b.l} ${b.y}`;
+  for (const [a, b, live] of E) {
+    const p = svgEl('path', { class: live ? 'e live' : 'e', d: `M${P[a].r} ${P[a].y} ${seg(P[a], P[b])}`, pathLength: 1 });
+    p.style.setProperty('--d', Math.max(0, P[b].d - 0.25) + 's');
+    svg.append(p);
+  }
+  const groups = {};
+  for (const [id, n] of Object.entries(P)) {
+    const g = svgEl('g', { class: n.kind, transform: `translate(${n.x} ${n.y - n.h / 2})` });
+    const pop = svgEl('g', { class: 'pop' });
+    pop.style.setProperty('--d', n.d + 's');
+    pop.append(svgEl('rect', { width: n.w, height: n.h, rx: 14 }));
+    const t = svgEl('text', { x: 23, y: n.sub ? 37 : 40, class: 'nt' });
+    t.textContent = n.title;
+    pop.append(t);
+    if (n.sub) {
+      const s = svgEl('text', { x: 23, y: 66, class: 'ns' });
+      s.textContent = n.sub;
+      pop.append(s);
+    }
+    g.append(pop);
+    svg.append(g);
+    groups[id] = g;
+  }
+  const badge = (x, y, text, d) => {
+    const g = svgEl('g', { transform: `translate(${x} ${y})` });
+    const b = svgEl('g', { class: 'badge' });
+    b.style.setProperty('--d', d + 's');
+    const w = text.length * 9.4 + 30;
+    b.append(svgEl('rect', { width: w, height: 36, rx: 10 }));
+    const t = svgEl('text', { x: 15, y: 24 });
+    t.textContent = text;
+    b.append(t);
+    g.append(b);
+    svg.append(g);
+  };
+  badge(915, 171, 'Genuine resolver ✓ Verifiable Factory', 4.6);
+  badge(60, 514, 'Read live: Universal Resolver', 4.2);
+  badge(1322, 747, 'Expires on its own', 5.2);
+  const pulse = (ids, d) => {
+    const parts = [`M${P[ids[0]].r} ${P[ids[0]].y}`];
+    for (let i = 1; i < ids.length; i++) {
+      parts.push(seg(P[ids[i - 1]], P[ids[i]]));
+      if (i < ids.length - 1) parts.push(`L${P[ids[i]].r} ${P[ids[i]].y}`);
+    }
+    const dot = svgEl('circle', { r: 13, class: 'pulse' });
+    const anim = svgEl('animateMotion', { dur: '1.5s', begin: 'indefinite', fill: 'freeze', path: parts.join(' '), calcMode: 'spline', keySplines: '0.5 0 0.3 1', keyTimes: '0;1' });
+    dot.append(anim);
+    svg.append(dot);
+    return () => later(d, () => {
+      dot.style.opacity = 1;
+      anim.beginElement();
+      later(1.5, () => {
+        const g = groups[ids[ids.length - 1]];
+        g.classList.remove('hit');
+        void g.getBBox();
+        g.classList.add('hit');
+        later(0.6, () => { dot.style.transition = 'opacity 400ms'; dot.style.opacity = 0; });
+      });
+    });
+  };
+  const runs = [pulse(['vault', 'v', 'u', 'ur'], 5.4), pulse(['vault', 'me', 'mom'], 6.9)];
+  return {
+    show() { dim(true); root.classList.add('on'); runs.forEach((r) => r()); },
+    hide() { dim(false); root.classList.remove('on'); }
+  };
+}
+
+function buildFlip() {
+  const root = mk('div', 'f-flip');
+  const inner = mk('div', 'f-flip-in');
+  const front = mk('div', 'f-face front');
+  front.append(mk('span', null, 'What the three signers saw'), mk('p', null, '“Move ETH to our warm wallet. Nothing else.”'), mk('em', null, 'Approved ✓ ✓ ✓'));
+  const back = mk('div', 'f-face back');
+  back.append(mk('span', null, 'What actually ran'), mk('p', null, 'Borrowed code that replaced the wallet itself.'), mk('em', null, '$1.5B gone'));
+  inner.append(front, back);
+  root.append(inner);
+  filmEl.append(root);
+  return {
+    show() { dim(true); root.classList.remove('off', 'turned'); root.classList.add('on'); },
+    turn() { root.classList.add('turned'); },
+    hide() { dim(false); root.classList.remove('on'); root.classList.add('off'); later(1, () => root.classList.remove('off', 'turned')); }
+  };
+}
+
+function startFilm() {
+  document.body.classList.add('film-mode');
+  const tab = mk('div', 'f-tab');
+  const sub = mk('div', 'f-sub');
+  const title = mk('div', 'f-title');
+  title.append(mk('b', null, 'Verbatim'), mk('i'));
+  const end = mk('div', 'f-end');
+  for (const [t, c] of [['Built on ENSv2 · Uniswap · 0G', 'c'], ['Every transaction live on Sepolia', ''], ['github.com/mithunscodes/verbatim', '']]) end.append(mk('span', c || null, t));
+  const fade = mk('div', 'f-fade');
+  filmEl.append(tab, title, end, sub, fade);
+  const sheets = Object.fromEntries(Object.keys(SHEETS).map((k) => [k, makeSheet(k)]));
+  const dia = buildDiagram(), tree = buildTree(), flip = buildFlip();
+
+  let said = '';
+  const say = (text) => {
+    said = text;
+    sub.classList.remove('on');
+    sub.textContent = '';
+    text.split(' ').forEach((w, i, all) => {
+      const s = mk('span', 'w');
+      if (w[0] === '*') { s.classList.add('c'); w = w.slice(1); }
+      else if (w[0] === '!') { s.classList.add('t'); w = w.slice(1); }
+      s.style.setProperty('--i', i);
+      s.textContent = w;
+      sub.append(s);
+      if (i < all.length - 1) sub.append(' ');
+    });
+    void sub.offsetWidth;
+    sub.classList.add('on');
+  };
+  const unsay = (text) => { if (said === text) sub.classList.remove('on'); };
+  const setTab = (num, name, sponsor) => {
+    tab.classList.remove('on');
+    later(tab.textContent ? 0.45 : 0, () => {
+      tab.textContent = '';
+      tab.append(mk('i'), mk('span', null, 'Act ' + num), mk('strong', null, name));
+      if (sponsor) tab.append(mk('span', null, '·'), mk('b', null, sponsor));
+      void tab.offsetWidth;
+      tab.classList.add('on');
+    });
+  };
+
+  const cues = [];
+  const at = (t, fn) => cues.push({ t, fn });
+  const S = (t0, t1, text) => { at(t0, () => say(text)); at(t1, () => unsay(text)); };
+  const SH = (t0, t1, id) => { at(t0, () => sheets[id].show(t1 - t0)); at(t1, () => sheets[id].hide()); };
+  const TAB = (t0, num, name, sponsor) => at(t0, () => setTab(num, name, sponsor));
+
+  at(0, () => go(0));
+  S(1.0, 4.6, 'You say what you want.');
+  S(4.6, 8.8, "And that's the *only thing your money can do.");
+  at(8.9, () => title.classList.add('on'));
+  S(9.3, 12.6, "That's Verbatim.");
+  at(12.6, () => title.classList.remove('on'));
+
+  at(13.0, () => go(1));
+  TAB(13.4, 'II', 'The crime');
+  S(14.6, 19.3, 'At Bybit, three signers approved what looked like a routine move.');
+  at(19.4, () => flip.show());
+  S(19.4, 23.7, "Underneath, it replaced their wallet's code. !$1.5 !billion, !gone.");
+  at(22.2, () => flip.turn());
+  at(25.4, () => flip.hide());
+  SH(25.7, 29.9, 's_bybit');
+  S(23.8, 29.7, "The screen lied, and the signature didn't care.");
+
+  TAB(30.3, 'III', 'The plan', '0G');
+  at(30.8, () => dia.show());
+  S(31.2, 35.8, "Verbatim starts from *your *words. 0G's sealed AI turns them into checks,");
+  S(35.8, 40.2, 'and each check quotes the words it came from.');
+  at(40.2, () => dia.hide());
+  SH(40.5, 44.2, 'p_reading');
+  S(40.6, 44.2, 'And who pays for the AI? *You *do.');
+  SH(44.2, 47.6, 'p_checks');
+  SH(47.6, 52.4, 's_iai');
+  S(44.4, 51.9, 'We staked iAI, so 0G gives us free AI credits every day.');
+  SH(52.4, 57.2, 's_pc0');
+  S(52.0, 57.0, 'Sign in with 0G, and every read spends *your *own credits.');
+  SH(57.2, 60.6, 'p_done');
+  SH(60.6, 65.0, 's_pc1');
+  S(59.8, 64.7, 'Nothing paid in. *Your *iAI *credits *paid.');
+
+  TAB(65.3, 'IV', 'The names', 'ENSv2');
+  at(65.5, () => tree.show());
+  S(65.8, 70.2, "Names aren't in our code. Your contacts are names *you *own.");
+  S(70.2, 75.5, 'During every payment, the vault reads ENS itself: who is Uniswap, who is Mom, right now.');
+  at(75.6, () => tree.hide());
+  SH(75.9, 81.6, 'n_free');
+  S(76.0, 81.4, 'Give a freelancer a name for as long as the job lasts.');
+  SH(81.6, 88.0, 'n_end');
+  S(81.7, 87.6, 'After that, paying them !never !happens.');
+
+  at(88.0, () => go(2));
+  TAB(88.4, 'V', 'The break-in');
+  S(88.8, 93.6, 'So we gave our own key away. Try anything a thief would.');
+  at(93.4, () => go(3));
+  S(95.2, 100.6, 'The vault checks every attempt. *No *app *can *skip *it.');
+  SH(101.0, 106.0, 'a_fake');
+  S(101.2, 106.0, "Fake Uniswap? ENS says that isn't Uniswap. !Never !happens.");
+  SH(106.0, 111.0, 'a_bybit');
+  S(106.2, 111.0, "Bybit's takeover? Borrowed code would run. !Never !happens.");
+  SH(111.0, 116.4, 'a_swap');
+  S(111.2, 116.2, 'Swap it all to me? Unfair trade. !Never !happens.');
+
+  TAB(116.7, 'VI', 'The proof', 'Uniswap');
+  SH(116.8, 125.6, 'a_all');
+  S(117.0, 121.4, 'Same key, two accounts.');
+  S(121.4, 125.6, 'The normal wallet is emptied. *The *vault *never *moves.');
+  SH(125.6, 135.8, 'h_hook');
+  S(125.8, 130.6, "Your words set the minimum, priced from Uniswap's own pools.");
+  S(130.6, 135.6, 'A v4 hook quotes 4.45 and pays 3.56? !Never !happens.');
+  SH(135.8, 141.4, 'b_bybit');
+  S(136.0, 141.2, "Bybit's exact attack code, replayed live on Sepolia: !never !happens.");
+  SH(141.4, 145.2, 'h_fail');
+  S(141.6, 145.0, 'Every refusal is on the chain, for anyone to check.');
+
+  TAB(145.4, 'VII', 'Tomorrow', '0G');
+  SH(145.6, 151.6, 'm_draw');
+  S(145.8, 151.4, 'Your credits refill every day, and unused ones expire every night.');
+  SH(151.6, 158.0, 'm_mint');
+  S(151.7, 157.8, 'So describe a picture each day. 0G draws it with your credits; your vault buys it, word for word.');
+
+  at(158.0, () => { tab.classList.remove('on'); go(5); });
+  S(159.0, 162.8, 'Every transaction you saw is real, on Sepolia.');
+  S(162.8, 166.2, '*Your *words. No app can skip them.');
+  S(166.2, 172.2, 'Sign what you mean. Get exactly that, or it !never !happens.');
+  at(167.4, () => end.classList.add('on'));
+  at(173.2, () => fade.classList.add('on'));
+
+  cues.sort((a, b) => a.t - b.t);
+  const gate = mk('div', 'f-start');
+  const hint = mk('p', null, 'Click to start. A 3-second countdown, then the film plays itself.');
+  gate.append(hint);
+  filmEl.append(gate);
+  let begun = false;
+  const roll = (from) => {
+    gate.remove();
+    document.body.classList.add('rolling');
+    const t0 = performance.now() - from * 1000;
+    let next = 0;
+    const tick = () => {
+      const t = (performance.now() - t0) / 1000;
+      while (next < cues.length && cues[next].t <= t) cues[next++].fn();
+      if (next < cues.length) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  const begin = () => {
+    if (begun) return;
+    begun = true;
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    gate.textContent = '';
+    [3, 2, 1].forEach((n, i) => later(i, () => { gate.textContent = ''; gate.append(mk('b', null, String(n))); }));
+    later(3, () => roll(0));
+  };
+  if (FILM_FROM !== null) { begun = true; roll(FILM_FROM); }
+  gate.addEventListener('click', begin);
+  addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); begin(); } });
+}
+
 async function boot() {
   const fonts = Promise.all([
     document.fonts.load(`800 80px ${FD}`), document.fonts.load(`700 80px ${FD}`), document.fonts.load(`600 80px ${FD}`),
@@ -1364,6 +1936,7 @@ async function boot() {
   words(subEl, INTRO.s, 200);
   finish.uniforms.res.value.set(innerWidth * PR, innerHeight * PR);
   renderer.setAnimationLoop(frame);
+  if (FILM) startFilm();
   if (location.hash === '#autoplay') {
     let k = 0;
     const step = () => { if (k < 6) { go(k++); setTimeout(step, 9000); } };
