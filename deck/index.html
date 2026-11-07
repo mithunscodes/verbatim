@@ -291,7 +291,9 @@
   .f-face em { font: 800 clamp(14px, 1.15vw, 21px) var(--display); font-style: normal; justify-self: start; padding: 0.28em 0.7em; border-radius: 9px; }
   .f-face.front em { color: var(--cobalt); border: 2.5px solid var(--cobalt); }
   .f-face.back em { color: var(--white); background: var(--tangerine); border: 2.5px solid var(--white); transform: rotate(-3deg); }
-  .f-title { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; justify-items: center; opacity: 0; transition: opacity 500ms ease; }
+  .f-title { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); display: grid; justify-items: center; opacity: 0; transition: opacity 500ms ease; isolation: isolate; }
+  .f-title b, .f-title i { position: relative; z-index: 1; }
+  .f-title::before { content: ""; position: absolute; inset: -16vh -14vw; z-index: 0; background: radial-gradient(closest-side, rgba(245, 241, 232, 0.94) 0%, rgba(245, 241, 232, 0.82) 55%, rgba(245, 241, 232, 0) 100%); filter: blur(10px); }
   .f-title.on { opacity: 1; }
   .f-title b { font: 800 clamp(90px, 13vw, 240px)/0.95 var(--display); letter-spacing: -0.045em; color: var(--ink); text-shadow: 0 0 40px var(--glow); }
   .f-title.on b { animation: f-slam 700ms var(--spring) both; }
@@ -1812,9 +1814,9 @@ function startFilm() {
   at(0, () => go(0));
   S(1.0, 4.6, 'You say what you want.');
   S(4.6, 8.8, "And that's the *only thing your money can do.");
-  at(8.9, () => title.classList.add('on'));
+  at(8.9, () => { dim(true); title.classList.add('on'); });
   S(9.3, 12.6, "That's Verbatim.");
-  at(12.6, () => title.classList.remove('on'));
+  at(12.6, () => { dim(false); title.classList.remove('on'); });
 
   at(13.0, () => go(1));
   TAB(13.4, 'II', 'The crime');

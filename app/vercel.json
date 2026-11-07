@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://13-239-74-84.sslip.io/api/:path*" }
+    { "source": "/api/:path*", "destination": "https://3-105-60-182.sslip.io/api/:path*" }
   ]
 }
